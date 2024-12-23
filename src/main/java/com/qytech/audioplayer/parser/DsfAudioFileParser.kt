@@ -14,7 +14,7 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         const val ENCODING_TYPE_DSF = "DSF"
     }
 
-    override fun parse(): AudioFileInfo? {
+    override fun parse(): List<AudioFileInfo>? {
         // 初始化缓冲区并设置为小端字节序
         val buffer =
             reader.readBuffer()?.apply { order(ByteOrder.LITTLE_ENDIAN) } ?: return super.parse()
@@ -69,10 +69,10 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         )
 
         // 返回解析后的 AudioFileInfo
-        return super.parse()?.let { audioFileInfo ->
+        return super.parse()?.map { audioFileInfo ->
             audioFileInfo.copy(
                 header = header,
-                trackInfo = audioFileInfo.trackInfo.map { track -> track?.copy(offset = offset) }
+                trackInfo = audioFileInfo.trackInfo.copy(offset = offset)
             )
         }
     }

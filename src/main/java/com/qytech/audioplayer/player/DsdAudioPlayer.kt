@@ -18,11 +18,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.File
 import java.io.RandomAccessFile
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class DsdAudioPlayer(context: Context, trackIndex: Int) : AudioPlayer {
+class DsdAudioPlayer(context: Context) : AudioPlayer {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val lock = ReentrantLock()
 
@@ -42,7 +43,7 @@ class DsdAudioPlayer(context: Context, trackIndex: Int) : AudioPlayer {
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
 
     private val audioTrackInfo by lazy {
-        audioFileInfo?.trackInfo?.get(trackIndex - 1)
+        audioFileInfo?.trackInfo
     }
 
     private val audioFileHeader by lazy {
@@ -94,27 +95,27 @@ class DsdAudioPlayer(context: Context, trackIndex: Int) : AudioPlayer {
      * 处理音频数据并写入 AudioTrack
      */
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, bytesRead: Int) {
-        val fileFormat = audioFileHeader?.encodingType ?: return
-        var lengthToWrite = if (isDopEnable) bytesRead * 2 else bytesRead
-        val dataToWrite: ByteArray = when (fileFormat) {
-            DsfAudioFileParser.ENCODING_TYPE_DSF -> {
-                DsfAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
-                destData
-            }
-
-            DffAudioFileParser.ENCODING_TYPE_DFF -> {
-                DffAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
-                destData
-            }
-
-            SacdAudioFileParser.ENCODING_TYPE_SACD -> {
-                lengthToWrite = SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
-                destData
-            }
-
-            else -> srcData // 默认使用源数据
-        }
         runCatching {
+            val fileFormat = audioFileHeader?.encodingType ?: return
+            var lengthToWrite = if (isDopEnable) bytesRead * 2 else bytesRead
+            val dataToWrite: ByteArray = when (fileFormat) {
+                DsfAudioFileParser.ENCODING_TYPE_DSF -> {
+                    DsfAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
+                    destData
+                }
+
+                DffAudioFileParser.ENCODING_TYPE_DFF -> {
+                    DffAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
+                    destData
+                }
+
+                SacdAudioFileParser.ENCODING_TYPE_SACD -> {
+                    lengthToWrite = SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
+                    destData
+                }
+
+                else -> srcData // 默认使用源数据
+            }
             audioTrack?.write(dataToWrite, 0, lengthToWrite, AudioTrack.WRITE_BLOCKING)
         }.onFailure {
             onPlayerError(it)
@@ -159,8 +160,13 @@ class DsdAudioPlayer(context: Context, trackIndex: Int) : AudioPlayer {
         var position: Long
         currentOffset = startOffset
         coroutineScope.launch {
+            val audioFile = File(filePath)
+            if (!audioFile.exists()) {
+                updatePlaybackState(PlaybackState.ERROR)
+                return@launch
+            }
             audioTrack?.play()
-            RandomAccessFile(filePath, "r").use { file ->
+            RandomAccessFile(audioFile, "r").use { file ->
                 file.seek(startOffset) // 从指定偏移量开始读取
                 while (!stopped && currentOffset < endOffset) {
                     if (paused) {

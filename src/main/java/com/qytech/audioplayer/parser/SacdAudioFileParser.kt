@@ -47,7 +47,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     private var trackTimeList: List<SacdTrackTime>? = null
     private var trackTextList: List<SacdTrackText>? = null
 
-    override fun parse(): AudioFileInfo? {
+    override fun parse(): List<AudioFileInfo>? {
         sacdSectorSize = detectSectorSize() ?: return null
         //Timber.d("SACD sector size detected: $sacdSectorSize")
 
@@ -70,14 +70,31 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             trackTimeList = readSacdTrackTimes()
             trackTextList = readSacdTrackTexts()
         }
-        val sampleRate = areaToc?.sampleFrequency ?: 0
-        val channelCount = areaToc?.channelCount ?: 0
-        val bitsPerSecond =
-            AudioUtils.getBitsPerSecond(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-        val byteRate = AudioUtils.getByteRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-        val blockAlign = AudioUtils.getBlockAlign(channelCount, DSD_BITS_PER_SAMPLE)
-        val codec = sampleRate.getAudioCodec()
-        val header = AudioFileHeader(
+        return generateTrackInfo()
+    }
+
+    private val sampleRate by lazy {
+        areaToc?.sampleFrequency ?: DEFAULT_SAMPLE_RATE
+    }
+
+    private val channelCount by lazy {
+        areaToc?.channelCount ?: 2
+    }
+
+    private val bitsPerSecond by lazy {
+        AudioUtils.getBitsPerSecond(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
+    }
+
+    private val byteRate by lazy {
+        AudioUtils.getByteRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
+    }
+
+    private val blockAlign by lazy {
+        AudioUtils.getBlockAlign(channelCount, DSD_BITS_PER_SAMPLE)
+    }
+
+    private val header by lazy {
+        AudioFileHeader(
             sampleRate = sampleRate,
             channelCount = channelCount,
             bitsPerSample = DSD_BITS_PER_SAMPLE,
@@ -85,17 +102,11 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             byteRate = byteRate,
             blockAlign = blockAlign,
             encodingType = ENCODING_TYPE_SACD,
-            codec = codec
-        )
-        return AudioFileInfo(
-            filePath = filePath,
-            trackInfo = generateTrackInfo(),
-            header = header
+            codec = sampleRate.getAudioCodec()
         )
     }
-
     private val genre by lazy {
-        toc?.albumGenreList?.firstOrNull()?.genre?.name?.lowercase()?.replace("_", " ")
+        toc?.albumGenreList?.firstOrNull()?.genre?.name?.lowercase()?.replace("_", " ") ?: "other"
     }
     private val album by lazy {
         albumInfo?.albumInfo?.albumTitle ?: "Unknown album"
@@ -111,7 +122,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         filePath.filename()
     }
 
-    private fun generateTrackInfo(): List<AudioTrackInfo> = List(getTrackCount()) { index ->
+    private fun generateTrackInfo(): List<AudioFileInfo> = List(getTrackCount()) { index ->
         val trackOffset = trackOffsetList?.get(index)
         val trackTime = trackTimeList?.get(index)
         val trackText = trackTextList?.get(index)
@@ -137,11 +148,16 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             dataLength = dataLength
         )
 
-        AudioTrackInfo(
+        val trackInfo = AudioTrackInfo(
             trackIndex = index + 1,
             duration = duration,
             tags = tags,
             offset = offset
+        )
+        AudioFileInfo(
+            filePath = filePath,
+            header = header,
+            trackInfo = trackInfo,
         )
     }
 

@@ -118,11 +118,10 @@ object AudioPlayerFactory {
     fun createAudioPlayer(
         context: Context,
         audioFileInfo: AudioFileInfo,
-        trackIndex: Int = 1
     ): AudioPlayer {
-        val codec = audioFileInfo.header?.codec
+        val codec = audioFileInfo.header.codec
         return when {
-            codec?.startsWith("DSD") == true -> DsdAudioPlayer(context, trackIndex)
+            codec.startsWith("DSD") == true -> DsdAudioPlayer(context)
             else -> DefaultAudioPlayer(context)
         }
     }

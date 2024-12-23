@@ -30,31 +30,24 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
         const val BLOCK_ID_COMMENTS = "COMT" // 注释块
     }
 
-    private val mediaExtractor: MediaExtractor? by lazy {
-        runCatching { MediaExtractor().apply { setDataSource(filePath) } }.getOrNull()
-    }
-
-    private val metadataRetriever: MediaMetadataRetriever? by lazy {
-        runCatching { MediaMetadataRetriever().apply { setDataSource(filePath) } }.getOrNull()
-    }
-
     protected val reader by lazy { AudioFileReader(filePath) }
 
-    override fun parse(): AudioFileInfo? {
+    override fun parse(): List<AudioFileInfo>? {
         val file = File(filePath)
         if (!file.exists() || !file.isAudioFile()) {
             Timber.e("File not found or not an audio file: $filePath")
             return null
         }
-
         return runCatching {
-            AudioFileInfo(
-                filePath = filePath,
-                trackInfo = listOfNotNull(getAudioTrackInfo()),
-                header = getAudioFileHeader()
+            listOf(
+                AudioFileInfo(
+                    filePath = filePath,
+                    trackInfo = getAudioTrackInfo() ?: AudioTrackInfo(),
+                    header = getAudioFileHeader() ?: AudioFileHeader()
+                )
             )
         }.onFailure {
-            Timber.e(it, "Failed to parse audio file: $filePath")
+            Timber.e("Failed to parse audio file: $filePath")
         }.getOrNull()
     }
 
@@ -62,13 +55,28 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
      * 获取音频文件头信息
      */
     private fun getAudioFileHeader(): AudioFileHeader? {
-        val extractor = mediaExtractor ?: return null
-        val format = (0 until extractor.trackCount).firstNotNullOfOrNull {
-            extractor.getTrackFormat(it).takeIf { fmt ->
-                fmt.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-            }
-        } ?: return null
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(filePath)
+            val format = (0 until extractor.trackCount).firstNotNullOfOrNull {
+                extractor.getTrackFormat(it).takeIf { fmt ->
+                    fmt.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+                }
+            } ?: return null
 
+            extractAudioFileHeader(format)
+        } catch (e: Exception) {
+            Timber.e(e, "Error reading audio file header: $filePath")
+            null
+        } finally {
+            extractor.release() // 确保资源被释放
+        }
+    }
+
+    /**
+     * 提取音频文件头部信息
+     */
+    private fun extractAudioFileHeader(format: MediaFormat): AudioFileHeader? {
         return runCatching {
             val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             val channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
@@ -90,24 +98,39 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
                 codec = codec,
                 encodingType = codingType
             )
-        }.onFailure {
+        }.getOrElse {
             Timber.e(it, "Failed to parse audio file header: $filePath")
-        }.getOrNull()
+            null
+        }
     }
 
     /**
      * 获取音轨信息和音频标签
      */
     private fun getAudioTrackInfo(): AudioTrackInfo? {
-        val retriever = metadataRetriever ?: return null
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(filePath)
+            extractAudioTrackInfo(retriever)
+        } catch (e: Exception) {
+            Timber.e(e, "Error reading audio file tags: $filePath")
+            null
+        } finally {
+            retriever.release() // 确保资源被释放
+        }
+    }
 
+    /**
+     * 提取音轨信息
+     */
+    private fun extractAudioTrackInfo(retriever: MediaMetadataRetriever): AudioTrackInfo? {
         return runCatching {
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 ?: "Unknown album"
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?: "Unknown artist"
-            val genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
-                ?: "Other"
+            val genre =
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE) ?: "other"
             val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
                 ?: filePath.filename()
             val year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
@@ -122,7 +145,6 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
                     ?.toIntOrNull() ?: 1
 
             val formattedDate = listOfNotNull(year, date).joinToString(" ")
-
             val artBytes = retriever.embeddedPicture
             val albumCover = artBytes?.let { saveCoverImage(it) }
 
@@ -141,9 +163,10 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
             )
 
             AudioTrackInfo(trackIndex = 1, duration = duration, tags = tags)
-        }.onFailure {
+        }.getOrElse {
             Timber.e(it, "Failed to parse audio file tags: $filePath")
-        }.getOrNull()
+            null
+        }
     }
 
     /**
@@ -158,23 +181,16 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
 
         return runCatching {
             if (!dir.exists() && !dir.mkdirs()) {
-                return null
+                Timber.e("Failed to create directory for cover images")
+                return@runCatching null
             }
             if (!outputFile.exists()) {
                 outputFile.writeBytes(artBytes)
             }
             outputFile.absolutePath
-        }.onFailure {
+        }.getOrElse {
             Timber.e(it, "Failed to save cover image")
-        }.getOrNull()
-    }
-
-
-    /**
-     * 释放资源
-     */
-    fun release() {
-        mediaExtractor?.release()
-        metadataRetriever?.release()
+            null
+        }
     }
 }

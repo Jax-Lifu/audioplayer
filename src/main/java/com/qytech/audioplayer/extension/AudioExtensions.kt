@@ -21,7 +21,7 @@ val audioFileExtensions: Set<String> = setOf(
     // 压缩格式
     "mp3", "aac", "ogg", "m4a", "wma", "opus",
     // 无损格式
-    "flac", "alac", "wav", "aiff", "ape", "tak",
+    "flac", "alac", "wav", "aif", "aiff", "ape", "tak",
     // DSD 格式
     "dsf", "dff", "iso",
     // 模块音乐格式
@@ -29,7 +29,7 @@ val audioFileExtensions: Set<String> = setOf(
     // MIDI 格式
     "mid", "midi", "kar",
     // 其他少见格式
-    "caf", "wv", "rm", "ra", "au"
+    "caf", "wv", "rm", "ra", "au", "mqa", "wave"
 )
 
 /**

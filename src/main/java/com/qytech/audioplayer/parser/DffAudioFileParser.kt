@@ -18,22 +18,23 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         const val ENCODING_TYPE_DFF = "DFF"
     }
 
-    override fun parse(): AudioFileInfo? {
-        // 初始化 ByteBuffer 并验证数据是否有效
-        var buffer =
-            reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()
-        if (buffer.getString() != HEADER_ID_DFF) return super.parse() // 验证文件头
+    override fun parse(): List<AudioFileInfo>? {
+        // 读取文件并确保缓冲区有效
+        var buffer = reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()
 
-        // 验证主块格式
+        // 验证文件头
+        if (buffer.getString() != HEADER_ID_DFF) return super.parse()
+
+        // 获取主块的大小并验证格式
         val chunkSize = buffer.getBigEndianUInt64()
         if (buffer.getString() != BLOCK_ID_FORMAT) return super.parse()
 
         var dataSize = 0L
         var startOffset = 0L
-        // id (4) + chunkSize (8) + FORMAT (4)
-        var currentOffset = 16L // 从文件头后开始
+        var currentOffset = 16L  // 从文件头后开始
         var header: AudioFileHeader? = null
 
+        // 解析文件内容并处理各个子块
         while (currentOffset < reader.fileSize) {
             val subId = buffer.getString()
             val subChunkSize = buffer.getBigEndianUInt64()
@@ -44,14 +45,8 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
                     startOffset = buffer.position().toLong()
                     break
                 }
-
-                BLOCK_ID_PROP -> {
-                    header = readDffProperty(buffer, subChunkSize)
-                }
-
-                else -> {
-                    buffer.skip(subChunkSize.toInt())
-                }
+                BLOCK_ID_PROP -> header = readDffProperty(buffer, subChunkSize)
+                else -> buffer.skip(subChunkSize.toInt())
             }
 
             // 更新偏移量并确保缓冲区内容充足
@@ -61,21 +56,24 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
             }
         }
 
+        // 如果没有找到头部信息，返回默认解析结果
+        if (header == null) return super.parse()
+
         val offset = AudioOffsetInfo(
             startOffset = startOffset,
             endOffset = startOffset + dataSize,
             dataLength = dataSize
         )
 
-        // 调用父类解析并添加偏移信息
-        if (header == null) return super.parse()
-        return super.parse()?.let { audioFileInfo ->
+        // 调用父类解析，并对结果进行修改
+        return super.parse()?.map { audioFileInfo ->
             audioFileInfo.copy(
                 header = header,
-                trackInfo = audioFileInfo.trackInfo.map { track -> track?.copy(offset = offset) }
+                trackInfo = audioFileInfo.trackInfo.copy(offset = offset)
             )
         }
     }
+
 
     private fun readDffProperty(buffer: ByteBuffer, limit: Long): AudioFileHeader? {
         val startPosition = buffer.position()
