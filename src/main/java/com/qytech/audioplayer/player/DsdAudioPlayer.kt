@@ -56,7 +56,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         Timber.d("initializeAudioTrack")
         val header = audioFileHeader ?: return@runCatching
         var sampleRate = header.sampleRate
-        val encoding = when {
+        val encoding: Int = when {
             header.codec == "PCM" -> AudioFormat.ENCODING_PCM_16BIT
             isDopEnable -> AudioFormat.ENCODING_PCM_32BIT.also { sampleRate /= 16 }
             else -> AudioFormat.ENCODING_DSD.also { sampleRate /= 32 }

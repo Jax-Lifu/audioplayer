@@ -33,11 +33,17 @@ android {
 }
 
 dependencies {
+    compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.timber)
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
+
+    // exoplayer
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.dash)
+    implementation(libs.androidx.media3.ui)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)

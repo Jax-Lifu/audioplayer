@@ -1,41 +1,60 @@
 package com.qytech.audioplayer.player
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.media.MediaPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.qytech.audioplayer.model.AudioFileInfo
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import timber.log.Timber
 
+@SuppressLint("UnsafeOptInUsageError")
 class DefaultAudioPlayer(context: Context) : AudioPlayer {
+
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private var mediaPlayer: MediaPlayer = MediaPlayer()
+    private var player: ExoPlayer = ExoPlayer.Builder(context, QYRenderersFactory(context)).build()
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
     private var onProgressListener: OnProgressListener? = null
     private var progressJob: Job? = null
 
+    init {
+        // 监听播放器状态变化
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_IDLE -> updatePlaybackState(PlaybackState.IDLE)
+                    Player.STATE_BUFFERING -> updatePlaybackState(PlaybackState.BUFFERING)
+                    Player.STATE_READY -> updatePlaybackState(PlaybackState.PLAYING)
+                    Player.STATE_ENDED -> updatePlaybackState(PlaybackState.COMPLETED)
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                super.onPlayerError(error)
+                updatePlaybackState(PlaybackState.ERROR)
+                onProgressListener?.onProgress(PlaybackProgress.DEFAULT)
+                stopProgressUpdate()
+            }
+        })
+    }
+
     private fun startProgressUpdate() {
         progressJob?.cancel()
-        progressJob = coroutineScope.launch(Dispatchers.IO) { // 使用IO线程避免阻塞主线程
+        progressJob = coroutineScope.launch(Dispatchers.IO) {
             while (isActive) {
-                val progress = withContext(Dispatchers.Main) { // 在主线程更新UI
+                val progress = withContext(Dispatchers.Main) {
                     val currentPosition = getCurrentPosition()
                     val duration = getDuration()
                     val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
                     PlaybackProgress(currentPosition, progress, duration)
                 }
                 onProgressListener?.onProgress(progress)
-                // 延迟更新，假设每500毫秒更新一次
-                delay(500L)
+                delay(500L) // 每500ms更新一次进度
             }
         }
     }
-
 
     private fun stopProgressUpdate() {
         progressJob?.cancel()
@@ -47,89 +66,79 @@ class DefaultAudioPlayer(context: Context) : AudioPlayer {
     }
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
-        mediaPlayer.setDataSource(mediaItem.filePath)
+        val media = MediaItem.fromUri(mediaItem.filePath) // 使用 ExoPlayer 的 MediaItem
+        player.setMediaItem(media)
     }
 
     override fun prepare() {
-        mediaPlayer.setOnErrorListener { _, _, _ ->
-            updatePlaybackState(PlaybackState.ERROR) // 更新播放状态
-            onProgressListener?.onProgress(PlaybackProgress.DEFAULT)
-            stopProgressUpdate()
-            true
-        }
-        mediaPlayer.setOnCompletionListener {
-            updatePlaybackState(PlaybackState.COMPLETED) // 更新播放状态
-            stopProgressUpdate()
-        }
-        mediaPlayer.prepare()
+        player.prepare()
     }
 
     override fun play() {
-        mediaPlayer.start()
-        updatePlaybackState(PlaybackState.PLAYING) // 更新播放状态
+        player.play()
+        updatePlaybackState(PlaybackState.PLAYING)
         startProgressUpdate()
     }
 
     override fun pause() {
-        mediaPlayer.pause()
-        updatePlaybackState(PlaybackState.PAUSED) // 更新播放状态
+        player.pause()
+        updatePlaybackState(PlaybackState.PAUSED)
         stopProgressUpdate()
-
     }
 
     override fun stop() {
-        mediaPlayer.stop()
-        updatePlaybackState(PlaybackState.STOPPED) // 更新播放状态
+        player.stop()
+        updatePlaybackState(PlaybackState.STOPPED)
         stopProgressUpdate()
     }
 
     override fun release() {
-        mediaPlayer.release()
+        player.release()
         stopProgressUpdate()
-        updatePlaybackState(PlaybackState.IDLE) // 更新播放状态
+        updatePlaybackState(PlaybackState.IDLE)
         onPlaybackStateChanged = null
         onProgressListener = null
     }
 
     override fun seekTo(position: Long) {
         Timber.d("seekTo: $position")
-        mediaPlayer.seekTo((position * 1000).toInt())
+        player.seekTo(position * 1000) // ExoPlayer 的 seekTo 接受毫秒值
     }
 
-    override fun fastForward(milliseconds: Long) {
-        var position = getCurrentPosition() + milliseconds
+    override fun fastForward(seconds: Long) {
+        var position = getCurrentPosition() + seconds
         if (position >= getDuration()) {
             position = getDuration()
         }
-        mediaPlayer.seekTo((position * 1000).toInt())
+        player.seekTo(position * 1000)
     }
 
-    override fun fastRewind(milliseconds: Long) {
-        var position = getCurrentPosition() - milliseconds
+    override fun fastRewind(seconds: Long) {
+        var position = getCurrentPosition() - seconds
         if (position < 0) {
             position = 0
         }
-        mediaPlayer.seekTo((position * 1000).toInt())
+        player.seekTo(position * 1000)
     }
 
     override fun getCurrentPosition(): Long {
-        return (mediaPlayer.currentPosition / 1000).toLong()
+        return player.currentPosition / 1000 // 转换为秒
     }
 
     override fun getDuration(): Long {
-        return (mediaPlayer.duration / 1000).toLong()
+        return player.duration / 1000 // 转换为秒
     }
 
     override fun setPlaybackSpeed(speed: Float) {
-        mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(speed)
+        player.playbackParameters.speed = speed
     }
 
     override fun getPlaybackSpeed(): Float {
-        return mediaPlayer.playbackParams.speed
+        return player.playbackParameters.speed
     }
 
     override fun setVolume(volume: Float) {
-
+        // ExoPlayer 暂时没有直接设置音量的 API，通常需要操作音量控件
     }
 
     override fun getVolume(): Float {
@@ -137,6 +146,7 @@ class DefaultAudioPlayer(context: Context) : AudioPlayer {
     }
 
     override fun setMute(isMuted: Boolean) {
+        // ExoPlayer 暂时没有直接设置静音的 API，通常需要操作音量控件
     }
 
     override fun isMuted(): Boolean {
@@ -144,11 +154,11 @@ class DefaultAudioPlayer(context: Context) : AudioPlayer {
     }
 
     override fun getBufferedPosition(): Long {
-        return 0
+        return player.bufferedPosition / 1000 // 转换为秒
     }
 
     override fun isPlaying(): Boolean {
-        return mediaPlayer.isPlaying
+        return player.isPlaying
     }
 
     override fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener?) {
