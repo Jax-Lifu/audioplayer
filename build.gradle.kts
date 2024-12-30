@@ -12,6 +12,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        externalNativeBuild {
+            cmake {
+                cppFlags += ""
+            }
+        }
+        ndk {
+            //noinspection ChromeOsAbiSupport
+            abiFilters.addAll(arrayOf("arm64-v8a"))
+        }
     }
 
     buildTypes {
@@ -30,6 +39,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
 }
 
 dependencies {
@@ -39,6 +54,7 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.gson)
 
     // exoplayer
     implementation(libs.androidx.media3.exoplayer)

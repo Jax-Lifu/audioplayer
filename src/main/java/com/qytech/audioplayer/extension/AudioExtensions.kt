@@ -16,20 +16,28 @@ fun Int.getAudioCodec(): String {
 
 /**
  * 支持的音频文件扩展名集合
+ *
+ * 压缩格式: .aac, .mp3, .ogg, .m4a, .wma, .opus
+ * 无损格式: .flac, .alac, .wav, .aif, .aiff, .ape, .tak
+ * DSD 格式: .dsf, .dff, .iso
+ * 模块音乐格式: .mod, .xm, .it, .s3m
+ * MIDI 格式: .mid, .midi, .kar
+ * 其他少见格式: .caf, .wv, .rm, .ra, .au, .mqa, .wave
+ * 编解码器: .dts, .mp1, .mp2, .mpc, .speex, .sbc, .g722, .g726, .gsm, .gsm_ms, .g723_1, .g729, .qcelp, .qdm2, .qdmc, .qoa
+ * 高级格式: .truehd, .wmalossless, .wmav1, .wmav2, .xma1, .xma2
+ *
  */
 val audioFileExtensions: Set<String> = setOf(
-    // 压缩格式
-    "mp3", "aac", "ogg", "m4a", "wma", "opus",
-    // 无损格式
-    "flac", "alac", "wav", "aif", "aiff", "ape", "tak",
-    // DSD 格式
-    "dsf", "dff", "iso",
-    // 模块音乐格式
-    "mod", "xm", "it", "s3m",
-    // MIDI 格式
-    "mid", "midi", "kar",
-    // 其他少见格式
-    "caf", "wv", "rm", "ra", "au", "mqa", "wave"
+    "aac", "adpcm", "amr", "ape", "au",
+    "caf", "cue", "dff", "dsf", "dts", "flac",
+    "g722", "g726", "gsm",
+    "gsm_ms", "iso",
+    "m4a", "m4b", "mid", "midi", "mp1", "mp2", "mp3", "mp3adu", "mp3adufloat", "mp3on4",
+    "mka", "mod", "mpc", "opus", "qcelp", "qdm2", "qdmc", "qoa",
+    "real_144", "ralf", "speex", "sbc", "shorten",
+    "sol_dpcm", "sonic", "s3m", "tak", "tta", "truehd",
+    "vma", "vorbis", "wav", "wma", "wmav1", "wmav2", "wv",
+    "xan_dpcm", "xma", "xma1", "xma2", "rm"
 )
 
 /**

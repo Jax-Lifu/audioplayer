@@ -122,7 +122,9 @@ object AudioPlayerFactory {
         val codec = audioFileInfo.header.codec
         return when {
             codec.startsWith("DSD") == true -> DsdAudioPlayer(context)
-            else -> DefaultAudioPlayer(context)
+            else -> {
+                RockitPlayer(context)
+            }
         }
     }
 }
