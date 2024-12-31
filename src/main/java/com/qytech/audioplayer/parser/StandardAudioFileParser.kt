@@ -88,7 +88,7 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
                 trackInfo = trackInfo,
                 header = header
             )
-            Timber.d("AudioFileInfo: $audioFileInfo")
+            // Timber.d("AudioFileInfo: $audioFileInfo")
             listOf(audioFileInfo)
         }.onFailure {
             Timber.e("Failed to parse audio file: $filePath")
