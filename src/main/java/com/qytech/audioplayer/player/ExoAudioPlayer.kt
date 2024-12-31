@@ -66,8 +66,10 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
     }
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
-        val media = MediaItem.fromUri(mediaItem.filePath) // 使用 ExoPlayer 的 MediaItem
-        player.setMediaItem(media)
+        runCatching {
+            val media = MediaItem.fromUri(mediaItem.filePath) // 使用 ExoPlayer 的 MediaItem
+            player.setMediaItem(media)
+        }
     }
 
     override fun prepare() {

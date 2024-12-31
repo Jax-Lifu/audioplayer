@@ -44,7 +44,9 @@ class RockitPlayer(context: Context) : AudioPlayer {
     }
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
-        mediaPlayer.setDataSource(mediaItem.filePath)
+        runCatching {
+            mediaPlayer.setDataSource(mediaItem.filePath)
+        }
     }
 
     override fun prepare() {
