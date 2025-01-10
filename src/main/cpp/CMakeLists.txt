@@ -12,9 +12,9 @@ cmake_minimum_required(VERSION 3.22.1)
 # build script scope).
 project("audioplayer")
 
-set(icu_path "${CMAKE_CURRENT_SOURCE_DIR}/icu/libicu.so")
-add_library(icu STATIC IMPORTED)
-set_target_properties(icu  PROPERTIES IMPORTED_LOCATION ${icu_path})
+#set(icu_path "${CMAKE_CURRENT_SOURCE_DIR}/icu/libicu.so")
+#add_library(icu STATIC IMPORTED)
+#set_target_properties(icu  PROPERTIES IMPORTED_LOCATION ${icu_path})
 
 set(ffmpeg_location "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg")
 set(ffmpeg_binaries "${ffmpeg_location}/android-libs/${ANDROID_ABI}")
@@ -43,7 +43,10 @@ include_directories(${ffmpeg_location})
 # used in the AndroidManifest.xml file.
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        audioplayer.cpp
+        jni_ffprobe.cpp
+        FFAudioPlayer.cpp
+        jni_ffaudioplayer.cpp
+        Utils.cpp
 )
 
 
@@ -55,7 +58,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         android
         z
         log
-        icu
+#        icu
         swscale
         swresample
         avutil

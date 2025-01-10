@@ -18,7 +18,7 @@
 
 /**
  * @file
- * timestamp utils, mostly useful for debugging/logging purposes
+ * timestamp Utils, mostly useful for debugging/logging purposes
  */
 
 #ifndef AVUTIL_TIMESTAMP_H

@@ -136,12 +136,12 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         currentPosition = position
         previousOffset = currentOffset
         val progress = PlaybackProgress(
-            currentPosition,
-            currentPosition.toFloat() / getDuration(),
+            getCurrentPosition(),
+            getCurrentPosition().toFloat() / getDuration(),
             getDuration()
         )
         // 通知进度监听器
-        Timber.d("updatePlaybackProgress: $progress")
+        // Timber.d("updatePlaybackProgress: $progress")
         onProgressListener?.onProgress(progress)
     }
 
@@ -327,8 +327,9 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         }
         val offsetInfo = audioTrackInfo?.offset ?: return
         lock.withLock {
-            currentPosition = position
-            currentOffset = offsetInfo.startOffset + position * offsetPreSeconds
+            val seconds = position / 1000
+            currentPosition = seconds
+            currentOffset = offsetInfo.startOffset + seconds * offsetPreSeconds
             seeking = true
             Timber.d("seekTo: $position offsetPreSeconds $offsetPreSeconds currentOffset $currentOffset")
         }
@@ -337,7 +338,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     override fun fastForward(milliseconds: Long) {
         lock.withLock {
             Timber.d("fastForward: $milliseconds currentPosition $currentPosition")
-            var position = currentPosition + milliseconds
+            var position = getCurrentPosition() + milliseconds
             if (position > getDuration()) {
                 position = getDuration()
             }
@@ -348,7 +349,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     override fun fastRewind(milliseconds: Long) {
         lock.withLock {
             Timber.d("fastRewind: $milliseconds currentPosition $currentPosition")
-            var position = currentPosition - milliseconds
+            var position = getCurrentPosition() - milliseconds
             if (position < 0) {
                 position = 0
             }
@@ -357,7 +358,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     }
 
     override fun getCurrentPosition(): Long {
-        return currentPosition
+        return currentPosition * 1000
     }
 
     override fun getDuration(): Long {
@@ -370,24 +371,6 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     override fun getPlaybackSpeed(): Float {
         return playSpeed
-    }
-
-    override fun setVolume(volume: Float) {
-    }
-
-    override fun getVolume(): Float {
-        return 1f
-    }
-
-    override fun setMute(isMuted: Boolean) {
-    }
-
-    override fun isMuted(): Boolean {
-        return false
-    }
-
-    override fun getBufferedPosition(): Long {
-        return 0L
     }
 
     override fun isPlaying(): Boolean {

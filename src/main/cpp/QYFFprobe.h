@@ -5,7 +5,6 @@
 #ifndef QYLAUNCHER_QYFFPROBE_H
 #define QYLAUNCHER_QYFFPROBE_H
 
-#include <android/log.h>
 #include <jni.h>
 #include <cstdlib>
 #include <cstring>
@@ -59,7 +58,5 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
 
 // 设置视频流信息，包括封面图
 void setVideoStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVStream *stream, jfieldID imageField);
-
-jstring charToJString(JNIEnv *env, const char *str);
 
 #endif //QYLAUNCHER_QYFFPROBE_H

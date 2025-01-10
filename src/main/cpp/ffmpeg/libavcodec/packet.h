@@ -521,7 +521,7 @@ typedef struct AVPacket {
      */
     AVBufferRef *buf;
     /**
-     * Presentation timestamp in AVStream->time_base units; the time at which
+     * Presentation timestamp in AVStream->timeBase units; the time at which
      * the decompressed packet will be presented to the user.
      * Can be AV_NOPTS_VALUE if it is not stored in the file.
      * pts MUST be larger or equal to dts as presentation cannot happen before
@@ -531,7 +531,7 @@ typedef struct AVPacket {
      */
     int64_t pts;
     /**
-     * Decompression timestamp in AVStream->time_base units; the time at which
+     * Decompression timestamp in AVStream->timeBase units; the time at which
      * the packet is decompressed.
      * Can be AV_NOPTS_VALUE if it is not stored in the file.
      */
@@ -551,7 +551,7 @@ typedef struct AVPacket {
     int side_data_elems;
 
     /**
-     * Duration of this packet in AVStream->time_base units, 0 if unknown.
+     * Duration of this packet in AVStream->timeBase units, 0 if unknown.
      * Equals next_pts - this_pts in presentation order.
      */
     int64_t duration;

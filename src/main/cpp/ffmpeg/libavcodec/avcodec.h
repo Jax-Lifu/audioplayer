@@ -543,10 +543,10 @@ typedef struct AVCodecContext {
      * timebase should be 1/framerate and timestamp increments should be
      * identically 1.
      * This often, but not always is the inverse of the frame rate or field rate
-     * for video. 1/time_base is not the average frame rate if the frame rate is not
+     * for video. 1/timeBase is not the average frame rate if the frame rate is not
      * constant.
      *
-     * Like containers, elementary streams also can store timestamps, 1/time_base
+     * Like containers, elementary streams also can store timestamps, 1/timeBase
      * is the unit in which these timestamps are specified.
      * As example of such codec time base see ISO/IEC 14496-2:2001(E)
      * vop_time_increment_resolution and fixed_vop_rate
@@ -576,10 +576,10 @@ typedef struct AVCodecContext {
 #if FF_API_TICKS_PER_FRAME
     /**
      * For some codecs, the time base is closer to the field rate than the frame rate.
-     * Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
+     * Most notably, H.264 and MPEG-2 specify timeBase as half of frame duration
      * if no telecine is used ...
      *
-     * Set to time_base ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
+     * Set to timeBase ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
      *
      * @deprecated
      * - decoding: Use AVCodecDescriptor.props & AV_CODEC_PROP_FIELDS
@@ -2775,7 +2775,7 @@ typedef struct AVCodecParserContext {
      * It signals, how much longer the frame duration of the current frame
      * is compared to normal frame duration.
      *
-     * frame_duration = (1 + repeat_pict) * time_base
+     * frame_duration = (1 + repeat_pict) * timeBase
      *
      * It is used by codecs like H.264 to display telecined material.
      */
@@ -2826,7 +2826,7 @@ typedef struct AVCodecParserContext {
 
     /**
      * Offset of the current timestamp against last timestamp sync point in
-     * units of AVCodecContext.time_base.
+     * units of AVCodecContext.timeBase.
      *
      * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
      * contain a valid timestamp offset.
@@ -2840,7 +2840,7 @@ typedef struct AVCodecParserContext {
     int dts_ref_dts_delta;
 
     /**
-     * Presentation delay of current frame in units of AVCodecContext.time_base.
+     * Presentation delay of current frame in units of AVCodecContext.timeBase.
      *
      * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
      * contain valid non-negative timestamp delta (presentation time of a frame
@@ -2873,7 +2873,7 @@ typedef struct AVCodecParserContext {
     /**
      * Duration of the current frame.
      * For audio, this is in units of 1 / AVCodecContext.sample_rate.
-     * For all other types, this is in units of AVCodecContext.time_base.
+     * For all other types, this is in units of AVCodecContext.timeBase.
      */
     int duration;
 

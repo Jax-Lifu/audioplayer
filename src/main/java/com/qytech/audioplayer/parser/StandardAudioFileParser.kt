@@ -45,12 +45,12 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
             }
             val albumCover = ffMediaInfo.image?.let { saveCoverImage(it) }
             val trackInfo = AudioTrackInfo(
-                duration = ffMediaInfo.duration / 1000_000,
+                duration = ffMediaInfo.duration / 1000,
                 tags = AudioFileTags(
                     album = ffMediaInfo.album ?: "Unknown album",
                     artist = ffMediaInfo.artist ?: "Unknown artist",
                     title = ffMediaInfo.title ?: filePath.filename(),
-                    duration = ffMediaInfo.duration / 1000_000,
+                    duration = ffMediaInfo.duration / 1000,
                     genre = ffMediaInfo.genre ?: "other",
                     albumCover = albumCover,
                     date = ffMediaInfo.date,

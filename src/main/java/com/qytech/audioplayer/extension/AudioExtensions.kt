@@ -28,16 +28,25 @@ fun Int.getAudioCodec(): String {
  *
  */
 val audioFileExtensions: Set<String> = setOf(
-    "aac", "adpcm", "amr", "ape", "au",
-    "caf", "cue", "dff", "dsf", "dts", "flac",
-    "g722", "g726", "gsm",
-    "gsm_ms", "iso",
-    "m4a", "m4b", "mid", "midi", "mp1", "mp2", "mp3", "mp3adu", "mp3adufloat", "mp3on4",
-    "mka", "mod", "mpc", "opus", "qcelp", "qdm2", "qdmc", "qoa",
-    "real_144", "ralf", "speex", "sbc", "shorten",
-    "sol_dpcm", "sonic", "s3m", "tak", "tta", "truehd",
-    "vma", "vorbis", "wav", "wma", "wmav1", "wmav2", "wv",
-    "xan_dpcm", "xma", "xma1", "xma2", "rm"
+    "3gp", "8svx",
+    "aa", "aac", "aax", "ac3", "act", "aif", "aiff", "alac", "amr", "ape", "au", "awb",
+    "cda", "caf",
+    "dff", "dsf", "dss", "dts", "dvf",
+    "flac",
+    "gsm",
+    "iklax", "iso", "ivs",
+    "kar",
+    "m4a", "m4b", "m4p", "m4r", "mid", "midi", "mmf", "mogg", "movpkg",
+    "mp1", "mp2", "mp3", "mp5", "mpa", "mpc", "mpga", "msv", "mqa",
+    "nmf", "nrg",
+    "oga", "ogg", "opus",
+    "qoa",
+    "ra", "raw", "rf64", "rm",
+    "sln",
+    "ts", "tta", "tak", "truehd",
+    "voc", "vox",
+    "wav", "webm", "wma", "wv", "wave",
+    "speex", "sbc",
 )
 
 /**

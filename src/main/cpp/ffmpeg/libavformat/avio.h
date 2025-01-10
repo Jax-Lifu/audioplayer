@@ -776,7 +776,7 @@ int     avio_pause(AVIOContext *h, int pause);
  *        units from the beginning of the presentation.
  *        If a stream_index >= 0 is used and the protocol does not support
  *        seeking based on component streams, the call will fail.
- * @param timestamp timestamp in AVStream.time_base units
+ * @param timestamp timestamp in AVStream.timeBase units
  *        or if there is no stream specified then in AV_TIME_BASE units.
  * @param flags Optional combination of AVSEEK_FLAG_BACKWARD, AVSEEK_FLAG_BYTE
  *        and AVSEEK_FLAG_ANY. The protocol may silently ignore

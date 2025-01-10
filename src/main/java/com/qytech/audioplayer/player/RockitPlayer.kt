@@ -16,18 +16,21 @@ class RockitPlayer(context: Context) : AudioPlayer {
     private var onProgressListener: OnProgressListener? = null
     private var progressJob: Job? = null
 
-    private fun startProgressUpdate() {
+    private fun startProgressUpdate() = runCatching {
         progressJob?.cancel()
         progressJob = coroutineScope.launch(Dispatchers.IO) { // 使用IO线程避免阻塞主线程
             while (isActive) {
-                val progress = withContext(Dispatchers.Main) { // 在主线程更新UI
-                    val currentPosition = getCurrentPosition()
-                    val duration = getDuration()
-                    val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
-                    PlaybackProgress(currentPosition, progress, duration)
-                }
-                onProgressListener?.onProgress(progress)
-                // 延迟更新，假设每500毫秒更新一次
+                val currentPosition = getCurrentPosition()
+                val duration = getDuration()
+                val progress = currentPosition.toFloat() / duration
+                onProgressListener?.onProgress(
+                    PlaybackProgress(
+                        currentPosition,
+                        progress,
+                        duration
+                    )
+                )
+                // 延迟更新，每500毫秒更新一次
                 delay(500L)
             }
         }
@@ -46,21 +49,28 @@ class RockitPlayer(context: Context) : AudioPlayer {
     override fun setMediaItem(mediaItem: AudioFileInfo) {
         runCatching {
             mediaPlayer.setDataSource(mediaItem.filePath)
+        }.onFailure {
+            Timber.e(it, "setDataSource error")
         }
     }
 
     override fun prepare() {
-        mediaPlayer.setOnErrorListener { _, _, _ ->
-            updatePlaybackState(PlaybackState.ERROR) // 更新播放状态
-            onProgressListener?.onProgress(PlaybackProgress.DEFAULT)
-            stopProgressUpdate()
-            true
+        runCatching {
+            mediaPlayer.setOnErrorListener { _, _, _ ->
+                updatePlaybackState(PlaybackState.ERROR) // 更新播放状态
+                onProgressListener?.onProgress(PlaybackProgress.DEFAULT)
+                stopProgressUpdate()
+                true
+            }
+            mediaPlayer.setOnCompletionListener {
+                stopProgressUpdate()
+                updatePlaybackState(PlaybackState.COMPLETED) // 更新播放状态
+            }
+            mediaPlayer.prepare()
+        }.onFailure {
+            Timber.e(it, "prepare error")
+            updatePlaybackState(PlaybackState.ERROR) // 如果准备失败，设为错误状态
         }
-        mediaPlayer.setOnCompletionListener {
-            updatePlaybackState(PlaybackState.COMPLETED) // 更新播放状态
-            stopProgressUpdate()
-        }
-        mediaPlayer.prepare()
     }
 
     override fun play() {
@@ -70,16 +80,16 @@ class RockitPlayer(context: Context) : AudioPlayer {
     }
 
     override fun pause() {
-        mediaPlayer.pause()
-        updatePlaybackState(PlaybackState.PAUSED) // 更新播放状态
         stopProgressUpdate()
+        updatePlaybackState(PlaybackState.PAUSED) // 更新播放状态
+        mediaPlayer.pause()
 
     }
 
     override fun stop() {
-        mediaPlayer.stop()
-        updatePlaybackState(PlaybackState.STOPPED) // 更新播放状态
         stopProgressUpdate()
+        updatePlaybackState(PlaybackState.STOPPED) // 更新播放状态
+        mediaPlayer.stop()
     }
 
     override fun release() {
@@ -91,8 +101,7 @@ class RockitPlayer(context: Context) : AudioPlayer {
     }
 
     override fun seekTo(position: Long) {
-        Timber.d("seekTo: $position")
-        mediaPlayer.seekTo((position * 1000).toInt())
+        mediaPlayer.seekTo(position.toInt())
     }
 
     override fun fastForward(milliseconds: Long) {
@@ -100,7 +109,7 @@ class RockitPlayer(context: Context) : AudioPlayer {
         if (position >= getDuration()) {
             position = getDuration()
         }
-        mediaPlayer.seekTo((position * 1000).toInt())
+        mediaPlayer.seekTo(position.toInt())
     }
 
     override fun fastRewind(milliseconds: Long) {
@@ -108,16 +117,16 @@ class RockitPlayer(context: Context) : AudioPlayer {
         if (position < 0) {
             position = 0
         }
-        mediaPlayer.seekTo((position * 1000).toInt())
+        mediaPlayer.seekTo(position.toInt())
     }
 
-    override fun getCurrentPosition(): Long {
-        return (mediaPlayer.currentPosition / 1000).toLong()
-    }
+    override fun getCurrentPosition(): Long = runCatching {
+        return mediaPlayer.currentPosition.toLong()
+    }.getOrDefault(0)
 
-    override fun getDuration(): Long {
-        return (mediaPlayer.duration / 1000).toLong()
-    }
+    override fun getDuration(): Long = runCatching {
+        return mediaPlayer.duration.toLong()
+    }.getOrDefault(0)
 
     override fun setPlaybackSpeed(speed: Float) {
         mediaPlayer.playbackParams = mediaPlayer.playbackParams.setSpeed(speed)
@@ -125,25 +134,6 @@ class RockitPlayer(context: Context) : AudioPlayer {
 
     override fun getPlaybackSpeed(): Float {
         return mediaPlayer.playbackParams.speed
-    }
-
-    override fun setVolume(volume: Float) {
-
-    }
-
-    override fun getVolume(): Float {
-        return 1f
-    }
-
-    override fun setMute(isMuted: Boolean) {
-    }
-
-    override fun isMuted(): Boolean {
-        return false
-    }
-
-    override fun getBufferedPosition(): Long {
-        return 0
     }
 
     override fun isPlaying(): Boolean {

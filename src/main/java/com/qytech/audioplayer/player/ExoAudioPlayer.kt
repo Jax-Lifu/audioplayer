@@ -2,9 +2,11 @@ package com.qytech.audioplayer.player
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import com.qytech.audioplayer.model.AudioFileInfo
 import kotlinx.coroutines.*
@@ -14,10 +16,17 @@ import timber.log.Timber
 class ExoAudioPlayer(val context: Context) : AudioPlayer {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private var player: ExoPlayer = ExoPlayer.Builder(context, QYRenderersFactory(context)).build()
+    private var player: ExoPlayer = ExoPlayer.Builder(context)
+        .setRenderersFactory(
+            DefaultRenderersFactory(context).apply {
+                setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            }
+        )
+        .build()
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
     private var onProgressListener: OnProgressListener? = null
     private var progressJob: Job? = null
+    private var currentMediaItem: AudioFileInfo? = null
 
     init {
         // 监听播放器状态变化
@@ -47,7 +56,8 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
                 val progress = withContext(Dispatchers.Main) {
                     val currentPosition = getCurrentPosition()
                     val duration = getDuration()
-                    val progress = if (duration > 0) currentPosition.toFloat() / duration else 0f
+                    val progress = currentPosition.toFloat() / duration
+                    Timber.d("progress: $progress currentPosition: $currentPosition duration: $duration")
                     PlaybackProgress(currentPosition, progress, duration)
                 }
                 onProgressListener?.onProgress(progress)
@@ -67,8 +77,11 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
         runCatching {
-            val media = MediaItem.fromUri(mediaItem.filePath) // 使用 ExoPlayer 的 MediaItem
+            val media = MediaItem.fromUri(mediaItem.filePath)
+            currentMediaItem = mediaItem
             player.setMediaItem(media)
+        }.onFailure {
+            updatePlaybackState(PlaybackState.ERROR)
         }
     }
 
@@ -103,32 +116,35 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
     }
 
     override fun seekTo(position: Long) {
-        Timber.d("seekTo: $position")
-        player.seekTo(position * 1000) // ExoPlayer 的 seekTo 接受毫秒值
+        if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
+            player.seekTo(position)
+        }
     }
 
-    override fun fastForward(seconds: Long) {
-        var position = getCurrentPosition() + seconds
-        if (position >= getDuration()) {
-            position = getDuration()
+    override fun fastForward(milliseconds: Long) {
+        if (player.isCommandAvailable(Player.COMMAND_SEEK_FORWARD)) {
+            player.seekForward()
         }
-        player.seekTo(position * 1000)
     }
 
-    override fun fastRewind(seconds: Long) {
-        var position = getCurrentPosition() - seconds
-        if (position < 0) {
-            position = 0
+    override fun fastRewind(milliseconds: Long) {
+        if (player.isCommandAvailable(Player.COMMAND_SEEK_BACK)) {
+            player.seekBack()
         }
-        player.seekTo(position * 1000)
     }
 
     override fun getCurrentPosition(): Long {
-        return player.currentPosition / 1000 // 转换为秒
+        if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+            return player.currentPosition
+        }
+        return 0
     }
 
     override fun getDuration(): Long {
-        return player.duration / 1000 // 转换为秒
+        if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && player.duration != C.TIME_UNSET) {
+            return player.duration
+        }
+        return currentMediaItem?.trackInfo?.duration ?: 0
     }
 
     override fun setPlaybackSpeed(speed: Float) {
@@ -137,26 +153,6 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
 
     override fun getPlaybackSpeed(): Float {
         return player.playbackParameters.speed
-    }
-
-    override fun setVolume(volume: Float) {
-        // ExoPlayer 暂时没有直接设置音量的 API，通常需要操作音量控件
-    }
-
-    override fun getVolume(): Float {
-        return 1f
-    }
-
-    override fun setMute(isMuted: Boolean) {
-        // ExoPlayer 暂时没有直接设置静音的 API，通常需要操作音量控件
-    }
-
-    override fun isMuted(): Boolean {
-        return false
-    }
-
-    override fun getBufferedPosition(): Long {
-        return player.bufferedPosition / 1000 // 转换为秒
     }
 
     override fun isPlaying(): Boolean {

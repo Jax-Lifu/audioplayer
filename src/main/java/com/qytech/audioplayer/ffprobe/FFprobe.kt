@@ -7,5 +7,4 @@ object FFprobe {
 
     external fun probeFile(filePath: String): FFMediaInfo?
 
-    external fun codecs()
 }

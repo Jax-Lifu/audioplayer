@@ -167,7 +167,7 @@
  * AVPacket.pts, AVPacket.dts and AVPacket.duration timing information will be
  * set if known. They may also be unset (i.e. AV_NOPTS_VALUE for
  * pts/dts, 0 for duration) if the stream does not provide them. The timing
- * information will be in AVStream.time_base units, i.e. it has to be
+ * information will be in AVStream.timeBase units, i.e. it has to be
  * multiplied by the timebase to convert them to seconds.
  *
  * A packet returned by av_read_frame() is always reference-counted,
@@ -201,7 +201,7 @@
  *   the @ref AVStream.codecpar "stream codec parameters" information, such as the
  *   codec @ref AVCodecParameters.codec_type "type", @ref AVCodecParameters.codec_id
  *   "id" and other parameters (e.g. width / height, the pixel or sample format,
- *   etc.) as known. The @ref AVStream.time_base "stream timebase" should
+ *   etc.) as known. The @ref AVStream.timeBase "stream timebase" should
  *   be set to the timebase that the caller desires to use for this stream (note
  *   that the timebase actually used by the muxer can be different, as will be
  *   described later).
@@ -602,7 +602,7 @@ enum AVStreamParseType {
 typedef struct AVIndexEntry {
     int64_t pos;
     int64_t timestamp;        /**<
-                               * Timestamp in AVStream.time_base units, preferably the time from which on correctly decoded frames are available
+                               * Timestamp in AVStream.timeBase units, preferably the time from which on correctly decoded frames are available
                                * when seeking to this entry. That means preferable PTS on keyframe based formats.
                                * But demuxers can choose to store a different timestamp, if it is more convenient for the implementation or nothing better
                                * is known
@@ -1261,7 +1261,7 @@ typedef struct AVProgram {
 typedef struct AVChapter {
     int64_t id;             ///< unique ID to identify the chapter
     AVRational time_base;   ///< time base in which the start/end timestamps are specified
-    int64_t start, end;     ///< chapter start/end time in time_base units
+    int64_t start, end;     ///< chapter start/end time in timeBase units
     AVDictionary *metadata;
 } AVChapter;
 
@@ -2399,7 +2399,7 @@ int av_find_best_stream(AVFormatContext *ic,
  * a variable size (e.g. MPEG audio), then it contains one frame.
  *
  * pkt->pts, pkt->dts and pkt->duration are always set to correct
- * values in AVStream.time_base units (and guessed if the format cannot
+ * values in AVStream.timeBase units (and guessed if the format cannot
  * provide them). pkt->pts can be AV_NOPTS_VALUE if the video format
  * has B-frames, so it is better to rely on pkt->dts if you do not
  * decompress the payload.
@@ -2419,8 +2419,8 @@ int av_read_frame(AVFormatContext *s, AVPacket *pkt);
  * @param s            media file handle
  * @param stream_index If stream_index is (-1), a default stream is selected,
  *                     and timestamp is automatically converted from
- *                     AV_TIME_BASE units to the stream specific time_base.
- * @param timestamp    Timestamp in AVStream.time_base units or, if no stream
+ *                     AV_TIME_BASE units to the stream specific timeBase.
+ * @param timestamp    Timestamp in AVStream.timeBase units or, if no stream
  *                     is specified, in AV_TIME_BASE units.
  * @param flags        flags which select direction and seeking mode
  *
@@ -2727,7 +2727,7 @@ enum AVCodecID av_guess_codec(const AVOutputFormat *fmt, const char *short_name,
  * @param s          media file handle
  * @param stream     stream in the media file
  * @param[out] dts   DTS of the last packet output for the stream, in stream
- *                   time_base units
+ *                   timeBase units
  * @param[out] wall  absolute time when that packet whas output,
  *                   in microsecond
  * @retval  0               Success

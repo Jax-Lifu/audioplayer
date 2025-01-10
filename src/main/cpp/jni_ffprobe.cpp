@@ -1,5 +1,6 @@
 
 #include "QYFFprobe.h"
+#include "Utils.h"
 
 #include <unicode/urename.h>
 #include <iconv.h>
@@ -9,81 +10,6 @@
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 #define LOGD(...) \
   ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
-
-// 判断是否是有效的UTF-8字符串
-bool isValidUTF8(const char *str) {
-    unsigned char c;
-    while ((c = *str++)) {
-        if (c < 0x80) {
-            continue;  // ASCII字符
-        } else if ((c & 0xE0) == 0xC0) {
-            // 110xxxxx
-            if ((*str & 0xC0) != 0x80) {
-                return false;  // 错误的多字节字符
-            }
-            str++;
-        } else if ((c & 0xF0) == 0xE0) {
-            // 1110xxxx
-            if ((*(str + 1) & 0xC0) != 0x80 || (*(str + 2) & 0xC0) != 0x80) {
-                return false;
-            }
-            str += 2;
-        } else if ((c & 0xF8) == 0xF0) {
-            // 11110xxx
-            if ((*(str + 1) & 0xC0) != 0x80 || (*(str + 2) & 0xC0) != 0x80 ||
-                (*(str + 3) & 0xC0) != 0x80) {
-                return false;
-            }
-            str += 3;
-        } else {
-            return false;  // 无效的UTF-8字节
-        }
-    }
-    return true;
-}
-
-
-jstring charToJString(JNIEnv *env, const char *data) {
-    try {
-        jobject bb = env->NewDirectByteBuffer((void *) data, (int) strlen(data));
-
-        jclass cls_Charset = env->FindClass("java/nio/charset/Charset");
-        jmethodID mid_Charset_forName = env->GetStaticMethodID(cls_Charset, "forName",
-                                                               "(Ljava/lang/String;)Ljava/nio/charset/Charset;");
-        jobject charset = env->CallStaticObjectMethod(cls_Charset, mid_Charset_forName,
-                                                      env->NewStringUTF("UTF-8"));
-
-        jmethodID mid_Charset_decode = env->GetMethodID(cls_Charset, "decode",
-                                                        "(Ljava/nio/ByteBuffer;)Ljava/nio/CharBuffer;");
-        jobject cb = env->CallObjectMethod(charset, mid_Charset_decode, bb);
-        env->DeleteLocalRef(bb);
-
-        jclass cls_CharBuffer = env->FindClass("java/nio/CharBuffer");
-        jmethodID mid_CharBuffer_toString = env->GetMethodID(cls_CharBuffer, "toString",
-                                                             "()Ljava/lang/String;");
-        return (jstring) env->CallObjectMethod(cb, mid_CharBuffer_toString);
-    } catch (const std::exception &e) {
-        env->ExceptionClear();  // 清除异常状态
-        return nullptr;
-    }
-}
-
-
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_qytech_audioplayer_ffprobe_FFprobe_codecs(
-        JNIEnv *env,
-        jobject thiz) {
-    // 遍历所有编解码器
-    void *i = nullptr;
-    const AVCodec *c;
-
-    while ((c = av_codec_iterate(&i))) {
-        if (c->type == AVMEDIA_TYPE_AUDIO && av_codec_is_decoder(c)) {
-            LOGD("c %s", c->name);
-        }
-    }
-}
 
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -173,14 +99,14 @@ void setBasicMediaInfoFields(JNIEnv *env, jobject ffMediaInfoObject, AVFormatCon
     jfieldID startField = env->GetFieldID(ffMediaInfoClass, "start", "J");
     jfieldID bitRateField = env->GetFieldID(ffMediaInfoClass, "bitRate", "J");
 
-    env->SetObjectField(ffMediaInfoObject, filenameField, charToJString(env, fmt_ctx->url));
+    env->SetObjectField(ffMediaInfoObject, filenameField, Utils::charToJString(env, fmt_ctx->url));
     env->SetLongField(ffMediaInfoObject, durationField, (long) fmt_ctx->duration);
     if (fmt_ctx->start_time > 0) {
         env->SetLongField(ffMediaInfoObject, startField, (long) fmt_ctx->start_time);
     }
     env->SetLongField(ffMediaInfoObject, bitRateField, (long) fmt_ctx->bit_rate);
     env->SetObjectField(ffMediaInfoObject, formatNameField,
-                        charToJString(env, fmt_ctx->iformat->name));
+                        Utils::charToJString(env, fmt_ctx->iformat->name));
 }
 
 // 设置媒体标签信息
@@ -198,17 +124,23 @@ void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_c
     while ((tag = av_dict_get(fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
         // LOGD("metadata key:%s,value: %s", tag->key, tag->value);
         if (strcmp(tag->key, "title") == 0) {
-            env->SetObjectField(ffMediaInfoObject, titleField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, titleField,
+                                Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "artist") == 0) {
-            env->SetObjectField(ffMediaInfoObject, artistField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, artistField,
+                                Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "album") == 0) {
-            env->SetObjectField(ffMediaInfoObject, albumField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, albumField,
+                                Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "genre") == 0) {
-            env->SetObjectField(ffMediaInfoObject, genreField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, genreField,
+                                Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "date") == 0) {
-            env->SetObjectField(ffMediaInfoObject, dateField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, dateField,
+                                Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "comment") == 0) {
-            env->SetObjectField(ffMediaInfoObject, commentField, charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, commentField,
+                                Utils::charToJString(env, tag->value));
         }
     }
 }
@@ -255,10 +187,10 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
                         jfieldID channelsField, jfieldID channelLayoutField,
                         jfieldID sampleRateField,
                         jfieldID bitPerSampleField) {
-    jstring codecType = charToJString(env, av_get_media_type_string(parameters->codec_type));
+    jstring codecType = Utils::charToJString(env, av_get_media_type_string(parameters->codec_type));
     const AVCodecDescriptor *cd = avcodec_descriptor_get(parameters->codec_id);
-    jstring codecName = charToJString(env, cd->name);
-    jstring codecLongName = charToJString(env, cd->long_name);
+    jstring codecName = Utils::charToJString(env, cd->name);
+    jstring codecLongName = Utils::charToJString(env, cd->long_name);
 
     env->SetObjectField(ffMediaInfoObject, codecTypeField, codecType);
     env->SetObjectField(ffMediaInfoObject, codecNameField, codecName);
@@ -268,7 +200,8 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
     if (parameters->ch_layout.order != AV_CHANNEL_ORDER_UNSPEC) {
         char value_str[128];
         av_channel_layout_describe(&parameters->ch_layout, value_str, sizeof(value_str));
-        env->SetObjectField(ffMediaInfoObject, channelLayoutField, charToJString(env, value_str));
+        env->SetObjectField(ffMediaInfoObject, channelLayoutField,
+                            Utils::charToJString(env, value_str));
     }
     // LOGD("bits_per_coded_sample %d , bits_per_raw_sample %d", parameters->bits_per_coded_sample,
     //     parameters->bits_per_raw_sample);

@@ -12,6 +12,8 @@ data class PlaybackProgress(
     companion object {
         val DEFAULT = PlaybackProgress(0, 0f, 0)
     }
+
+    fun isAvailable(): Boolean = currentPosition >= 0 && duration > 0 && progress in 0f..1f
 }
 
 enum class PlaybackState {
@@ -69,10 +71,10 @@ interface AudioPlayer {
     // 跳转到指定位置
     fun seekTo(position: Long)
 
-    // 快进 (forward by a specific amount of time)
+    // 快进
     fun fastForward(milliseconds: Long)
 
-    // 快退 (rewind by a specific amount of time)
+    // 快退
     fun fastRewind(milliseconds: Long)
 
     // 获取当前播放进度
@@ -86,21 +88,6 @@ interface AudioPlayer {
 
     // 获取当前播放速度
     fun getPlaybackSpeed(): Float
-
-    // 设置音量
-    fun setVolume(volume: Float)
-
-    // 获取当前音量
-    fun getVolume(): Float
-
-    // 设置静音
-    fun setMute(isMuted: Boolean)
-
-    // 是否静音
-    fun isMuted(): Boolean
-
-    // 获取缓冲进度 (网络流媒体相关)
-    fun getBufferedPosition(): Long
 
     // 判断是否正在播放
     fun isPlaying(): Boolean
@@ -119,12 +106,39 @@ object AudioPlayerFactory {
         context: Context,
         audioFileInfo: AudioFileInfo,
     ): AudioPlayer {
-        val codec = audioFileInfo.header.codec
+        val codec = audioFileInfo.header.codec.lowercase()
         return when {
-            codec.startsWith("DSD") == true -> DsdAudioPlayer(context)
-            else -> {
-                RockitPlayer(context)
-            }
+            codec.startsWith("dsd") == true -> DsdAudioPlayer(context)
+            codec in setOf(
+                "mp1",
+                "mp2",
+                "mp3",
+                "aac",
+                "ape",
+                "wmalossless",
+                "wmapro",
+                "wmav1",
+                "wmav2",
+                "adpcm_ima_qt",
+                "vorbis",
+                "pcm_s16le",
+                "pcm_s24le",
+                "pcm_s32le",
+                "flac"
+            ) -> RockitPlayer(context)
+
+            codec in setOf(
+                "opus",
+                "alac",
+                "pcm_mulaw",
+                "pcm_alaw",
+                "amrnb",
+                "amrwb",
+                "ac3",
+                "dca"
+            ) -> ExoAudioPlayer(context)
+
+            else -> FFAudioPlayer()
         }
     }
 }
