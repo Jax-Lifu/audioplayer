@@ -1,7 +1,5 @@
 package com.qytech.audioplayer.parser
 
-import com.qytech.audioplayer.extension.filename
-import com.qytech.audioplayer.extension.getAudioCodec
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
 import com.qytech.audioplayer.model.AudioFileHeader
@@ -17,6 +15,9 @@ import com.qytech.audioplayer.sacd.SacdTrackOffset
 import com.qytech.audioplayer.sacd.SacdTrackText
 import com.qytech.audioplayer.sacd.SacdTrackTime
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.core.extensions.getFileName
+import com.qytech.core.extensions.getFolderName
+import com.qytech.core.extensions.toAudioCodec
 import timber.log.Timber
 import java.nio.ByteBuffer
 import java.util.Locale
@@ -102,14 +103,14 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             byteRate = byteRate,
             blockAlign = blockAlign,
             encodingType = ENCODING_TYPE_SACD,
-            codec = sampleRate.getAudioCodec()
+            codec = sampleRate.toAudioCodec()
         )
     }
     private val genre by lazy {
         toc?.albumGenreList?.firstOrNull()?.genre?.name?.lowercase()?.replace("_", " ") ?: "other"
     }
     private val album by lazy {
-        albumInfo?.albumInfo?.albumTitle ?: "Unknown album"
+        albumInfo?.albumInfo?.albumTitle ?: filePath.getFolderName() ?: "Unknown album"
     }
 
     private val date by lazy {
@@ -119,7 +120,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     }
 
     private val filename by lazy {
-        filePath.filename()
+        filePath.getFileName()
     }
 
     private fun generateTrackInfo(): List<AudioFileInfo> = List(getTrackCount()) { index ->

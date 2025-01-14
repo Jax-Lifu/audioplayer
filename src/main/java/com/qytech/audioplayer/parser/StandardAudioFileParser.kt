@@ -5,6 +5,8 @@ import com.qytech.audioplayer.extension.*
 import com.qytech.audioplayer.ffprobe.FFprobe
 import com.qytech.audioplayer.model.*
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.core.extensions.getFolderName
+import com.qytech.core.extensions.isAudio
 import timber.log.Timber
 import java.io.File
 import kotlin.math.roundToInt
@@ -34,7 +36,7 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
 
     override fun parse(): List<AudioFileInfo>? {
         val file = File(filePath)
-        if (!file.exists() || !file.isAudioFile()) {
+        if (!file.exists() || !file.isAudio()) {
             Timber.e("File not found or not an audio file: $filePath")
             return null
         }
@@ -47,9 +49,9 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
             val trackInfo = AudioTrackInfo(
                 duration = ffMediaInfo.duration / 1000,
                 tags = AudioFileTags(
-                    album = ffMediaInfo.album ?: "Unknown album",
+                    album = ffMediaInfo.album ?: filePath.getFolderName() ?: "Unknown album",
                     artist = ffMediaInfo.artist ?: "Unknown artist",
-                    title = ffMediaInfo.title ?: filePath.filename(),
+                    title = ffMediaInfo.title ?: file.nameWithoutExtension,
                     duration = ffMediaInfo.duration / 1000,
                     genre = ffMediaInfo.genre ?: "other",
                     albumCover = albumCover,

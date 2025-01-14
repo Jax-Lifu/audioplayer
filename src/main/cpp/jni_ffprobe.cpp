@@ -5,12 +5,6 @@
 #include <unicode/urename.h>
 #include <iconv.h>
 
-#define LOG_TAG "qy_ffmpeg"
-#define LOGE(...) \
-  ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
-#define LOGD(...) \
-  ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
-
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_qytech_audioplayer_ffprobe_FFprobe_probeFile(

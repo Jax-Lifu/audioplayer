@@ -1,11 +1,11 @@
 package com.qytech.audioplayer.parser
 
-import com.qytech.audioplayer.extension.getAudioCodec
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.model.AudioFileHeader
 import com.qytech.audioplayer.model.AudioFileInfo
 import com.qytech.audioplayer.model.AudioOffsetInfo
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteOrder
 
 class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
@@ -49,7 +49,7 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val blockAlign = AudioUtils.getBlockAlign(channelCount, bitsPerSample)
         val byteRate = AudioUtils.getByteRate(sampleRate, channelCount, bitsPerSample)
         val bitsPerSecond = AudioUtils.getBitsPerSecond(sampleRate, channelCount, bitsPerSample)
-        val codec = sampleRate.getAudioCodec()
+        val codec = sampleRate.toAudioCodec()
 
         // 构造文件头信息
         val header = AudioFileHeader(

@@ -1,6 +1,5 @@
 package com.qytech.audioplayer.parser
 
-import com.qytech.audioplayer.extension.getAudioCodec
 import com.qytech.audioplayer.extension.getBigEndianUInt64
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
@@ -8,6 +7,7 @@ import com.qytech.audioplayer.model.AudioFileHeader
 import com.qytech.audioplayer.model.AudioFileInfo
 import com.qytech.audioplayer.model.AudioOffsetInfo
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -105,7 +105,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val byteRate = AudioUtils.getByteRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
         val bitsPerSecond =
             AudioUtils.getBitsPerSecond(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-        val codec = sampleRate.getAudioCodec()
+        val codec = sampleRate.toAudioCodec()
 
         return AudioFileHeader(
             sampleRate = sampleRate,

@@ -48,6 +48,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
     compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -65,6 +66,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.rtsp)
 //    implementation(libs.androidx.media3.exoplayer.midi)
     implementation(libs.androidx.media3.exoplayer.ima)
+    implementation(libs.juniversalchardet)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
