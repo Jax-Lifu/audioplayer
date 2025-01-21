@@ -1,8 +1,8 @@
 package com.qytech.audioplayer.sacd
 
-import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
+import com.qytech.audioplayer.model.ScarletBook
 import timber.log.Timber
 import java.nio.ByteBuffer
 import java.nio.charset.Charset

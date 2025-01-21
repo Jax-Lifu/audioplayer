@@ -9,11 +9,11 @@ FFAudioPlayer::FFAudioPlayer() :
         sampleRate(44100), channels(2), duration(0), currentPosition(0), audioStreamIndex(-1),
         isPaused(false), isPlaying(false), isSeeking(false), isStopped(false), shouldStopped(false),
         errorBuffer() {
-    LOGD("FFAudioPlayer create %p", this);
+    // LOGD("FFAudioPlayer create %p", this);
 }
 
 FFAudioPlayer::~FFAudioPlayer() {
-    LOGD("FFAudioPlayer destroy %p", this);
+    // LOGD("FFAudioPlayer destroy %p", this);
     release();
 }
 
@@ -271,7 +271,7 @@ void FFAudioPlayer::decodeLoop() {
     std::unique_lock<std::mutex> lock(decodeMutex);
     while (!isStopped) {
         if (shouldStopped.load()) {
-            LOGD("decodeLoop now is should stopped");
+            // LOGD("decodeLoop now is should stopped");
             break;
         }
         if (isPaused || isSeeking) {

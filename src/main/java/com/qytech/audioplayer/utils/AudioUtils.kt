@@ -38,5 +38,8 @@ object AudioUtils {
     fun getBitsPerSecond(sampleRate: Int, channelCount: Int, bitsPerSample: Int): Int =
         sampleRate * channelCount * bitsPerSample
 
+    fun getBitRate(sampleRate: Int, channelCount: Int, bitsPerSample: Int): Int =
+        sampleRate * channelCount * bitsPerSample
+
 
 }

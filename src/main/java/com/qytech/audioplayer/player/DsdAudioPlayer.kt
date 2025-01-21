@@ -42,27 +42,19 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     private var onProgressListener: OnProgressListener? = null
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
 
-    private val audioTrackInfo by lazy {
-        audioFileInfo?.trackInfo
-    }
-
-    private val audioFileHeader by lazy {
-        audioFileInfo?.header
-    }
-
 
     @SuppressLint("InlinedApi")
     private fun initializeAudioTrack() = runCatching {
         Timber.d("initializeAudioTrack")
-        val header = audioFileHeader ?: return@runCatching
-        var sampleRate = header.sampleRate
-        val encoding: Int = when {
-            header.codec == "PCM" -> AudioFormat.ENCODING_PCM_16BIT
+        val audioInfo = audioFileInfo ?: return@runCatching
+        var sampleRate = audioInfo.sampleRate
+        val encoding = when {
+            audioInfo.codecName.startsWith("DSD") || audioInfo.codecName.startsWith("DST") -> AudioFormat.ENCODING_DSD.also { sampleRate /= 32 }
             isDopEnable -> AudioFormat.ENCODING_PCM_32BIT.also { sampleRate /= 16 }
-            else -> AudioFormat.ENCODING_DSD.also { sampleRate /= 32 }
+            else -> AudioFormat.ENCODING_PCM_16BIT
         }
 
-        val channelMask = when (header.channelCount) {
+        val channelMask = when (audioInfo.channels) {
             1 -> AudioFormat.CHANNEL_OUT_MONO
             4 -> AudioFormat.CHANNEL_OUT_QUAD
             else -> AudioFormat.CHANNEL_OUT_STEREO
@@ -96,7 +88,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
      */
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, bytesRead: Int) {
         runCatching {
-            val fileFormat = audioFileHeader?.encodingType ?: return
+            val fileFormat = audioFileInfo?.formatName ?: return
             var lengthToWrite = if (isDopEnable) bytesRead * 2 else bytesRead
             val dataToWrite: ByteArray = when (fileFormat) {
                 DsfAudioFileParser.ENCODING_TYPE_DSF -> {
@@ -110,8 +102,26 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                 }
 
                 SacdAudioFileParser.ENCODING_TYPE_SACD -> {
-                    lengthToWrite = SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
-                    destData
+                    when {
+                        audioFileInfo?.codecName?.startsWith("DST") == true -> {
+                            SacdAudioFrame.read(
+                                srcData,
+                                destData,
+                                bytesRead,
+                                isDopEnable
+                            ) { data, size ->
+                                //Timber.d("writeAudioData: $it")
+                                audioTrack?.write(data, 0, size, AudioTrack.WRITE_BLOCKING)
+                            }
+                            return@runCatching
+                        }
+
+                        else -> {
+                            lengthToWrite =
+                                SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
+                            destData
+                        }
+                    }
                 }
 
                 else -> srcData // 默认使用源数据
@@ -147,18 +157,17 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     private fun playAudio() = runCatching {
         // 确保音频数据正常获取到，否则提前返回
-        val filePath = audioFileInfo?.filePath ?: return@runCatching
-        val header = audioFileHeader ?: return@runCatching
-        val offsetInfo = audioTrackInfo?.offset ?: return@runCatching
-
+        val audioInfo = audioFileInfo ?: return@runCatching
+        val filePath = audioInfo.filepath
         val bufferSize = 8 * 1024
-        val byteRate = header.byteRate
-        val startOffset = offsetInfo.startOffset
-        val endOffset = offsetInfo.endOffset
+        val byteRate = audioInfo.bitRate / 8
+        val startOffset = audioInfo.startOffset ?: 0L
+        val endOffset = audioInfo.endOffset ?: 0L
         val srcData = ByteArray(bufferSize)
         val destData = ByteArray(if (isDopEnable) bufferSize * 2 else bufferSize)
         var position: Long
         currentOffset = startOffset
+        SacdAudioFrame.frameIndex = 0
         coroutineScope.launch {
             val audioFile = File(filePath)
             if (!audioFile.exists()) {
@@ -195,8 +204,19 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                         updatePlaybackProgress(position)
 
                         // 写入音频数据
-                        writeAudioData(srcData, destData, bytesRead)
+//                        Timber.d(
+//                            "writeAudioData currentOffset $currentOffset(${
+//                                currentOffset.toString(
+//                                    16
+//                                )
+//                            })"
+//                        )
+                        //writeAudioData(srcData, destData, bytesRead)
 
+//                        SacdAudioFrame.read(srcData,de)
+                        SacdAudioFrame.readDstFrame(srcData, bytesRead) { data, size ->
+                            audioTrack?.write(data, 0, size, AudioTrack.WRITE_BLOCKING)
+                        }
                         // 更新当前偏移量
                         currentOffset += bytesRead
                     }
@@ -325,11 +345,11 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         if (offsetPreSeconds == -1L) {
             return
         }
-        val offsetInfo = audioTrackInfo?.offset ?: return
+        val startOffset = audioFileInfo?.startOffset ?: return
         lock.withLock {
             val seconds = position / 1000
             currentPosition = seconds
-            currentOffset = offsetInfo.startOffset + seconds * offsetPreSeconds
+            currentOffset = startOffset + seconds * offsetPreSeconds
             seeking = true
             Timber.d("seekTo: $position offsetPreSeconds $offsetPreSeconds currentOffset $currentOffset")
         }
@@ -362,7 +382,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     }
 
     override fun getDuration(): Long {
-        return audioTrackInfo?.duration ?: 0
+        return audioFileInfo?.duration ?: 0
     }
 
     override fun setPlaybackSpeed(speed: Float) {

@@ -2,11 +2,7 @@ package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
-import com.qytech.audioplayer.model.AudioFileHeader
 import com.qytech.audioplayer.model.AudioFileInfo
-import com.qytech.audioplayer.model.AudioFileTags
-import com.qytech.audioplayer.model.AudioOffsetInfo
-import com.qytech.audioplayer.model.AudioTrackInfo
 import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.sacd.SacdAlbumInfo
 import com.qytech.audioplayer.sacd.SacdAreaToc
@@ -15,8 +11,8 @@ import com.qytech.audioplayer.sacd.SacdTrackOffset
 import com.qytech.audioplayer.sacd.SacdTrackText
 import com.qytech.audioplayer.sacd.SacdTrackTime
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.core.extensions.getAbsoluteFolder
 import com.qytech.core.extensions.getFileName
-import com.qytech.core.extensions.getFolderName
 import com.qytech.core.extensions.toAudioCodec
 import timber.log.Timber
 import java.nio.ByteBuffer
@@ -31,9 +27,9 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         const val SACD_TOC_START = 510    // 主 TOC 起始位置
         const val SACD_LOGICAL_SECTOR_SIZE = 2048  // 逻辑扇区大小
         const val SACD_PHYSICAL_SECTOR_SIZE = 2064 // 物理扇区大小
-        const val DEFAULT_SAMPLE_RATE = 44100
+        const val DEFAULT_SAMPLE_RATE = 2822400
 
-        const val ENCODING_TYPE_SACD = "ISO"
+        const val ENCODING_TYPE_SACD = "SACD"
     }
 
     private val reader = AudioFileReader(filePath)
@@ -61,7 +57,6 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             Timber.e("Failed to read SACD TOC.")
             return null
         }
-        //Timber.d("SACD TOC: $toc")
 
         albumInfo = readSacdAlbumInfo()
         areaToc = readSacdAreaToc()
@@ -71,6 +66,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             trackTimeList = readSacdTrackTimes()
             trackTextList = readSacdTrackTexts()
         }
+        println("SACD TOC: $toc\nalbumInfo $albumInfo\nareaToc $areaToc trackOffsetList $trackOffsetList\ntrackTimeList $trackTimeList\n trackTextList $trackTextList")
         return generateTrackInfo()
     }
 
@@ -82,35 +78,8 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         areaToc?.channelCount ?: 2
     }
 
-    private val bitsPerSecond by lazy {
-        AudioUtils.getBitsPerSecond(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-    }
-
-    private val byteRate by lazy {
-        AudioUtils.getByteRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-    }
-
-    private val blockAlign by lazy {
-        AudioUtils.getBlockAlign(channelCount, DSD_BITS_PER_SAMPLE)
-    }
-
-    private val header by lazy {
-        AudioFileHeader(
-            sampleRate = sampleRate,
-            channelCount = channelCount,
-            bitsPerSample = DSD_BITS_PER_SAMPLE,
-            bitsPerSecond = bitsPerSecond,
-            byteRate = byteRate,
-            blockAlign = blockAlign,
-            encodingType = ENCODING_TYPE_SACD,
-            codec = sampleRate.toAudioCodec()
-        )
-    }
-    private val genre by lazy {
-        toc?.albumGenreList?.firstOrNull()?.genre?.name?.lowercase()?.replace("_", " ") ?: "other"
-    }
     private val album by lazy {
-        albumInfo?.albumInfo?.albumTitle ?: filePath.getFolderName() ?: "Unknown album"
+        albumInfo?.albumInfo?.albumTitle ?: folder
     }
 
     private val date by lazy {
@@ -123,6 +92,20 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         filePath.getFileName()
     }
 
+    private val folder by lazy {
+        filePath.getAbsoluteFolder()
+    }
+    private val codecName by lazy {
+        sampleRate.toAudioCodec(areaToc?.frameFormat?.getFormatName())
+    }
+    private val bitRate by lazy {
+        AudioUtils.getBitRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
+    }
+
+    private val genre by lazy {
+        toc?.albumGenreList?.firstOrNull()?.genre?.toLocalizedString() ?: "other"
+    }
+
     private fun generateTrackInfo(): List<AudioFileInfo> = List(getTrackCount()) { index ->
         val trackOffset = trackOffsetList?.get(index)
         val trackTime = trackTimeList?.get(index)
@@ -131,34 +114,25 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         val endOffset = trackOffset?.trackEnd?.times(sacdSectorSize) ?: 0
         val dataLength = endOffset - startOffset
 
-        val duration = trackTime?.durationTime?.getDuration() ?: 0L
-
-        val tags = AudioFileTags(
-            title = trackText?.title ?: "${filename}_Track${index + 1}",
-            artist = trackText?.performer ?: "Unknown artist",
-            album = album,
+        val duration = (trackTime?.durationTime?.getDuration() ?: 0L) * 1000
+        AudioFileInfo(
+            filepath = filePath,
+            folder = folder,
+            codecName = codecName,
+            formatName = ENCODING_TYPE_SACD,
+            channels = channelCount,
+            sampleRate = sampleRate,
+            bitRate = bitRate,
+            bitPreSample = DSD_BITS_PER_SAMPLE,
             duration = duration,
+            title = trackText?.title ?: "${filename}_Track${index + 1}",
+            album = album,
+            artist = trackText?.performer ?: "Unknown artist",
             genre = genre,
             date = date,
-            trackNumber = index + 1,
-            totalTracks = getTrackCount()
-        )
-        val offset = AudioOffsetInfo(
             startOffset = startOffset,
             endOffset = endOffset,
-            dataLength = dataLength
-        )
-
-        val trackInfo = AudioTrackInfo(
-            trackIndex = index + 1,
-            duration = duration,
-            tags = tags,
-            offset = offset
-        )
-        AudioFileInfo(
-            filePath = filePath,
-            header = header,
-            trackInfo = trackInfo,
+            dataLength = dataLength,
         )
     }
 
@@ -234,6 +208,11 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     }
 
     private fun getTrackCount() = areaToc?.trackCount ?: 0
+}
 
-
+fun main() {
+    val dstFilePath =
+        "F:\\Download\\Music-Dsd\\SACD\\[SACD ISO_DST] Dawada (ZHU Zheqin) - Sister-Drum.iso"
+    val parser = SacdAudioFileParser(dstFilePath)
+    println(parser.parse())
 }

@@ -49,7 +49,7 @@ class FFAudioPlayer : AudioPlayer {
     }
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
-        native_init(mediaItem.filePath)
+        native_init(mediaItem.filepath)
     }
 
     override fun prepare() {

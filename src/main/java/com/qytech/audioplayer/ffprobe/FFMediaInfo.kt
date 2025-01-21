@@ -1,5 +1,8 @@
 package com.qytech.audioplayer.ffprobe
 
+import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.core.extensions.getFileName
+
 class FFMediaInfo {
 
     var filename: String? = null
@@ -21,6 +24,30 @@ class FFMediaInfo {
     var genre: String? = null
     var date: String? = null
     var comment: String? = null
+
+    fun toAudioFileInfo(
+        path: String,
+        folder: String,
+        albumCover: String? = null,
+    ): AudioFileInfo {
+        return AudioFileInfo(
+            filepath = filename ?: path,
+            folder = folder,
+            codecName = codecName ?: "",
+            formatName = formatName ?: "",
+            channels = channels,
+            sampleRate = sampleRate,
+            bitRate = bitRate.toInt(),
+            bitPreSample = bitPerSample,
+            duration = duration / 1000,
+            title = title ?: path.getFileName(),
+            album = album ?: folder,
+            artist = artist ?: "Unknown Artist",
+            genre = genre?.lowercase() ?: "other",
+            date = date,
+            albumImageUrl = albumCover
+        )
+    }
 
     override fun toString(): String {
         return buildString {

@@ -22,7 +22,7 @@ Java_com_qytech_audioplayer_ffprobe_FFprobe_probeFile(
     AVFormatContext *fmt_ctx = openMediaFile(path);
     env->ReleaseStringUTFChars(file_path, path);
 
-    if (fmt_ctx == nullptr) {
+    if (fmt_ctx == nullptr || fmt_ctx->duration <= 0) {
         return nullptr;
     }
 
@@ -174,6 +174,40 @@ void setStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_
     }
 }
 
+// 计算位深的函数，避免重复代码
+int calculateBitDepth(const AVCodecParameters *parameters) {
+    // 优先检查codec_id的特殊情况
+    if (parameters->codec_id == AV_CODEC_ID_DSD_LSBF ||
+        parameters->codec_id == AV_CODEC_ID_DSD_MSBF ||
+        parameters->codec_id == AV_CODEC_ID_DSD_LSBF_PLANAR ||
+        parameters->codec_id == AV_CODEC_ID_DSD_MSBF_PLANAR) {
+        return 1;  // DSD格式通常为1 bit
+    }
+
+    // 获取bits_per_coded_sample，若为0则回退到bits_per_raw_sample
+    int bitDepth = (parameters->bits_per_coded_sample != 0)
+                   ? parameters->bits_per_coded_sample
+                   : parameters->bits_per_raw_sample;
+
+    // 如果位深仍为0，尝试通过比特率、采样率和通道数推算
+    if (bitDepth == 0 &&
+        parameters->bit_rate != 0 &&
+        parameters->sample_rate != 0 &&
+        parameters->ch_layout.nb_channels != 0) {
+        bitDepth = parameters->bit_rate / parameters->sample_rate /
+                   parameters->ch_layout.nb_channels;
+    }
+
+    if (bitDepth == 0) {
+        LOGD("Invalid parameters: bit_rate=%ld, sample_rate=%d, channels=%d parameters->bits_per_raw_sample %d",
+             parameters->bit_rate, parameters->sample_rate, parameters->ch_layout.nb_channels,
+             parameters->bits_per_raw_sample);
+        bitDepth = 16;
+    }
+
+    return bitDepth;
+}
+
 // 设置音频流信息
 void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameters *parameters,
                         jfieldID codecTypeField, jfieldID codecNameField,
@@ -200,14 +234,7 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
     // LOGD("bits_per_coded_sample %d , bits_per_raw_sample %d", parameters->bits_per_coded_sample,
     //     parameters->bits_per_raw_sample);
     env->SetIntField(ffMediaInfoObject, sampleRateField, parameters->sample_rate);
-    if (parameters->codec_id == AV_CODEC_ID_DSD_LSBF ||
-        parameters->codec_id == AV_CODEC_ID_DSD_MSBF ||
-        parameters->codec_id == AV_CODEC_ID_DSD_LSBF_PLANAR ||
-        parameters->codec_id == AV_CODEC_ID_DSD_MSBF_PLANAR) {
-        env->SetIntField(ffMediaInfoObject, bitPerSampleField, 1);
-    } else {
-        env->SetIntField(ffMediaInfoObject, bitPerSampleField, parameters->bits_per_coded_sample);
-    }
+    env->SetIntField(ffMediaInfoObject, bitPerSampleField, calculateBitDepth(parameters));
 }
 
 // 设置视频流信息，包括封面图

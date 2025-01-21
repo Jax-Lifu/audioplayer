@@ -22,6 +22,7 @@
 #if defined(_WIN32) && !defined(VK_USE_PLATFORM_WIN32_KHR)
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
+
 #include <vulkan/vulkan.h>
 
 #include "pixfmt.h"
@@ -98,7 +99,7 @@ typedef struct AVVulkanDeviceContext {
      * Duplicates are possible and accepted.
      * If no extensions are enabled, set these fields to NULL, and 0 respectively.
      */
-    const char * const *enabled_inst_extensions;
+    const char *const *enabled_inst_extensions;
     int nb_enabled_inst_extensions;
 
     /**
@@ -109,7 +110,7 @@ typedef struct AVVulkanDeviceContext {
      * the above fields, with the same conditions that duplicates are possible
      * and accepted, and that NULL and 0 respectively means no extensions are enabled.
      */
-    const char * const *enabled_dev_extensions;
+    const char *const *enabled_dev_extensions;
     int nb_enabled_dev_extensions;
 
 #if FF_API_VULKAN_FIXED_QUEUES
@@ -195,7 +196,7 @@ typedef struct AVVulkanDeviceContext {
 typedef enum AVVkFrameFlags {
     /* Unless this flag is set, autodetected flags will be OR'd based on the
      * device and tiling during av_hwframe_ctx_init(). */
-    AV_VK_FRAME_FLAG_NONE              = (1ULL << 0),
+    AV_VK_FRAME_FLAG_NONE = (1ULL << 0),
 
 #if FF_API_VULKAN_CONTIGUOUS_MEMORY
     /* DEPRECATED: does nothing. Replaced by multiplane images. */

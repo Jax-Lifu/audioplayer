@@ -3,9 +3,7 @@ package com.qytech.audioplayer.parser
 import com.qytech.audioplayer.extension.getBigEndianUInt64
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
-import com.qytech.audioplayer.model.AudioFileHeader
 import com.qytech.audioplayer.model.AudioFileInfo
-import com.qytech.audioplayer.model.AudioOffsetInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteBuffer
@@ -20,19 +18,21 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
 
     override fun parse(): List<AudioFileInfo>? {
         // 读取文件并确保缓冲区有效
-        var buffer = reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()
+        var buffer =
+            reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()
 
         // 验证文件头
         if (buffer.getString() != HEADER_ID_DFF) return super.parse()
 
         // 获取主块的大小并验证格式
-        val chunkSize = buffer.getBigEndianUInt64()
+        buffer.getBigEndianUInt64()
         if (buffer.getString() != BLOCK_ID_FORMAT) return super.parse()
 
         var dataSize = 0L
         var startOffset = 0L
         var currentOffset = 16L  // 从文件头后开始
-        var header: AudioFileHeader? = null
+        var sampleRate = 0
+        var channelCount = 0
 
         // 解析文件内容并处理各个子块
         while (currentOffset < reader.fileSize) {
@@ -45,7 +45,14 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
                     startOffset = buffer.position().toLong()
                     break
                 }
-                BLOCK_ID_PROP -> header = readDffProperty(buffer, subChunkSize)
+
+                BLOCK_ID_PROP -> {
+                    readDffProperty(buffer, subChunkSize)?.let {
+                        sampleRate = it.first
+                        channelCount = it.second
+                    }
+                }
+
                 else -> buffer.skip(subChunkSize.toInt())
             }
 
@@ -55,27 +62,28 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
                 buffer = reader.readBuffer(currentOffset) ?: break
             }
         }
-
-        // 如果没有找到头部信息，返回默认解析结果
-        if (header == null) return super.parse()
-
-        val offset = AudioOffsetInfo(
-            startOffset = startOffset,
-            endOffset = startOffset + dataSize,
-            dataLength = dataSize
-        )
+        val codec = sampleRate.toAudioCodec()
+        val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
+        val endOffset = startOffset + dataSize
 
         // 调用父类解析，并对结果进行修改
-        return super.parse()?.map { audioFileInfo ->
-            audioFileInfo.copy(
-                header = header,
-                trackInfo = audioFileInfo.trackInfo.copy(offset = offset)
+        return super.parse()?.map { audioDetails ->
+            audioDetails.copy(
+                codecName = codec,
+                formatName = ENCODING_TYPE_DFF,
+                sampleRate = sampleRate,
+                channels = channelCount,
+                bitPreSample = DSD_BITS_PER_SAMPLE,
+                bitRate = bitRate,
+                startOffset = startOffset,
+                endOffset = endOffset,
+                dataLength = dataSize,
             )
         }
     }
 
 
-    private fun readDffProperty(buffer: ByteBuffer, limit: Long): AudioFileHeader? {
+    private fun readDffProperty(buffer: ByteBuffer, limit: Long): Pair<Int, Int>? {
         val startPosition = buffer.position()
         if (buffer.getString() != BLOCK_ID_SOUND) return null
 
@@ -97,25 +105,8 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
             }
         }
 
-        return createAudioFileHeader(sampleRate, channelCount)
+        return sampleRate to channelCount
     }
 
-    private fun createAudioFileHeader(sampleRate: Int, channelCount: Int): AudioFileHeader {
-        val blockAlign = AudioUtils.getBlockAlign(channelCount, DSD_BITS_PER_SAMPLE)
-        val byteRate = AudioUtils.getByteRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-        val bitsPerSecond =
-            AudioUtils.getBitsPerSecond(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
-        val codec = sampleRate.toAudioCodec()
 
-        return AudioFileHeader(
-            sampleRate = sampleRate,
-            channelCount = channelCount,
-            bitsPerSample = DSD_BITS_PER_SAMPLE,
-            bitsPerSecond = bitsPerSecond,
-            byteRate = byteRate,
-            blockAlign = blockAlign,
-            codec = codec,
-            encodingType = ENCODING_TYPE_DFF
-        )
-    }
 }

@@ -1,10 +1,9 @@
 package com.qytech.audioplayer.sacd
 
-import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.extension.getFixedSizeStringOrEmpty
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
-import timber.log.Timber
+import com.qytech.audioplayer.model.ScarletBook
 import java.nio.ByteBuffer
 
 data class SacdToc(

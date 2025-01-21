@@ -21,6 +21,7 @@
 
 #include "libavutil/attributes.h"
 #include "version_major.h"
+
 #if FF_API_AVFFT
 
 /**
@@ -77,12 +78,16 @@ void av_fft_end(FFTContext *s);
  */
 attribute_deprecated
 FFTContext *av_mdct_init(int nbits, int inverse, double scale);
+
 attribute_deprecated
 void av_imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
+
 attribute_deprecated
 void av_imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input);
+
 attribute_deprecated
 void av_mdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
+
 attribute_deprecated
 void av_mdct_end(FFTContext *s);
 
@@ -106,8 +111,10 @@ typedef struct RDFTContext RDFTContext;
  */
 attribute_deprecated
 RDFTContext *av_rdft_init(int nbits, enum RDFTransformType trans);
+
 attribute_deprecated
 void av_rdft_calc(RDFTContext *s, FFTSample *data);
+
 attribute_deprecated
 void av_rdft_end(RDFTContext *s);
 
@@ -136,10 +143,12 @@ enum DCTTransformType {
  */
 attribute_deprecated
 DCTContext *av_dct_init(int nbits, enum DCTTransformType type);
+
 attribute_deprecated
 void av_dct_calc(DCTContext *s, FFTSample *data);
+
 attribute_deprecated
-void av_dct_end (DCTContext *s);
+void av_dct_end(DCTContext *s);
 
 /**
  * @}

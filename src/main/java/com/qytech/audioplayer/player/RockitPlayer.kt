@@ -48,7 +48,7 @@ class RockitPlayer(context: Context) : AudioPlayer {
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
         runCatching {
-            mediaPlayer.setDataSource(mediaItem.filePath)
+            mediaPlayer.setDataSource(mediaItem.filepath)
         }.onFailure {
             Timber.e(it, "setDataSource error")
         }

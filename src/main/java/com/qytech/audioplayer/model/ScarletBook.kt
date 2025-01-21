@@ -46,11 +46,25 @@ object ScarletBook {
     const val AUDIO_FRAME_INFO_SIZE = 4
     const val MAX_PACKET_SIZE = 2045
 
+
     //  SACD 枚举定义
     enum class FrameFormat(val value: Int) {
         DST(0),
         DSD_3_IN_14(2),
-        DSD_3_IN_16(3)
+        DSD_3_IN_16(3);
+
+        fun getFormatName(): String {
+            return when (this) {
+                DST -> "DST"
+                else -> "DSD"
+            }
+        }
+
+        companion object {
+            fun fromValue(value: Int): FrameFormat {
+                return entries.find { it.value == value } ?: DST
+            }
+        }
     }
 
     enum class CharacterSet(val value: Int) {
@@ -106,6 +120,10 @@ object ScarletBook {
             fun fromValue(value: Int): Genre {
                 return entries.find { it.value == value } ?: OTHER
             }
+        }
+
+        fun toLocalizedString(): String {
+            return name.lowercase().replace("_", " ")
         }
     }
 

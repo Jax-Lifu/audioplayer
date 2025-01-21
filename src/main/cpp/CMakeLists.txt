@@ -58,7 +58,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         android
         z
         log
-#        icu
+        #        icu
         swscale
         swresample
         avutil

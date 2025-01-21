@@ -2,6 +2,7 @@ package com.qytech.audioplayer.player
 
 import android.content.Context
 import com.qytech.audioplayer.model.AudioFileInfo
+import timber.log.Timber
 
 
 data class PlaybackProgress(
@@ -106,9 +107,9 @@ object AudioPlayerFactory {
         context: Context,
         audioFileInfo: AudioFileInfo,
     ): AudioPlayer {
-        val codec = audioFileInfo.header.codec.lowercase()
+        val codec = audioFileInfo.codecName.lowercase()
         return when {
-            codec.startsWith("dsd") == true -> DsdAudioPlayer(context)
+            codec.startsWith("dsd") || codec.startsWith("dst") -> DsdAudioPlayer(context)
             codec in setOf(
                 "mp1",
                 "mp2",

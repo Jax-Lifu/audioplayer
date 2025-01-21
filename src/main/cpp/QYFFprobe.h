@@ -57,6 +57,7 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
                         jfieldID bitPerSampleField);
 
 // 设置视频流信息，包括封面图
-void setVideoStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVStream *stream, jfieldID imageField);
+void
+setVideoStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVStream *stream, jfieldID imageField);
 
 #endif //QYLAUNCHER_QYFFPROBE_H

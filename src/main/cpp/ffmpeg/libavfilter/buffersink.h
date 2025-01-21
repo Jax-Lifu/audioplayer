@@ -104,23 +104,32 @@ void av_buffersink_set_frame_size(AVFilterContext *ctx, unsigned frame_size);
  * @{
  */
 
-enum AVMediaType av_buffersink_get_type                (const AVFilterContext *ctx);
-AVRational       av_buffersink_get_time_base           (const AVFilterContext *ctx);
-int              av_buffersink_get_format              (const AVFilterContext *ctx);
+enum AVMediaType av_buffersink_get_type(const AVFilterContext *ctx);
 
-AVRational       av_buffersink_get_frame_rate          (const AVFilterContext *ctx);
-int              av_buffersink_get_w                   (const AVFilterContext *ctx);
-int              av_buffersink_get_h                   (const AVFilterContext *ctx);
-AVRational       av_buffersink_get_sample_aspect_ratio (const AVFilterContext *ctx);
-enum AVColorSpace av_buffersink_get_colorspace         (const AVFilterContext *ctx);
-enum AVColorRange av_buffersink_get_color_range        (const AVFilterContext *ctx);
+AVRational av_buffersink_get_time_base(const AVFilterContext *ctx);
 
-int              av_buffersink_get_channels            (const AVFilterContext *ctx);
-int              av_buffersink_get_ch_layout           (const AVFilterContext *ctx,
-                                                        AVChannelLayout *ch_layout);
-int              av_buffersink_get_sample_rate         (const AVFilterContext *ctx);
+int av_buffersink_get_format(const AVFilterContext *ctx);
 
-AVBufferRef *    av_buffersink_get_hw_frames_ctx       (const AVFilterContext *ctx);
+AVRational av_buffersink_get_frame_rate(const AVFilterContext *ctx);
+
+int av_buffersink_get_w(const AVFilterContext *ctx);
+
+int av_buffersink_get_h(const AVFilterContext *ctx);
+
+AVRational av_buffersink_get_sample_aspect_ratio(const AVFilterContext *ctx);
+
+enum AVColorSpace av_buffersink_get_colorspace(const AVFilterContext *ctx);
+
+enum AVColorRange av_buffersink_get_color_range(const AVFilterContext *ctx);
+
+int av_buffersink_get_channels(const AVFilterContext *ctx);
+
+int av_buffersink_get_ch_layout(const AVFilterContext *ctx,
+                                AVChannelLayout *ch_layout);
+
+int av_buffersink_get_sample_rate(const AVFilterContext *ctx);
+
+AVBufferRef *av_buffersink_get_hw_frames_ctx(const AVFilterContext *ctx);
 
 /** @} */
 

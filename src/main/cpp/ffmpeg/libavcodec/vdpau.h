@@ -113,6 +113,7 @@ AVVDPAU_Render2 av_vdpau_hwaccel_get_render2(const AVVDPAUContext *);
  */
 attribute_deprecated
 void av_vdpau_hwaccel_set_render2(AVVDPAUContext *, AVVDPAU_Render2);
+
 #endif
 
 /**
@@ -164,6 +165,7 @@ int av_vdpau_get_surface_parameters(AVCodecContext *avctx, VdpChromaType *type,
  */
 attribute_deprecated
 AVVDPAUContext *av_vdpau_alloc_context(void);
+
 #endif
 
 /** @} */

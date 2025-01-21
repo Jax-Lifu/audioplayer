@@ -92,9 +92,8 @@ void *av_refstruct_alloc_ext_c(size_t size, unsigned flags, AVRefStructOpaque op
  */
 static inline
 void *av_refstruct_alloc_ext(size_t size, unsigned flags, void *opaque,
-                             void (*free_cb)(AVRefStructOpaque opaque, void *obj))
-{
-    return av_refstruct_alloc_ext_c(size, flags, (AVRefStructOpaque){.nc = opaque},
+                             void (*free_cb)(AVRefStructOpaque opaque, void *obj)) {
+    return av_refstruct_alloc_ext_c(size, flags, (AVRefStructOpaque) {.nc = opaque},
                                     free_cb);
 }
 
@@ -102,8 +101,7 @@ void *av_refstruct_alloc_ext(size_t size, unsigned flags, void *opaque,
  * Equivalent to av_refstruct_alloc_ext(size, 0, NULL, NULL)
  */
 static inline
-void *av_refstruct_allocz(size_t size)
-{
+void *av_refstruct_allocz(size_t size) {
     return av_refstruct_alloc_ext(size, 0, NULL, NULL);
 }
 
@@ -244,8 +242,10 @@ AVRefStructPool *av_refstruct_pool_alloc(size_t size, unsigned flags);
 AVRefStructPool *av_refstruct_pool_alloc_ext_c(size_t size, unsigned flags,
                                                AVRefStructOpaque opaque,
                                                int  (*init_cb)(AVRefStructOpaque opaque, void *obj),
-                                               void (*reset_cb)(AVRefStructOpaque opaque, void *obj),
-                                               void (*free_entry_cb)(AVRefStructOpaque opaque, void *obj),
+                                               void (*reset_cb)(AVRefStructOpaque opaque,
+                                                                void *obj),
+                                               void (*free_entry_cb)(AVRefStructOpaque opaque,
+                                                                     void *obj),
                                                void (*free_cb)(AVRefStructOpaque opaque));
 
 /**
@@ -259,10 +259,10 @@ AVRefStructPool *av_refstruct_pool_alloc_ext(size_t size, unsigned flags,
                                              void *opaque,
                                              int  (*init_cb)(AVRefStructOpaque opaque, void *obj),
                                              void (*reset_cb)(AVRefStructOpaque opaque, void *obj),
-                                             void (*free_entry_cb)(AVRefStructOpaque opaque, void *obj),
-                                             void (*free_cb)(AVRefStructOpaque opaque))
-{
-    return av_refstruct_pool_alloc_ext_c(size, flags, (AVRefStructOpaque){.nc = opaque},
+                                             void (*free_entry_cb)(AVRefStructOpaque opaque,
+                                                                   void *obj),
+                                             void (*free_cb)(AVRefStructOpaque opaque)) {
+    return av_refstruct_pool_alloc_ext_c(size, flags, (AVRefStructOpaque) {.nc = opaque},
                                          init_cb, reset_cb, free_entry_cb, free_cb);
 }
 
@@ -289,8 +289,7 @@ void *av_refstruct_pool_get(AVRefStructPool *pool);
  * @param poolp pointer to a pointer to either NULL or a pool to be freed.
  *              `*poolp` will be set to NULL.
  */
-static inline void av_refstruct_pool_uninit(AVRefStructPool **poolp)
-{
+static inline void av_refstruct_pool_uninit(AVRefStructPool **poolp) {
     av_refstruct_unref(poolp);
 }
 

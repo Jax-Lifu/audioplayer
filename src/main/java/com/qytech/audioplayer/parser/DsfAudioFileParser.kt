@@ -1,9 +1,7 @@
 package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.extension.getString
-import com.qytech.audioplayer.model.AudioFileHeader
 import com.qytech.audioplayer.model.AudioFileInfo
-import com.qytech.audioplayer.model.AudioOffsetInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteOrder
@@ -27,15 +25,15 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         if (buffer.getString() != BLOCK_ID_FMT) return super.parse() // 验证格式标识符
 
         // 解析格式块信息
-        val fmtChunkSize = buffer.long
-        val version = buffer.int
-        val formatId = buffer.int
-        val channelType = buffer.int
+        buffer.long
+        buffer.int
+        buffer.int
+        buffer.int
         val channelCount = buffer.int
         val sampleRate = buffer.int
         val bitsPerSample = buffer.int
-        val sampleCountPerChannel = buffer.long
-        val blockSizePerChannel = buffer.int
+        buffer.long
+        buffer.int
         buffer.int // 跳过保留字段
 
         // 验证数据标识符
@@ -46,33 +44,20 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val endOffset = startOffset + dataSize
 
         // 计算音频文件的关键属性
-        val blockAlign = AudioUtils.getBlockAlign(channelCount, bitsPerSample)
-        val byteRate = AudioUtils.getByteRate(sampleRate, channelCount, bitsPerSample)
-        val bitsPerSecond = AudioUtils.getBitsPerSecond(sampleRate, channelCount, bitsPerSample)
+        val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, bitsPerSample)
         val codec = sampleRate.toAudioCodec()
-
-        // 构造文件头信息
-        val header = AudioFileHeader(
-            sampleRate = sampleRate,
-            channelCount = channelCount,
-            bitsPerSample = bitsPerSample,
-            bitsPerSecond = bitsPerSecond,
-            byteRate = byteRate,
-            blockAlign = blockAlign,
-            encodingType = ENCODING_TYPE_DSF,
-            codec = codec
-        )
-        val offset = AudioOffsetInfo(
-            startOffset = startOffset,
-            endOffset = endOffset,
-            dataLength = dataSize
-        )
-
-        // 返回解析后的 AudioFileInfo
-        return super.parse()?.map { audioFileInfo ->
-            audioFileInfo.copy(
-                header = header,
-                trackInfo = audioFileInfo.trackInfo.copy(offset = offset)
+        // 返回解析后的 AudioDetails
+        return super.parse()?.map { audioDetails ->
+            audioDetails.copy(
+                codecName = codec,
+                formatName = ENCODING_TYPE_DSF,
+                sampleRate = sampleRate,
+                channels = channelCount,
+                bitPreSample = bitsPerSample,
+                bitRate = bitRate,
+                startOffset = startOffset,
+                endOffset = endOffset,
+                dataLength = dataSize,
             )
         }
     }

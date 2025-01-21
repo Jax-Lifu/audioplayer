@@ -4,12 +4,10 @@ import android.os.Environment
 import com.qytech.audioplayer.extension.*
 import com.qytech.audioplayer.ffprobe.FFprobe
 import com.qytech.audioplayer.model.*
-import com.qytech.audioplayer.utils.AudioUtils
-import com.qytech.core.extensions.getFolderName
+import com.qytech.core.extensions.getAbsoluteFolder
 import com.qytech.core.extensions.isAudio
 import timber.log.Timber
 import java.io.File
-import kotlin.math.roundToInt
 
 open class StandardAudioFileParser(protected val filePath: String) : AudioFileParserStrategy {
 
@@ -40,61 +38,18 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
             Timber.e("File not found or not an audio file: $filePath")
             return null
         }
-        return runCatching {
-            val ffMediaInfo = FFprobe.probeFile(filePath)
-            if (ffMediaInfo == null) {
-                return emptyList()
-            }
-            val albumCover = ffMediaInfo.image?.let { saveCoverImage(it) }
-            val trackInfo = AudioTrackInfo(
-                duration = ffMediaInfo.duration / 1000,
-                tags = AudioFileTags(
-                    album = ffMediaInfo.album ?: filePath.getFolderName() ?: "Unknown album",
-                    artist = ffMediaInfo.artist ?: "Unknown artist",
-                    title = ffMediaInfo.title ?: file.nameWithoutExtension,
-                    duration = ffMediaInfo.duration / 1000,
-                    genre = ffMediaInfo.genre ?: "other",
-                    albumCover = albumCover,
-                    date = ffMediaInfo.date,
-                    comment = ffMediaInfo.comment
-                ),
+        val ffMediaInfo = FFprobe.probeFile(filePath)
+        if (ffMediaInfo == null) {
+            return emptyList()
+        }
+        val albumCover = ffMediaInfo.image?.let { saveCoverImage(it) }
+        return listOf(
+            ffMediaInfo.toAudioFileInfo(
+                path = file.absolutePath,
+                folder = file.getAbsoluteFolder(),
+                albumCover = albumCover
             )
-            val bitPerSample: Int = if (ffMediaInfo.bitPerSample <= 0 && ffMediaInfo.bitRate > 0) {
-                ((ffMediaInfo.sampleRate * ffMediaInfo.channels * 8) / ffMediaInfo.bitRate.toFloat()).roundToInt()
-            } else {
-                ffMediaInfo.bitPerSample
-            }
-            val header = AudioFileHeader(
-                sampleRate = ffMediaInfo.sampleRate,
-                channelCount = ffMediaInfo.channels,
-                bitsPerSample = bitPerSample,
-                bitsPerSecond = AudioUtils.getBitsPerSecond(
-                    ffMediaInfo.sampleRate,
-                    ffMediaInfo.channels,
-                    bitPerSample
-                ),
-                byteRate = AudioUtils.getByteRate(
-                    ffMediaInfo.sampleRate,
-                    ffMediaInfo.channels,
-                    bitPerSample
-                ),
-                blockAlign = AudioUtils.getBlockAlign(
-                    ffMediaInfo.channels,
-                    bitPerSample
-                ),
-                codec = ffMediaInfo.codecName ?: "PCM",
-                encodingType = ffMediaInfo.formatName
-            )
-            val audioFileInfo = AudioFileInfo(
-                filePath = ffMediaInfo.filename ?: filePath,
-                trackInfo = trackInfo,
-                header = header
-            )
-            // Timber.d("AudioFileInfo: $audioFileInfo")
-            listOf(audioFileInfo)
-        }.onFailure {
-            Timber.e("Failed to parse audio file: $filePath")
-        }.getOrNull()
+        )
     }
 
     /**

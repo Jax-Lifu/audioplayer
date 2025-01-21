@@ -77,7 +77,7 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
         runCatching {
-            val media = MediaItem.fromUri(mediaItem.filePath)
+            val media = MediaItem.fromUri(mediaItem.filepath)
             currentMediaItem = mediaItem
             player.setMediaItem(media)
         }.onFailure {
@@ -144,7 +144,7 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
         if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && player.duration != C.TIME_UNSET) {
             return player.duration
         }
-        return currentMediaItem?.trackInfo?.duration ?: 0
+        return currentMediaItem?.duration ?: 0
     }
 
     override fun setPlaybackSpeed(speed: Float) {

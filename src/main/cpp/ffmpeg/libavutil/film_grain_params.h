@@ -137,16 +137,16 @@ typedef struct AVFilmGrainH274Params {
     int model_id;
 
 #if FF_API_H274_FILM_GRAIN_VCS
-  /**
-   * TODO: On this ABI bump, please also re-order the fields in
-   * AVFilmGrainParams (see below)
-   */
+    /**
+     * TODO: On this ABI bump, please also re-order the fields in
+     * AVFilmGrainParams (see below)
+     */
 
-  /**
-   * Specifies the bit depth used for the luma component.
-   *
-   * @deprecated use AVFilmGrainParams.bit_depth_luma.
-   */
+    /**
+     * Specifies the bit depth used for the luma component.
+     *
+     * @deprecated use AVFilmGrainParams.bit_depth_luma.
+     */
     attribute_deprecated
     int bit_depth_luma;
 
@@ -164,13 +164,13 @@ typedef struct AVFilmGrainH274Params {
      * @deprecated use AVFilmGrainParams.color_{range,primaries,trc,space}.
      */
     attribute_deprecated
-    enum AVColorRange                  color_range;
+    enum AVColorRange color_range;
     attribute_deprecated
-    enum AVColorPrimaries              color_primaries;
+    enum AVColorPrimaries color_primaries;
     attribute_deprecated
     enum AVColorTransferCharacteristic color_trc;
     attribute_deprecated
-    enum AVColorSpace                  color_space;
+    enum AVColorSpace color_space;
 #endif
 
     /**
@@ -276,10 +276,10 @@ typedef struct AVFilmGrainParams {
     /**
      * Intended video signal characteristics.
      */
-    enum AVColorRange                  color_range;
-    enum AVColorPrimaries              color_primaries;
+    enum AVColorRange color_range;
+    enum AVColorPrimaries color_primaries;
     enum AVColorTransferCharacteristic color_trc;
-    enum AVColorSpace                  color_space;
+    enum AVColorSpace color_space;
 
     /**
      * Intended bit depth, or 0 for unknown/unspecified.

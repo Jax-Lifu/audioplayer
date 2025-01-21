@@ -1,8 +1,9 @@
 package com.qytech.audioplayer.sacd
 
-import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
+import com.qytech.audioplayer.model.ScarletBook
+import com.qytech.audioplayer.model.ScarletBook.FrameFormat
 import timber.log.Timber
 import java.nio.ByteBuffer
 
@@ -12,7 +13,7 @@ data class SacdAreaToc(
     val size: Int, // TOC 的总大小，单位为字节
     val maxByteRate: Int, // 最大字节率，表示该区域的最大数据流速
     val sampleFrequency: Int, // 采样频率，如 0x04 表示 (64 * 44.1 kHz)
-    val frameFormat: Byte, // 帧格式，描述音频帧的结构
+    val frameFormat: FrameFormat, // 帧格式，描述音频帧的结构
     val channelCount: Int, // 声道数量，如立体声为 2，多声道可能更多
     val loudspeakerConfig: Byte, // 扬声器配置，描述音频输出的扬声器布局
     val maxAvailableChannels: Byte, // 最大可用声道数
@@ -67,7 +68,7 @@ data class SacdAreaToc(
             buffer.skip(4)
             val maxByteRate = buffer.int
             val sampleFrequency = 16 * 44100 * (buffer.get().toInt() and 0xFF)
-            val frameFormat = buffer.get()
+            val frameFormat = FrameFormat.fromValue(buffer.get().toInt() and 0xFF)
             buffer.skip(10)
             val channelCount = buffer.get().toInt()
             val loudspeakerConfig = buffer.get()

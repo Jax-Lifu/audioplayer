@@ -44,7 +44,7 @@ typedef enum {
     AV_CLASS_CATEGORY_DEVICE_OUTPUT,
     AV_CLASS_CATEGORY_DEVICE_INPUT,
     AV_CLASS_CATEGORY_NB  ///< not part of ABI/API
-}AVClassCategory;
+} AVClassCategory;
 
 enum AVClassStateFlags {
     /**
@@ -52,7 +52,7 @@ enum AVClassStateFlags {
      * This affects e.g. what options can be set on the object (only
      * AV_OPT_FLAG_RUNTIME_PARAM options can be set on initialized objects).
      */
-    AV_CLASS_STATE_INITIALIZED         = (1 << 0),
+    AV_CLASS_STATE_INITIALIZED = (1 << 0),
 };
 
 #define AV_IS_INPUT_DEVICE(category) \
@@ -77,13 +77,13 @@ typedef struct AVClass {
      * The name of the class; usually it is the same name as the
      * context structure type to which the AVClass is associated.
      */
-    const char* class_name;
+    const char *class_name;
 
     /**
      * A pointer to a function which returns the name of a context
      * instance ctx associated with the class.
      */
-    const char* (*item_name)(void* ctx);
+    const char *(*item_name)(void *ctx);
 
     /**
      * An array of options for the structure or NULL.
@@ -136,7 +136,7 @@ typedef struct AVClass {
      * different instances of this class may have different categories,
      * ::category otherwise.
      */
-    AVClassCategory (*get_category)(void* ctx);
+    AVClassCategory (*get_category)(void *ctx);
 
     /**
      * Callback to return the supported/allowed ranges.
@@ -146,7 +146,7 @@ typedef struct AVClass {
     /**
      * Return next AVOptions-enabled child or NULL
      */
-    void* (*child_next)(void *obj, void *prev);
+    void *(*child_next)(void *obj, void *prev);
 
     /**
      * Iterate over the AVClasses corresponding to potential AVOptions-enabled
@@ -163,7 +163,7 @@ typedef struct AVClass {
      *       over the classes of all _potential_ children of any possible
      *       instance of this class.
      */
-    const struct AVClass* (*child_class_iterate)(void **iter);
+    const struct AVClass *(*child_class_iterate)(void **iter);
 
     /**
      * When non-zero, offset in the object to an unsigned int holding object
@@ -285,7 +285,8 @@ void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
  *        this must be initialized to 0 before the first use. The same state
  *        must not be accessed by 2 Threads simultaneously.
  */
-void av_log_once(void* avcl, int initial_level, int subsequent_level, int *state, const char *fmt, ...) av_printf_format(5, 6);
+void av_log_once(void *avcl, int initial_level, int subsequent_level, int *state, const char *fmt,
+                 ...) av_printf_format(5, 6);
 
 
 /**
@@ -333,7 +334,7 @@ void av_log_set_level(int level);
  *
  * @param callback A logging function with a compatible signature.
  */
-void av_log_set_callback(void (*callback)(void*, int, const char*, va_list));
+void av_log_set_callback(void (*callback)(void *, int, const char *, va_list));
 
 /**
  * Default logging callback
@@ -358,7 +359,8 @@ void av_log_default_callback(void *avcl, int level, const char *fmt,
  *
  * @return The AVClass class_name
  */
-const char* av_default_item_name(void* ctx);
+const char *av_default_item_name(void *ctx);
+
 AVClassCategory av_default_get_category(void *ptr);
 
 /**
@@ -407,6 +409,7 @@ int av_log_format_line2(void *ptr, int level, const char *fmt, va_list vl,
 #define AV_LOG_PRINT_LEVEL 2
 
 void av_log_set_flags(int arg);
+
 int av_log_get_flags(void);
 
 /**

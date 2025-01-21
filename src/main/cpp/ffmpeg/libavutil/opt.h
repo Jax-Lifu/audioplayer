@@ -248,7 +248,7 @@
  *   e.g. which av_opt_get_*() and av_opt_set_*() functions can be called, or
  *   what format will av_opt_get()/av_opt_set() expect/produce.
  */
-enum AVOptionType{
+enum AVOptionType {
     /**
      * Underlying C type is unsigned int.
      */
@@ -399,17 +399,17 @@ typedef struct AVOptionArrayDef {
      * Default value of the option, as would be serialized by av_opt_get() (i.e.
      * using the value of sep as the separator).
      */
-    const char         *def;
+    const char *def;
 
     /**
      * Minimum number of elements in the array. When this field is non-zero, def
      * must be non-NULL and contain at least this number of elements.
      */
-    unsigned            size_min;
+    unsigned size_min;
     /**
      * Maximum number of elements in the array, 0 when unlimited.
      */
-    unsigned            size_max;
+    unsigned size_max;
 
     /**
      * Separator between array elements in string representations of this
@@ -420,7 +420,7 @@ typedef struct AVOptionArrayDef {
      * The separator and the backslash must be backslash-escaped in order to
      * appear in string representations of the option value.
      */
-    char                sep;
+    char sep;
 } AVOptionArrayDef;
 
 /**
@@ -866,20 +866,31 @@ int av_opt_copy(void *dest, const void *src);
  * AVERROR(ERANGE) if the value is out of range
  * AVERROR(EINVAL) if the value is not valid
  */
-int av_opt_set         (void *obj, const char *name, const char *val, int search_flags);
-int av_opt_set_int     (void *obj, const char *name, int64_t     val, int search_flags);
-int av_opt_set_double  (void *obj, const char *name, double      val, int search_flags);
-int av_opt_set_q       (void *obj, const char *name, AVRational  val, int search_flags);
-int av_opt_set_bin     (void *obj, const char *name, const uint8_t *val, int size, int search_flags);
+int av_opt_set(void *obj, const char *name, const char *val, int search_flags);
+
+int av_opt_set_int(void *obj, const char *name, int64_t val, int search_flags);
+
+int av_opt_set_double(void *obj, const char *name, double val, int search_flags);
+
+int av_opt_set_q(void *obj, const char *name, AVRational val, int search_flags);
+
+int av_opt_set_bin(void *obj, const char *name, const uint8_t *val, int size, int search_flags);
+
 int av_opt_set_image_size(void *obj, const char *name, int w, int h, int search_flags);
-int av_opt_set_pixel_fmt (void *obj, const char *name, enum AVPixelFormat fmt, int search_flags);
+
+int av_opt_set_pixel_fmt(void *obj, const char *name, enum AVPixelFormat fmt, int search_flags);
+
 int av_opt_set_sample_fmt(void *obj, const char *name, enum AVSampleFormat fmt, int search_flags);
+
 int av_opt_set_video_rate(void *obj, const char *name, AVRational val, int search_flags);
+
 /**
  * @note Any old chlayout present is discarded and replaced with a copy of the new one. The
  * caller still owns layout and is responsible for uninitializing it.
  */
-int av_opt_set_chlayout(void *obj, const char *name, const AVChannelLayout *layout, int search_flags);
+int
+av_opt_set_chlayout(void *obj, const char *name, const AVChannelLayout *layout, int search_flags);
+
 /**
  * @note Any old dictionary present is discarded and replaced with a copy of the new one. The
  * caller still owns val is and responsible for freeing it.
@@ -984,19 +995,30 @@ int av_opt_set_array(void *obj, const char *name, int search_flags,
  * and is set to NULL, *out_val will be set to NULL instead of an allocated
  * empty string.
  */
-int av_opt_get         (void *obj, const char *name, int search_flags, uint8_t   **out_val);
-int av_opt_get_int     (void *obj, const char *name, int search_flags, int64_t    *out_val);
-int av_opt_get_double  (void *obj, const char *name, int search_flags, double     *out_val);
-int av_opt_get_q       (void *obj, const char *name, int search_flags, AVRational *out_val);
+int av_opt_get(void *obj, const char *name, int search_flags, uint8_t **out_val);
+
+int av_opt_get_int(void *obj, const char *name, int search_flags, int64_t *out_val);
+
+int av_opt_get_double(void *obj, const char *name, int search_flags, double *out_val);
+
+int av_opt_get_q(void *obj, const char *name, int search_flags, AVRational *out_val);
+
 int av_opt_get_image_size(void *obj, const char *name, int search_flags, int *w_out, int *h_out);
-int av_opt_get_pixel_fmt (void *obj, const char *name, int search_flags, enum AVPixelFormat *out_fmt);
-int av_opt_get_sample_fmt(void *obj, const char *name, int search_flags, enum AVSampleFormat *out_fmt);
+
+int
+av_opt_get_pixel_fmt(void *obj, const char *name, int search_flags, enum AVPixelFormat *out_fmt);
+
+int
+av_opt_get_sample_fmt(void *obj, const char *name, int search_flags, enum AVSampleFormat *out_fmt);
+
 int av_opt_get_video_rate(void *obj, const char *name, int search_flags, AVRational *out_val);
+
 /**
  * @param[out] layout The returned layout is a copy of the actual value and must
  * be freed with av_channel_layout_uninit() by the caller
  */
 int av_opt_get_chlayout(void *obj, const char *name, int search_flags, AVChannelLayout *layout);
+
 /**
  * @param[out] out_val The returned dictionary is a copy of the actual value and must
  * be freed with av_dict_free() by the caller
@@ -1060,13 +1082,19 @@ int av_opt_get_array(void *obj, const char *name, int search_flags,
  *
  * @return 0 on success, a negative number on failure.
  */
-int av_opt_eval_flags (void *obj, const AVOption *o, const char *val, int        *flags_out);
-int av_opt_eval_int   (void *obj, const AVOption *o, const char *val, int        *int_out);
-int av_opt_eval_uint  (void *obj, const AVOption *o, const char *val, unsigned   *uint_out);
-int av_opt_eval_int64 (void *obj, const AVOption *o, const char *val, int64_t    *int64_out);
-int av_opt_eval_float (void *obj, const AVOption *o, const char *val, float      *float_out);
-int av_opt_eval_double(void *obj, const AVOption *o, const char *val, double     *double_out);
-int av_opt_eval_q     (void *obj, const AVOption *o, const char *val, AVRational *q_out);
+int av_opt_eval_flags(void *obj, const AVOption *o, const char *val, int *flags_out);
+
+int av_opt_eval_int(void *obj, const AVOption *o, const char *val, int *int_out);
+
+int av_opt_eval_uint(void *obj, const AVOption *o, const char *val, unsigned *uint_out);
+
+int av_opt_eval_int64(void *obj, const AVOption *o, const char *val, int64_t *int64_out);
+
+int av_opt_eval_float(void *obj, const AVOption *o, const char *val, float *float_out);
+
+int av_opt_eval_double(void *obj, const AVOption *o, const char *val, double *double_out);
+
+int av_opt_eval_q(void *obj, const AVOption *o, const char *val, AVRational *q_out);
 /**
  * @}
  */
@@ -1084,6 +1112,7 @@ int av_opt_eval_q     (void *obj, const AVOption *o, const char *val, AVRational
  */
 attribute_deprecated
 void *av_opt_ptr(const AVClass *avclass, void *obj, const char *name);
+
 #endif
 
 /**
