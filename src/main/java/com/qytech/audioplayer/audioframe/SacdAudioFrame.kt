@@ -3,6 +3,7 @@ package com.qytech.audioplayer.audioframe
 import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.sacd.DSTDecoder
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
 
 
 /**
@@ -126,12 +127,12 @@ data class AudioFrameInfo(
 object SacdAudioFrame {
     private var header: AudioFrameHeader? = null
     private var packetInfoList: List<AudioPacketInfo>? = null
+    private var frameInfoList: List<AudioFrameInfo>? = null
+    private var currentDataSize = 0
+    private var index = 0
     private val dstDecoder = DSTDecoder().apply {
         init(2, 64)
     }
-    private var currentDataSize = 0
-    private var index = 0
-
     private var frameSize = 0
     var frameIndex = 0
     private var frameDstBuffer: MutableList<Byte>? = null
@@ -141,10 +142,14 @@ object SacdAudioFrame {
     fun readDstFrame(
         srcData: ByteArray,
         length: Int,
+        shouldCancelDstDecode: AtomicBoolean,
         onFrameDecoded: ((ByteArray, Int) -> Unit)? = null
     ) {
         index = 0
         while (index < length) {
+            if (shouldCancelDstDecode.get()) {
+                break
+            }
             val header = AudioFrameHeader.fromByte(srcData[index])
             index++
 
@@ -186,19 +191,14 @@ object SacdAudioFrame {
         }
     }
 
-    fun read(
-        srcData: ByteArray,
-        destData: ByteArray,
-        length: Int,
-        isDopEnable: Boolean,
-        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null
-    ): Int {
+    fun read(srcData: ByteArray, destData: ByteArray, length: Int, isDopEnable: Boolean): Int {
         val tempData = ByteArray(length)
         index = 0
         currentDataSize = 0
         while (index < length) {
             header = AudioFrameHeader.fromByte(srcData[index])
             index++
+
             header?.let { frameHeader ->
                 if (frameHeader.packetInfoCount in 1..6) {
                     packetInfoList = MutableList(frameHeader.packetInfoCount) {
@@ -209,11 +209,8 @@ object SacdAudioFrame {
                     }
                 }
 
-                MutableList(frameHeader.frameInfoCount) {
+                frameInfoList = MutableList(frameHeader.frameInfoCount) {
                     val arraySize = if (frameHeader.dstEncoded == 1) 4 else 3
-                    if (index + arraySize > length) {
-                        return 0
-                    }
                     val audioFrameArray = ByteArray(arraySize)
                     System.arraycopy(srcData, index, audioFrameArray, 0, arraySize)
                     index += arraySize
@@ -224,54 +221,11 @@ object SacdAudioFrame {
                 packetInfoList?.forEach { packetInfo ->
                     when (ScarletBook.AudioPacketDataType.fromValue(packetInfo.dataType)) {
                         ScarletBook.AudioPacketDataType.AUDIO -> {
-                            if (frameHeader.dstEncoded == 1) {
-                                if (packetInfo.frameStart == 1) {
-                                    if (frameSize != 0) {
-                                        frameIndex++
-                                        frameDstBuffer?.toByteArray()?.let { dstData ->
-                                            // Timber.d("frameIndex = $frameIndex frameSize = $frameSize")
-                                            dstDecoder.frameDSTDecode(
-                                                dstData,
-                                                frameDsdBuffer,
-                                                frameSize,
-                                                frameIndex
-                                            )
-                                            DffAudioFrame.read(
-                                                frameDsdBuffer,
-                                                destData,
-                                                frameDsdBuffer.size,
-                                                isDopEnable
-                                            )
-                                            onFrameDecoded?.invoke(destData, frameDsdBuffer.size)
-                                        }
-                                    }
-                                    // 创建一个buff接受DST解码前的数据
-                                    frameSize = packetInfo.packetLength
-                                    frameDstBuffer = mutableListOf<Byte>()
-                                    frameDstBuffer?.addAll(
-                                        srcData.copyOfRange(index, index + packetInfo.packetLength)
-                                            .toList()
-                                    )
-
-                                } else {
-                                    // 将数据添加到 frameStart 时候创建的buff上
-                                    frameSize += packetInfo.packetLength
-                                    if (index + packetInfo.packetLength > length) {
-                                        return 0
-                                    }
-                                    frameDstBuffer?.addAll(
-                                        srcData.copyOfRange(index, index + packetInfo.packetLength)
-                                            .toList()
-                                    )
-                                }
-                            } else {
-                                Timber.d("frameHeader $frameHeader")
-//                                val packet = ByteArray(packetInfo.packetLength)
-//                                System.arraycopy(srcData, index, packet, 0, packetInfo.packetLength)
-//                                System.arraycopy(packet, 0, tempData, currentDataSize, packet.size)
-//                                currentDataSize += packetInfo.packetLength
-                            }
+                            val packet = ByteArray(packetInfo.packetLength)
+                            System.arraycopy(srcData, index, packet, 0, packetInfo.packetLength)
                             index += packetInfo.packetLength
+                            System.arraycopy(packet, 0, tempData, currentDataSize, packet.size)
+                            currentDataSize += packetInfo.packetLength
                         }
 
                         ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
@@ -282,9 +236,9 @@ object SacdAudioFrame {
                 }
             }
         }
-        if (onFrameDecoded != null) {
-            return 0
-        }
+        // Timber.d("currentDataSize: $currentDataSize")
+
+        //interleaveDffBlockStereo(destData, tempData, currentDataSize)
         return DffAudioFrame.read(tempData, destData, currentDataSize, isDopEnable)
     }
 
@@ -294,27 +248,31 @@ object SacdAudioFrame {
         index: Int,
         onFrameDecoded: ((ByteArray, Int) -> Unit)? = null
     ) {
-        if (packetInfo.frameStart == 1) {
-            if (frameSize != 0) {
-                frameIndex++
-                frameDstBuffer?.toByteArray()?.let { dstData ->
-                    // DST 解码为 DSD 流
-                    dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize, frameIndex)
-                    // DSD 流转 DFF 流
-                    DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
-                    onFrameDecoded?.invoke(dffBuffer, frameDsdBuffer.size)
+        runCatching {
+            if (packetInfo.frameStart == 1) {
+                if (frameSize != 0) {
+                    frameIndex++
+                    frameDstBuffer?.toByteArray()?.let { dstData ->
+                        // DST 解码为 DSD 流
+                        dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize, frameIndex)
+                        // DSD 流转 DFF 流
+                        DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
+                        onFrameDecoded?.invoke(dffBuffer, frameDsdBuffer.size)
+                    }
                 }
-            }
 
-            frameSize = packetInfo.packetLength
-            frameDstBuffer = mutableListOf<Byte>().apply {
-                addAll(srcData.copyOfRange(index, index + packetInfo.packetLength).toList())
+                frameSize = packetInfo.packetLength
+                frameDstBuffer = mutableListOf<Byte>().apply {
+                    addAll(srcData.copyOfRange(index, index + packetInfo.packetLength).toList())
+                }
+            } else {
+                frameSize += packetInfo.packetLength
+                frameDstBuffer?.addAll(
+                    srcData.copyOfRange(index, index + packetInfo.packetLength).toList()
+                )
             }
-        } else {
-            frameSize += packetInfo.packetLength
-            frameDstBuffer?.addAll(
-                srcData.copyOfRange(index, index + packetInfo.packetLength).toList()
-            )
+        }.onFailure {
+            Timber.e("handleDstAudioPacket error $it")
         }
     }
 }

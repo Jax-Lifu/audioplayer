@@ -20,8 +20,10 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
 import java.io.RandomAccessFile
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.math.roundToLong
 
 class DsdAudioPlayer(context: Context) : AudioPlayer {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -42,6 +44,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     private var onProgressListener: OnProgressListener? = null
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
 
+    private var shouldCancelDstDecode = AtomicBoolean(false)
 
     @SuppressLint("InlinedApi")
     private fun initializeAudioTrack() = runCatching {
@@ -80,6 +83,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
             AudioManager.AUDIO_SESSION_ID_GENERATE
         )
     }.onFailure {
+        Timber.d("initializeAudioTrack error $it")
         onPlayerError(it)
     }
 
@@ -89,7 +93,22 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, bytesRead: Int) {
         runCatching {
             val fileFormat = audioFileInfo?.formatName ?: return
+
+
             var lengthToWrite = if (isDopEnable) bytesRead * 2 else bytesRead
+
+            if (audioFileInfo?.codecName?.startsWith("DST") == true) {
+                SacdAudioFrame.readDstFrame(
+                    srcData,
+                    bytesRead,
+                    shouldCancelDstDecode
+                ) { data, size ->
+                    if (!shouldCancelDstDecode.get()) {
+                        audioTrack?.write(data, 0, size, AudioTrack.WRITE_BLOCKING)
+                    }
+                }
+                return
+            }
             val dataToWrite: ByteArray = when (fileFormat) {
                 DsfAudioFileParser.ENCODING_TYPE_DSF -> {
                     DsfAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
@@ -102,26 +121,9 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                 }
 
                 SacdAudioFileParser.ENCODING_TYPE_SACD -> {
-                    when {
-                        audioFileInfo?.codecName?.startsWith("DST") == true -> {
-                            SacdAudioFrame.read(
-                                srcData,
-                                destData,
-                                bytesRead,
-                                isDopEnable
-                            ) { data, size ->
-                                //Timber.d("writeAudioData: $it")
-                                audioTrack?.write(data, 0, size, AudioTrack.WRITE_BLOCKING)
-                            }
-                            return@runCatching
-                        }
-
-                        else -> {
-                            lengthToWrite =
-                                SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
-                            destData
-                        }
-                    }
+                    lengthToWrite =
+                        SacdAudioFrame.read(srcData, destData, bytesRead, isDopEnable)
+                    destData
                 }
 
                 else -> srcData // 默认使用源数据
@@ -142,6 +144,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         // 处理前一个偏移量和时间计算
         if (previousOffset != -1L && offsetPreSeconds == -1L) {
             offsetPreSeconds = currentOffset - previousOffset
+            Timber.d("offsetPreSeconds $offsetPreSeconds")
         }
         currentPosition = position
         previousOffset = currentOffset
@@ -163,8 +166,11 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         val byteRate = audioInfo.bitRate / 8
         val startOffset = audioInfo.startOffset ?: 0L
         val endOffset = audioInfo.endOffset ?: 0L
+        val dataByte = (audioInfo.dataLength ?: 0L) * 8f
         val srcData = ByteArray(bufferSize)
         val destData = ByteArray(if (isDopEnable) bufferSize * 2 else bufferSize)
+        val compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
+        Timber.d("compressionRate $compressionRate")
         var position: Long
         currentOffset = startOffset
         SacdAudioFrame.frameIndex = 0
@@ -190,6 +196,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                             Timber.d("seekTo currentOffset $currentOffset")
                             seeking = false
                             audioTrack?.flush()
+                            shouldCancelDstDecode.set(false)
                         }
 
                         // 读取文件数据并处理异常
@@ -200,23 +207,15 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                         }
 
                         // 更新播放进度
-                        position = (currentOffset - startOffset) / byteRate
+                        position = if (audioInfo.codecName.startsWith("DST")) {
+                            ((currentOffset - startOffset) * compressionRate / byteRate).roundToLong()
+                        } else {
+                            (currentOffset - startOffset) / byteRate
+                        }
                         updatePlaybackProgress(position)
 
-                        // 写入音频数据
-//                        Timber.d(
-//                            "writeAudioData currentOffset $currentOffset(${
-//                                currentOffset.toString(
-//                                    16
-//                                )
-//                            })"
-//                        )
-                        //writeAudioData(srcData, destData, bytesRead)
+                        writeAudioData(srcData, destData, bytesRead)
 
-//                        SacdAudioFrame.read(srcData,de)
-                        SacdAudioFrame.readDstFrame(srcData, bytesRead) { data, size ->
-                            audioTrack?.write(data, 0, size, AudioTrack.WRITE_BLOCKING)
-                        }
                         // 更新当前偏移量
                         currentOffset += bytesRead
                     }
@@ -248,6 +247,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     override fun setMediaItem(mediaItem: AudioFileInfo) {
         audioFileInfo = mediaItem
+        Timber.d("setMediaItem: $mediaItem")
     }
 
     override fun prepare() {
@@ -298,6 +298,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                 updatePlaybackState(PlaybackState.PAUSED) // 更新播放状态
             }
         }.onFailure {
+            Timber.d(it, "pause error")
             onPlayerError(it)
         }
     }
@@ -315,6 +316,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                 audioTrack = null
             }
         }.onFailure {
+            Timber.e(it, "stop error")
             onPlayerError(it)
         }
     }
@@ -337,21 +339,31 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                 onPlaybackStateChanged = null
             }
         }.onFailure {
+            Timber.e(it, "release error")
             onPlayerError(it)
         }
     }
 
     override fun seekTo(position: Long) {
+
         if (offsetPreSeconds == -1L) {
+            Timber.d("seek fail  offsetPreSeconds $offsetPreSeconds position $position")
             return
         }
-        val startOffset = audioFileInfo?.startOffset ?: return
-        lock.withLock {
-            val seconds = position / 1000
-            currentPosition = seconds
-            currentOffset = startOffset + seconds * offsetPreSeconds
-            seeking = true
-            Timber.d("seekTo: $position offsetPreSeconds $offsetPreSeconds currentOffset $currentOffset")
+        runCatching {
+
+            Timber.d("seek to  offsetPreSeconds $offsetPreSeconds position $position")
+            val startOffset = audioFileInfo?.startOffset ?: return
+            shouldCancelDstDecode.set(true)
+            lock.withLock {
+                val seconds = position / 1000
+                currentPosition = seconds
+                currentOffset = startOffset + seconds * offsetPreSeconds
+                seeking = true
+                Timber.d("seekTo: $position offsetPreSeconds $offsetPreSeconds currentOffset $currentOffset")
+            }
+        }.onFailure {
+            Timber.e(it, "seek error ")
         }
     }
 
