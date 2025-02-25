@@ -2,6 +2,7 @@ package com.qytech.audioplayer.audioframe
 
 import com.qytech.audioplayer.extension.createDataChannel
 import com.qytech.audioplayer.extension.intToByteArray
+import timber.log.Timber
 
 
 object DffAudioFrame {
@@ -17,7 +18,7 @@ object DffAudioFrame {
         destData: ByteArray,
         length: Int,
     ) {
-        for (i in 0 until length step 8) {
+        /*for (i in 0 until length step 8) {
             destData[(i + 0x00)] = srcData[(i + 0x00)]
             destData[(i + 0x01)] = srcData[(i + 0x02)]
             destData[(i + 0x02)] = srcData[(i + 0x04)]
@@ -27,6 +28,38 @@ object DffAudioFrame {
             destData[(i + 0x05)] = srcData[(i + 0x03)]
             destData[(i + 0x06)] = srcData[(i + 0x05)]
             destData[(i + 0x07)] = srcData[(i + 0x07)]
+        }*/
+        /*if (length % 8 != 0) {
+            Timber.e("Size must be multiple of 8")
+            return
+        }*/
+        if (srcData.size < length || destData.size < length) {
+            Timber.e("Invalid data size")
+            return
+        }
+        var srcPos = 0
+        var destPos = 0
+        val end = length
+
+        while (srcPos < end) {
+            // 批量加载源数据到局部变量
+            val s0 = srcData[srcPos++]
+            val s1 = srcData[srcPos++]
+            val s2 = srcData[srcPos++]
+            val s3 = srcData[srcPos++]
+            val s4 = srcData[srcPos++]
+            val s5 = srcData[srcPos++]
+            val s6 = srcData[srcPos++]
+            val s7 = srcData[srcPos++]
+            // 批量写入目标数组
+            destData[destPos++] = s0
+            destData[destPos++] = s2
+            destData[destPos++] = s4
+            destData[destPos++] = s6
+            destData[destPos++] = s1
+            destData[destPos++] = s3
+            destData[destPos++] = s5
+            destData[destPos++] = s7
         }
     }
 
@@ -39,7 +72,11 @@ object DffAudioFrame {
      * @param srcData 输入的DFF数据字节数组
      * @param length 输入数据的长度
      */
-    private fun convertToDopStream(srcData: ByteArray, destData: ByteArray, length: Int) {
+    private fun convertToDopStream(
+        srcData: ByteArray,
+        destData: ByteArray,
+        length: Int
+    ) {
         var dataChannel1: Int
         var dataChannel2: Int
         var destDataIndex: Int

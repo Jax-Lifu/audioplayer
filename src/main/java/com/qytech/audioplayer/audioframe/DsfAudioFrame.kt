@@ -3,59 +3,100 @@ package com.qytech.audioplayer.audioframe
 import com.qytech.audioplayer.extension.byteReversalTable
 import com.qytech.audioplayer.extension.createDataChannel
 import com.qytech.audioplayer.extension.intToByteArray
+import timber.log.Timber
 
 object DsfAudioFrame {
 
-
+    /*if (lsbFirst == 1) {
+            var j = 0
+            for (i in 0 until size step 8) {
+                outData[(i + 0)] = byteReversalTable[(inData[j + 0].toInt() and 0xFF)]
+                outData[(i + 1)] = byteReversalTable[(inData[j + 1].toInt() and 0xFF)]
+                outData[(i + 2)] = byteReversalTable[(inData[j + 2].toInt() and 0xFF)]
+                outData[(i + 3)] = byteReversalTable[(inData[j + 3].toInt() and 0xFF)]
+                j += 4
+            }
+            j = 0
+            for (i in 0 until size step 8) {
+                outData[(i + 4)] = byteReversalTable[inData[j + 4096 + 0].toInt() and 0xFF]
+                outData[(i + 5)] = byteReversalTable[inData[j + 4096 + 1].toInt() and 0xFF]
+                outData[(i + 6)] = byteReversalTable[inData[j + 4096 + 2].toInt() and 0xFF]
+                outData[(i + 7)] = byteReversalTable[inData[j + 4096 + 3].toInt() and 0xFF]
+                j += 4
+            }
+        } else {
+            var j = 0
+            for (i in 0 until size step 8) {
+                outData[(i + 0)] = inData[j + 0]
+                outData[(i + 1)] = inData[j + 1]
+                outData[(i + 2)] = inData[j + 2]
+                outData[(i + 3)] = inData[j + 3]
+                j += 4
+            }
+            j = 0
+            for (i in 0 until size step 8) {
+                outData[(i + 4)] = inData[j + 4096 + 0]
+                outData[(i + 5)] = inData[j + 4096 + 1]
+                outData[(i + 6)] = inData[j + 4096 + 2]
+                outData[(i + 7)] = inData[j + 4096 + 3]
+                j += 4
+            }
+        }*/
     /**
      * 交错DSF块的立体声数据
      *
-     * @param outData 输出字节数组
-     * @param inData 输入字节数组
-     * @param size 数据大小
+     * @param destData 输出字节数组
+     * @param srcData 输入字节数组
+     * @param length 数据大小
      * @param lsbFirst 是否LSB优先
      */
     private fun convertToDffStream(
-        outData: ByteArray,
-        inData: ByteArray,
-        size: Int,
+        srcData: ByteArray,
+        destData: ByteArray,
+        length: Int,
         lsbFirst: Int = 1
-    ) = if (lsbFirst == 1) {
-        var j = 0
-        for (i in 0 until size step 8) {
-            outData[(i + 0)] = byteReversalTable[(inData[j + 0].toInt() and 0xFF)]
-            outData[(i + 1)] = byteReversalTable[(inData[j + 1].toInt() and 0xFF)]
-            outData[(i + 2)] = byteReversalTable[(inData[j + 2].toInt() and 0xFF)]
-            outData[(i + 3)] = byteReversalTable[(inData[j + 3].toInt() and 0xFF)]
-            j += 4
+    ) {
+        /*if (length % 8 != 0) {
+            Timber.e("Size must be multiple of 8")
+            return
+        }*/
+        if (srcData.size < length || destData.size < length) {
+            Timber.e("Invalid data size")
+            return
         }
-        j = 0
-        for (i in 0 until size step 8) {
-            outData[(i + 4)] = byteReversalTable[inData[j + 4096 + 0].toInt() and 0xFF]
-            outData[(i + 5)] = byteReversalTable[inData[j + 4096 + 1].toInt() and 0xFF]
-            outData[(i + 6)] = byteReversalTable[inData[j + 4096 + 2].toInt() and 0xFF]
-            outData[(i + 7)] = byteReversalTable[inData[j + 4096 + 3].toInt() and 0xFF]
-            j += 4
+
+
+        val processor: (Byte) -> Byte = if (lsbFirst == 1) {
+            { byte -> byteReversalTable[byte.toInt() and 0xFF] }
+        } else {
+            { byte -> byte }
         }
-    } else {
-        var j = 0
-        for (i in 0 until size step 8) {
-            outData[(i + 0)] = inData[j + 0]
-            outData[(i + 1)] = inData[j + 1]
-            outData[(i + 2)] = inData[j + 2]
-            outData[(i + 3)] = inData[j + 3]
-            j += 4
-        }
-        j = 0
-        for (i in 0 until size step 8) {
-            outData[(i + 4)] = inData[j + 4096 + 0]
-            outData[(i + 5)] = inData[j + 4096 + 1]
-            outData[(i + 6)] = inData[j + 4096 + 2]
-            outData[(i + 7)] = inData[j + 4096 + 3]
-            j += 4
-        }
+        // 处理前4字节块
+        processSegment(srcData, destData, 0, 0, length, processor)
+        // 处理后4字节块（偏移4096）
+        processSegment(srcData, destData, 4096, 4, length, processor)
     }
 
+    private inline fun processSegment(
+        src: ByteArray,
+        dest: ByteArray,
+        srcOffset: Int,
+        destOffset: Int,
+        totalSize: Int,
+        processor: (Byte) -> Byte
+    ) {
+        var srcIndex = srcOffset
+        var destIndex = destOffset
+        val blockCount = totalSize / 8
+
+        repeat(blockCount) {
+            dest[destIndex] = processor(src[srcIndex++])
+            dest[destIndex + 1] = processor(src[srcIndex++])
+            dest[destIndex + 2] = processor(src[srcIndex++])
+            dest[destIndex + 3] = processor(src[srcIndex++])
+            destIndex += 8
+        }
+    }
 
     /**
      * 将DSD格式的DSF文件转换为DOP格式的PCM数据。
@@ -64,7 +105,11 @@ object DsfAudioFrame {
      * @param srcData 输入的DSF数据字节数组
      * @param length 输入数据的长度
      */
-    private fun convertToDopStream(destData: ByteArray, srcData: ByteArray, length: Int) {
+    private fun convertToDopStream(
+        srcData: ByteArray,
+        destData: ByteArray,
+        length: Int
+    ) {
         var destDataIndex: Int
         var dataChannel1: Int
         var dataChannel2: Int
@@ -107,9 +152,9 @@ object DsfAudioFrame {
 
     fun read(srcData: ByteArray, destData: ByteArray, length: Int, isDopEnable: Boolean): Int {
         if (isDopEnable) {
-            convertToDopStream(destData, srcData, length)
+            convertToDopStream(srcData, destData, length)
         } else {
-            convertToDffStream(destData, srcData, length)
+            convertToDffStream(srcData, destData, length)
         }
         return if (isDopEnable) 2 * length else length
     }

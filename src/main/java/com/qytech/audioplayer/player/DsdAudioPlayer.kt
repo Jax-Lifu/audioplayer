@@ -91,12 +91,10 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
      * 处理音频数据并写入 AudioTrack
      */
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, bytesRead: Int) {
+
         runCatching {
             val fileFormat = audioFileInfo?.formatName ?: return
-
-
             var lengthToWrite = if (isDopEnable) bytesRead * 2 else bytesRead
-
             if (audioFileInfo?.codecName?.startsWith("DST") == true) {
                 SacdAudioFrame.readDstFrame(
                     srcData,
@@ -305,6 +303,8 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     override fun stop() {
         runCatching {
+            shouldCancelDstDecode.set(true)
+
             lock.withLock {
                 stopped = true
                 paused = false
@@ -323,6 +323,8 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     override fun release() {
         runCatching {
+            shouldCancelDstDecode.set(true)
+
             lock.withLock {
                 stopped = true
                 paused = false

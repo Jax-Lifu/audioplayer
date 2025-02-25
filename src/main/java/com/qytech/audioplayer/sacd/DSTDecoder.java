@@ -88,9 +88,9 @@ public class DSTDecoder {
 
     static class Segment {
         int Resolution; /* Resolution for segments        */
-        int SegmentLen[][] = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* SegmentLen[ChNr][SegmentNr]    */
-        int NrOfSegments[] = new int[MAX_CHANNELS]; /* NrOfSegments[ChNr]             */
-        int Table4Segment[][] = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* Table4Segment[ChNr][SegmentNr] */
+        int[][] SegmentLen = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* SegmentLen[ChNr][SegmentNr]    */
+        int[] NrOfSegments = new int[MAX_CHANNELS]; /* NrOfSegments[ChNr]             */
+        int[][] Table4Segment = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* Table4Segment[ChNr][SegmentNr] */
     }
 
     static class FrameHeader {

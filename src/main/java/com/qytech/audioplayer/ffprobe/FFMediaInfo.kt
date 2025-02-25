@@ -2,6 +2,7 @@ package com.qytech.audioplayer.ffprobe
 
 import com.qytech.audioplayer.model.AudioFileInfo
 import com.qytech.core.extensions.getFileName
+import com.qytech.core.extensions.getFolderName
 
 class FFMediaInfo {
 
@@ -41,7 +42,7 @@ class FFMediaInfo {
             bitPreSample = bitPerSample,
             duration = duration / 1000,
             title = title ?: path.getFileName(),
-            album = album ?: folder,
+            album = album ?: folder.getFolderName(),
             artist = artist ?: "Unknown Artist",
             genre = genre?.lowercase() ?: "other",
             date = date,
