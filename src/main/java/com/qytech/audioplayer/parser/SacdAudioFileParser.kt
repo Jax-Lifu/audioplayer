@@ -133,6 +133,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
             startOffset = startOffset,
             endOffset = endOffset,
             dataLength = dataLength,
+            fileSize = reader.fileSize,
         )
     }
 

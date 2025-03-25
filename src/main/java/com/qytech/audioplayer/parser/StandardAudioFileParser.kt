@@ -47,6 +47,7 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
             ffMediaInfo.toAudioFileInfo(
                 path = file.absolutePath,
                 folder = file.getAbsoluteFolder(),
+                fileSize = file.length(),
                 albumCover = albumCover
             )
         )

@@ -33,7 +33,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
     private var playSpeed = 1f
     private var audioFileInfo: AudioFileInfo? = null
     private var audioTrack: AudioTrack? = null
-    private var isDopEnable = false
+    var isDopEnable = false
     private var currentPosition = 0L
     private var offsetPreSeconds = -1L
     private var previousOffset = -1L
@@ -213,7 +213,6 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
                         updatePlaybackProgress(position)
 
                         writeAudioData(srcData, destData, bytesRead)
-
                         // 更新当前偏移量
                         currentOffset += bytesRead
                     }

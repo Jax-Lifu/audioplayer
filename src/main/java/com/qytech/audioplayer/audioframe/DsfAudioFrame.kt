@@ -3,45 +3,9 @@ package com.qytech.audioplayer.audioframe
 import com.qytech.audioplayer.extension.byteReversalTable
 import com.qytech.audioplayer.extension.createDataChannel
 import com.qytech.audioplayer.extension.intToByteArray
-import timber.log.Timber
 
 object DsfAudioFrame {
 
-    /*if (lsbFirst == 1) {
-            var j = 0
-            for (i in 0 until size step 8) {
-                outData[(i + 0)] = byteReversalTable[(inData[j + 0].toInt() and 0xFF)]
-                outData[(i + 1)] = byteReversalTable[(inData[j + 1].toInt() and 0xFF)]
-                outData[(i + 2)] = byteReversalTable[(inData[j + 2].toInt() and 0xFF)]
-                outData[(i + 3)] = byteReversalTable[(inData[j + 3].toInt() and 0xFF)]
-                j += 4
-            }
-            j = 0
-            for (i in 0 until size step 8) {
-                outData[(i + 4)] = byteReversalTable[inData[j + 4096 + 0].toInt() and 0xFF]
-                outData[(i + 5)] = byteReversalTable[inData[j + 4096 + 1].toInt() and 0xFF]
-                outData[(i + 6)] = byteReversalTable[inData[j + 4096 + 2].toInt() and 0xFF]
-                outData[(i + 7)] = byteReversalTable[inData[j + 4096 + 3].toInt() and 0xFF]
-                j += 4
-            }
-        } else {
-            var j = 0
-            for (i in 0 until size step 8) {
-                outData[(i + 0)] = inData[j + 0]
-                outData[(i + 1)] = inData[j + 1]
-                outData[(i + 2)] = inData[j + 2]
-                outData[(i + 3)] = inData[j + 3]
-                j += 4
-            }
-            j = 0
-            for (i in 0 until size step 8) {
-                outData[(i + 4)] = inData[j + 4096 + 0]
-                outData[(i + 5)] = inData[j + 4096 + 1]
-                outData[(i + 6)] = inData[j + 4096 + 2]
-                outData[(i + 7)] = inData[j + 4096 + 3]
-                j += 4
-            }
-        }*/
     /**
      * 交错DSF块的立体声数据
      *
@@ -56,45 +20,49 @@ object DsfAudioFrame {
         length: Int,
         lsbFirst: Int = 1
     ) {
-        /*if (length % 8 != 0) {
-            Timber.e("Size must be multiple of 8")
-            return
-        }*/
-        if (srcData.size < length || destData.size < length) {
-            Timber.e("Invalid data size")
-            return
-        }
-
-
-        val processor: (Byte) -> Byte = if (lsbFirst == 1) {
-            { byte -> byteReversalTable[byte.toInt() and 0xFF] }
+        if (lsbFirst == 1) {
+            // 计算迭代次数，每次处理8个目标字节
+            val iterations = length / 8
+            // 缓存数组引用到局部变量，提升访问速度
+            val src = srcData
+            val dest = destData
+            val table = byteReversalTable
+            var j = 0
+            // 合并处理两个循环：前4个字节和后4个字节（后4字节来自 srcData 偏移4096 的位置）
+            for (k in 0 until iterations) {
+                // 计算目标数组的起始下标
+                val destIndex = k * 8
+                // 处理前4字节：通过 byteReversalTable 做字节反转查找
+                dest[destIndex    ] = table[src[j    ].toInt() and 0xFF]
+                dest[destIndex + 1] = table[src[j + 1].toInt() and 0xFF]
+                dest[destIndex + 2] = table[src[j + 2].toInt() and 0xFF]
+                dest[destIndex + 3] = table[src[j + 3].toInt() and 0xFF]
+                // 处理后4字节：来自 srcData 偏移4096 的位置
+                dest[destIndex + 4] = table[src[j + 4096    ].toInt() and 0xFF]
+                dest[destIndex + 5] = table[src[j + 4096 + 1].toInt() and 0xFF]
+                dest[destIndex + 6] = table[src[j + 4096 + 2].toInt() and 0xFF]
+                dest[destIndex + 7] = table[src[j + 4096 + 3].toInt() and 0xFF]
+                j += 4  // 每次循环处理4个字节
+            }
         } else {
-            { byte -> byte }
-        }
-        // 处理前4字节块
-        processSegment(srcData, destData, 0, 0, length, processor)
-        // 处理后4字节块（偏移4096）
-        processSegment(srcData, destData, 4096, 4, length, processor)
-    }
-
-    private inline fun processSegment(
-        src: ByteArray,
-        dest: ByteArray,
-        srcOffset: Int,
-        destOffset: Int,
-        totalSize: Int,
-        processor: (Byte) -> Byte
-    ) {
-        var srcIndex = srcOffset
-        var destIndex = destOffset
-        val blockCount = totalSize / 8
-
-        repeat(blockCount) {
-            dest[destIndex] = processor(src[srcIndex++])
-            dest[destIndex + 1] = processor(src[srcIndex++])
-            dest[destIndex + 2] = processor(src[srcIndex++])
-            dest[destIndex + 3] = processor(src[srcIndex++])
-            destIndex += 8
+            val iterations = length / 8
+            val src = srcData
+            val dest = destData
+            var j = 0
+            for (k in 0 until iterations) {
+                val destIndex = k * 8
+                // 直接复制前4字节
+                dest[destIndex    ] = src[j    ]
+                dest[destIndex + 1] = src[j + 1]
+                dest[destIndex + 2] = src[j + 2]
+                dest[destIndex + 3] = src[j + 3]
+                // 直接复制后4字节（来自 srcData 偏移4096 的位置）
+                dest[destIndex + 4] = src[j + 4096    ]
+                dest[destIndex + 5] = src[j + 4096 + 1]
+                dest[destIndex + 6] = src[j + 4096 + 2]
+                dest[destIndex + 7] = src[j + 4096 + 3]
+                j += 4
+            }
         }
     }
 

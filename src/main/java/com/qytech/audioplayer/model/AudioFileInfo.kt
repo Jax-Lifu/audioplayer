@@ -18,6 +18,7 @@ data class AudioFileInfo(
     override val artist: String,
     override val genre: String,
     override val date: String? = null,
+    override val fileSize:Long,
     override val startOffset: Long? = null,
     override val endOffset: Long? = null,
     override val dataLength: Long? = null,

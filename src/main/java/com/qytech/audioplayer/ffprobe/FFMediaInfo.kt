@@ -29,6 +29,7 @@ class FFMediaInfo {
     fun toAudioFileInfo(
         path: String,
         folder: String,
+        fileSize: Long,
         albumCover: String? = null,
     ): AudioFileInfo {
         return AudioFileInfo(
@@ -46,7 +47,8 @@ class FFMediaInfo {
             artist = artist ?: "Unknown Artist",
             genre = genre?.lowercase() ?: "other",
             date = date,
-            albumImageUrl = albumCover
+            albumImageUrl = albumCover,
+            fileSize = fileSize,
         )
     }
 

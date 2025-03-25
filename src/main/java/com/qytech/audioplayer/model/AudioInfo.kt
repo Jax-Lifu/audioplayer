@@ -5,6 +5,7 @@ interface AudioInfo {
     val folder: String
     val codecName: String
     val formatName: String
+    val fileSize:Long
 
     val channels: Int
     val sampleRate: Int
