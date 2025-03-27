@@ -1,8 +1,12 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
-import com.qytech.audioplayer.model.AudioFileInfo
-import timber.log.Timber
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
+import com.qytech.audioplayer.model.AudioInfo
+import java.io.File
 
 
 data class PlaybackProgress(
@@ -53,7 +57,7 @@ interface OnPlaybackStateChangeListener {
 interface AudioPlayer {
 
     // 设置要播放的媒体项
-    fun setMediaItem(mediaItem: AudioFileInfo)
+    fun setMediaItem(mediaItem: AudioInfo)
 
     // 准备播放
     fun prepare()
@@ -101,45 +105,54 @@ interface AudioPlayer {
 }
 
 
+@UnstableApi
 object AudioPlayerFactory {
+
+    private var simpleCache: SimpleCache? = null
 
     fun createAudioPlayer(
         context: Context,
-        audioFileInfo: AudioFileInfo,
+        audioFileInfo: AudioInfo,
     ): AudioPlayer {
-        val codec = audioFileInfo.codecName.lowercase()
-        return when {
-            codec.startsWith("dsd") || codec.startsWith("dst") -> DsdAudioPlayer(context)
-            codec in setOf(
-                "mp1",
-                "mp2",
-                "mp3",
-                "aac",
-                "ape",
-                "wmalossless",
-                "wmapro",
-                "wmav1",
-                "wmav2",
-                "adpcm_ima_qt",
-                "vorbis",
-                "pcm_s16le",
-                "pcm_s24le",
-                "pcm_s32le",
-                "flac"
-            ) -> RockitPlayer(context)
+        initSimpleCache(context)
+        return when (audioFileInfo) {
+            is AudioInfo.Local -> {
+                val codec = audioFileInfo.codecName.lowercase()
+                handleLocalAudioPlayer(context, codec)
+            }
 
-            codec in setOf(
-                "opus",
-                "alac",
-                "pcm_mulaw",
-                "pcm_alaw",
-                "amrnb",
-                "amrwb",
-                "ac3",
-                "dca"
-            ) -> ExoAudioPlayer(context)
+            is AudioInfo.Remote -> {
+                handleRemoteAudioPlayer(context)
+            }
+        }
+    }
 
-            else -> FFAudioPlayer()
+    private fun handleLocalAudioPlayer(context: Context, codec: String) = when {
+        codec.startsWith("dsd") || codec.startsWith("dst") -> DsdAudioPlayer(context)
+        codec in setOf(
+            "mp1", "mp2", "mp3", "aac", "ape",
+            "wmalossless", "wmapro", "wmav1", "wmav2", "adpcm_ima_qt",
+            "vorbis", "pcm_s16le", "pcm_s24le", "pcm_s32le", "flac"
+        ) -> RockitPlayer(context)
+
+        codec in setOf(
+            "opus", "alac", "pcm_mulaw", "pcm_alaw", "amrnb",
+            "amrwb", "ac3", "dca"
+        ) -> ExoAudioPlayer(context, simpleCache)
+
+        else -> FFAudioPlayer()
+    }
+
+
+    private fun handleRemoteAudioPlayer(context: Context) = ExoAudioPlayer(context, simpleCache)
+
+    private fun initSimpleCache(context: Context) {
+        if (simpleCache == null) {
+            simpleCache = SimpleCache(
+                File(context.cacheDir, "media_cache"),
+                LeastRecentlyUsedCacheEvictor(500 * 1024 * 1024), // 500MB
+                StandaloneDatabaseProvider(context)
+            )
         }
     }
 }

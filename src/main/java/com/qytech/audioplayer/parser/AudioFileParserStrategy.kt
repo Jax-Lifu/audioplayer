@@ -1,8 +1,8 @@
 package com.qytech.audioplayer.parser
 
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 
 interface AudioFileParserStrategy {
 
-    fun parse(): List<AudioFileInfo>?
+    fun parse(): List<AudioInfo.Local>?
 }

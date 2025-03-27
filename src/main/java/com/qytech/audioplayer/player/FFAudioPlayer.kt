@@ -4,7 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,8 +48,8 @@ class FFAudioPlayer : AudioPlayer {
         onPlaybackStateChanged?.onPlaybackStateChanged(state)
     }
 
-    override fun setMediaItem(mediaItem: AudioFileInfo) {
-        native_init(mediaItem.filepath)
+    override fun setMediaItem(mediaItem: AudioInfo) {
+        native_init(mediaItem.sourceId)
     }
 
     override fun prepare() {

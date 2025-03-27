@@ -1,6 +1,6 @@
 package com.qytech.audioplayer.ffprobe
 
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.core.extensions.getFileName
 import com.qytech.core.extensions.getFolderName
 
@@ -31,8 +31,8 @@ class FFMediaInfo {
         folder: String,
         fileSize: Long,
         albumCover: String? = null,
-    ): AudioFileInfo {
-        return AudioFileInfo(
+    ): AudioInfo.Local {
+        return AudioInfo.Local(
             filepath = filename ?: path,
             folder = folder,
             codecName = codecName ?: "",

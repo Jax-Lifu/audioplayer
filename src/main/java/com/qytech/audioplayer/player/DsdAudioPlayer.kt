@@ -9,7 +9,7 @@ import android.media.AudioTrack
 import com.qytech.audioplayer.audioframe.DffAudioFrame
 import com.qytech.audioplayer.audioframe.DsfAudioFrame
 import com.qytech.audioplayer.audioframe.SacdAudioFrame
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.DffAudioFileParser
 import com.qytech.audioplayer.parser.DsfAudioFileParser
 import com.qytech.audioplayer.parser.SacdAudioFileParser
@@ -31,7 +31,7 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
 
     private val context = context.applicationContext
     private var playSpeed = 1f
-    private var audioFileInfo: AudioFileInfo? = null
+    private var audioFileInfo: AudioInfo.Local? = null
     private var audioTrack: AudioTrack? = null
     var isDopEnable = false
     private var currentPosition = 0L
@@ -242,9 +242,11 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         onPlaybackStateChanged?.onPlaybackStateChanged(state)
     }
 
-    override fun setMediaItem(mediaItem: AudioFileInfo) {
-        audioFileInfo = mediaItem
-        Timber.d("setMediaItem: $mediaItem")
+    override fun setMediaItem(mediaItem: AudioInfo) {
+        if (mediaItem is AudioInfo.Local) {
+            audioFileInfo = mediaItem
+            Timber.d("setMediaItem: $mediaItem")
+        }
     }
 
     override fun prepare() {

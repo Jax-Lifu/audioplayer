@@ -6,27 +6,50 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import com.qytech.audioplayer.model.AudioFileInfo
-import kotlinx.coroutines.*
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.qytech.audioplayer.model.AudioInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import timber.log.Timber
 
 @SuppressLint("UnsafeOptInUsageError")
-class ExoAudioPlayer(val context: Context) : AudioPlayer {
+class ExoAudioPlayer(
+    val context: Context,
+    val simpleCache: SimpleCache?
+) : AudioPlayer {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private val cacheDataSourceFactory by lazy {
+        CacheDataSource.Factory().apply {
+            simpleCache?.let { setCache(it) }
+            setUpstreamDataSourceFactory(OkHttpDataSource.Factory(OkHttpClient.Builder().build()))
+        }
+    }
     private var player: ExoPlayer = ExoPlayer.Builder(context)
         .setRenderersFactory(
             DefaultRenderersFactory(context).apply {
                 setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             }
         )
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(cacheDataSourceFactory)
+        )
         .build()
     private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
     private var onProgressListener: OnProgressListener? = null
     private var progressJob: Job? = null
-    private var currentMediaItem: AudioFileInfo? = null
+    private var currentMediaItem: AudioInfo? = null
 
     init {
         // 监听播放器状态变化
@@ -75,9 +98,9 @@ class ExoAudioPlayer(val context: Context) : AudioPlayer {
         onPlaybackStateChanged?.onPlaybackStateChanged(state)
     }
 
-    override fun setMediaItem(mediaItem: AudioFileInfo) {
+    override fun setMediaItem(mediaItem: AudioInfo) {
         runCatching {
-            val media = MediaItem.fromUri(mediaItem.filepath)
+            val media = MediaItem.fromUri(mediaItem.sourceId)
             currentMediaItem = mediaItem
             player.setMediaItem(media)
         }.onFailure {

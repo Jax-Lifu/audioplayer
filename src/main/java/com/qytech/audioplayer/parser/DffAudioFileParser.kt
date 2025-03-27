@@ -3,7 +3,7 @@ package com.qytech.audioplayer.parser
 import com.qytech.audioplayer.extension.getBigEndianUInt64
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteBuffer
@@ -16,7 +16,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         const val ENCODING_TYPE_DFF = "DFF"
     }
 
-    override fun parse(): List<AudioFileInfo>? {
+    override fun parse(): List<AudioInfo.Local>? {
         // 读取文件并确保缓冲区有效
         var buffer =
             reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()

@@ -1,9 +1,9 @@
 package com.qytech.audioplayer.parser
 
 import android.os.Environment
-import com.qytech.audioplayer.extension.*
+import com.qytech.audioplayer.extension.calculateMd5
 import com.qytech.audioplayer.ffprobe.FFprobe
-import com.qytech.audioplayer.model.*
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.core.extensions.getAbsoluteFolder
 import com.qytech.core.extensions.isAudio
 import timber.log.Timber
@@ -32,7 +32,7 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
 
     protected val reader by lazy { AudioFileReader(filePath) }
 
-    override fun parse(): List<AudioFileInfo>? {
+    override fun parse(): List<AudioInfo.Local>? {
         val file = File(filePath)
         if (!file.exists() || !file.isAudio()) {
             Timber.e("File not found or not an audio file: $filePath")

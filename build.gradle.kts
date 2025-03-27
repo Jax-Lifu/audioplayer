@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -56,7 +58,10 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
+    implementation (libs.androidx.media3.datasource.okhttp)
 
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     // exoplayer
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.exoplayer)

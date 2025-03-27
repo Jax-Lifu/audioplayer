@@ -1,7 +1,7 @@
 package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.extension.getString
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
 import java.nio.ByteOrder
@@ -12,7 +12,7 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         const val ENCODING_TYPE_DSF = "DSF"
     }
 
-    override fun parse(): List<AudioFileInfo>? {
+    override fun parse(): List<AudioInfo.Local>? {
         // 初始化缓冲区并设置为小端字节序
         val buffer =
             reader.readBuffer()?.apply { order(ByteOrder.LITTLE_ENDIAN) } ?: return super.parse()

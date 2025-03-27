@@ -2,7 +2,7 @@ package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
-import com.qytech.audioplayer.model.AudioFileInfo
+import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.sacd.SacdAlbumInfo
 import com.qytech.audioplayer.sacd.SacdAreaToc
@@ -44,7 +44,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     private var trackTimeList: List<SacdTrackTime>? = null
     private var trackTextList: List<SacdTrackText>? = null
 
-    override fun parse(): List<AudioFileInfo>? {
+    override fun parse(): List<AudioInfo.Local>? {
         sacdSectorSize = detectSectorSize() ?: return null
         //Timber.d("SACD sector size detected: $sacdSectorSize")
 
@@ -106,7 +106,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         toc?.albumGenreList?.firstOrNull()?.genre?.toLocalizedString() ?: "other"
     }
 
-    private fun generateTrackInfo(): List<AudioFileInfo> = List(getTrackCount()) { index ->
+    private fun generateTrackInfo(): List<AudioInfo.Local> = List(getTrackCount()) { index ->
         val trackOffset = trackOffsetList?.get(index)
         val trackTime = trackTimeList?.get(index)
         val trackText = trackTextList?.get(index)
@@ -115,7 +115,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         val dataLength = endOffset - startOffset
 
         val duration = (trackTime?.durationTime?.getDuration() ?: 0L) * 1000
-        AudioFileInfo(
+        AudioInfo.Local(
             filepath = filePath,
             folder = folder,
             codecName = codecName,

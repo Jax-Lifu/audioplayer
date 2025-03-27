@@ -3,8 +3,13 @@ package com.qytech.audioplayer.player
 import android.annotation.SuppressLint
 import android.content.Context
 import android.media.MediaPlayer
-import com.qytech.audioplayer.model.AudioFileInfo
-import kotlinx.coroutines.*
+import com.qytech.audioplayer.model.AudioInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @SuppressLint("UnsafeOptInUsageError")
@@ -46,9 +51,9 @@ class RockitPlayer(context: Context) : AudioPlayer {
         onPlaybackStateChanged?.onPlaybackStateChanged(state)
     }
 
-    override fun setMediaItem(mediaItem: AudioFileInfo) {
+    override fun setMediaItem(mediaItem: AudioInfo) {
         runCatching {
-            mediaPlayer.setDataSource(mediaItem.filepath)
+            mediaPlayer.setDataSource(mediaItem.sourceId)
         }.onFailure {
             Timber.e(it, "setDataSource error")
         }
