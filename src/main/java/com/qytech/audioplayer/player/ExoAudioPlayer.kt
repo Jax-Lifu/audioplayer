@@ -11,6 +11,7 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.qytech.audioplayer.model.AudioInfo
 import kotlinx.coroutines.CoroutineScope
@@ -102,7 +103,19 @@ class ExoAudioPlayer(
         runCatching {
             val media = MediaItem.fromUri(mediaItem.sourceId)
             currentMediaItem = mediaItem
-            player.setMediaItem(media)
+            Timber.d("setMediaItem ${mediaItem.sourceId}")
+            val mediaSource = if (
+                mediaItem is AudioInfo.Remote &&
+                mediaItem.sourceId.contains("u3m8", ignoreCase = true) ||
+                mediaItem.sourceId.contains("m3u8", ignoreCase = true)
+            ) {
+                HlsMediaSource.Factory(cacheDataSourceFactory)
+                    .createMediaSource(media)
+            } else {
+                DefaultMediaSourceFactory(cacheDataSourceFactory)
+                    .createMediaSource(media)
+            }
+            player.setMediaSource(mediaSource)
         }.onFailure {
             updatePlaybackState(PlaybackState.ERROR)
         }
