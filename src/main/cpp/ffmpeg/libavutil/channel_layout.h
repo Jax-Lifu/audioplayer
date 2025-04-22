@@ -108,7 +108,7 @@ enum AVChannel {
     AV_CHAN_AMBISONIC_BASE = 0x400,
     // leave space for 1024 ids, which correspond to maximum order-32 harmonics,
     // which should be enough for the foreseeable use cases
-    AV_CHAN_AMBISONIC_END = 0x7ff,
+    AV_CHAN_AMBISONIC_END  = 0x7ff,
 };
 
 enum AVChannelOrder {

@@ -33,9 +33,9 @@
 #define AV_TIMECODE_STR_SIZE 23
 
 enum AVTimecodeFlag {
-    AV_TIMECODE_FLAG_DROPFRAME = 1 << 0, ///< timecode is drop frame
-    AV_TIMECODE_FLAG_24HOURSMAX = 1 << 1, ///< timecode wraps after 24 hours
-    AV_TIMECODE_FLAG_ALLOWNEGATIVE = 1 << 2, ///< negative time values are allowed
+    AV_TIMECODE_FLAG_DROPFRAME      = 1<<0, ///< timecode is drop frame
+    AV_TIMECODE_FLAG_24HOURSMAX     = 1<<1, ///< timecode wraps after 24 hours
+    AV_TIMECODE_FLAG_ALLOWNEGATIVE  = 1<<2, ///< negative time values are allowed
 };
 
 typedef struct {
@@ -124,9 +124,7 @@ char *av_timecode_make_string(const AVTimecode *tc, char *buf, int framenum);
  *                   bit is arbitrary (e.g. because it is used as PC flag)
  * @return           the buf parameter
  */
-char *
-av_timecode_make_smpte_tc_string2(char *buf, AVRational rate, uint32_t tcsmpte, int prevent_df,
-                                  int skip_field);
+char *av_timecode_make_smpte_tc_string2(char *buf, AVRational rate, uint32_t tcsmpte, int prevent_df, int skip_field);
 
 /**
  * Get the timecode string from the SMPTE timecode format.
@@ -177,9 +175,7 @@ int av_timecode_init(AVTimecode *tc, AVRational rate, int flags, int frame_start
  *                    is a pointer to an AVClass struct (used for av_log)
  * @return            0 on success, AVERROR otherwise
  */
-int
-av_timecode_init_from_components(AVTimecode *tc, AVRational rate, int flags, int hh, int mm, int ss,
-                                 int ff, void *log_ctx);
+int av_timecode_init_from_components(AVTimecode *tc, AVRational rate, int flags, int hh, int mm, int ss, int ff, void *log_ctx);
 
 /**
  * Parse timecode representation (hh:mm:ss[:;.]ff).

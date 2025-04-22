@@ -282,8 +282,7 @@ int av_bsf_list_append(AVBSFList *lst, AVBSFContext *bsf);
  *
  * @return >=0 on success, negative AVERROR in case of failure
  */
-int av_bsf_list_append2(AVBSFList *lst, const char *bsf_name, AVDictionary **options);
-
+int av_bsf_list_append2(AVBSFList *lst, const char * bsf_name, AVDictionary **options);
 /**
  * Finalize list of bitstream filters.
  *

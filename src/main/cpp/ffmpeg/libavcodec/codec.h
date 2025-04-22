@@ -283,7 +283,6 @@ const AVCodec *avcodec_find_encoder(enum AVCodecID id);
  * @return An encoder if one was found, NULL otherwise.
  */
 const AVCodec *avcodec_find_encoder_by_name(const char *name);
-
 /**
  * @return a non-zero number if codec is an encoder, zero otherwise
  */
@@ -331,7 +330,7 @@ enum {
      * This format can be selected without any additional configuration -
      * no device or frames context is required.
      */
-    AV_CODEC_HW_CONFIG_METHOD_INTERNAL = 0x04,
+    AV_CODEC_HW_CONFIG_METHOD_INTERNAL      = 0x04,
     /**
      * The codec supports this format by some ad-hoc method.
      *
@@ -340,7 +339,7 @@ enum {
      * this sort of configuration are deprecated and others should be
      * used in preference.)
      */
-    AV_CODEC_HW_CONFIG_METHOD_AD_HOC = 0x08,
+    AV_CODEC_HW_CONFIG_METHOD_AD_HOC        = 0x08,
 };
 
 typedef struct AVCodecHWConfig {

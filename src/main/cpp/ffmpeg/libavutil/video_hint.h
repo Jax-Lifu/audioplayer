@@ -65,12 +65,12 @@ typedef struct AVVideoHint {
 
 static av_always_inline AVVideoRect *
 av_video_hint_rects(const AVVideoHint *hints) {
-    return (AVVideoRect *) ((uint8_t *) hints + hints->rect_offset);
+    return (AVVideoRect *)((uint8_t *)hints + hints->rect_offset);
 }
 
 static av_always_inline AVVideoRect *
 av_video_hint_get_rect(const AVVideoHint *hints, size_t idx) {
-    return (AVVideoRect *) ((uint8_t *) hints + hints->rect_offset + idx * hints->rect_size);
+    return (AVVideoRect *)((uint8_t *)hints + hints->rect_offset + idx * hints->rect_size);
 }
 
 /**

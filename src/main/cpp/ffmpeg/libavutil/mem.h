@@ -65,10 +65,10 @@
  * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-g_t_0040code_007bmalloc_007d-function-attribute-3251">Function attribute `malloc` in GCC's documentation</a>
  */
 
-#if AV_GCC_VERSION_AT_LEAST(3, 1)
-#define av_malloc_attrib __attribute__((__malloc__))
+#if AV_GCC_VERSION_AT_LEAST(3,1)
+    #define av_malloc_attrib __attribute__((__malloc__))
 #else
-#define av_malloc_attrib
+    #define av_malloc_attrib
 #endif
 
 /**
@@ -86,10 +86,10 @@
  * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-g_t_0040code_007balloc_005fsize_007d-function-attribute-3220">Function attribute `alloc_size` in GCC's documentation</a>
  */
 
-#if AV_GCC_VERSION_AT_LEAST(4, 3)
-#define av_alloc_size(...) __attribute__((alloc_size(__VA_ARGS__)))
+#if AV_GCC_VERSION_AT_LEAST(4,3)
+    #define av_alloc_size(...) __attribute__((alloc_size(__VA_ARGS__)))
 #else
-#define av_alloc_size(...)
+    #define av_alloc_size(...)
 #endif
 
 /**
@@ -140,9 +140,7 @@ void *av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
  *         be allocated
  * @see av_malloc()
  */
-av_alloc_size(1, 2)
-
-void *av_malloc_array(size_t nmemb, size_t size);
+av_alloc_size(1, 2) void *av_malloc_array(size_t nmemb, size_t size);
 
 /**
  * Allocate a memory block for an array with av_mallocz().
@@ -238,9 +236,7 @@ void *av_realloc_f(void *ptr, size_t nelem, size_t elsize);
  *          nmemb is zero.
  * @see av_reallocp_array()
  */
-av_alloc_size(2, 3)
-
-void *av_realloc_array(void *ptr, size_t nmemb, size_t size);
+av_alloc_size(2, 3) void *av_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 /**
  * Allocate, reallocate an array through a pointer to a pointer.

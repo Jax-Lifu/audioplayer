@@ -115,6 +115,7 @@ void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_c
     jfieldID commentField = env->GetFieldID(ffMediaInfoClass, "comment", "Ljava/lang/String;");
 
     AVDictionaryEntry *tag = nullptr;
+    // LOGD("metadata size %p", fmt_ctx->metadata);
     while ((tag = av_dict_get(fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
         // LOGD("metadata key:%s,value: %s", tag->key, tag->value);
         if (strcmp(tag->key, "title") == 0) {
@@ -153,7 +154,7 @@ void setStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_
     jfieldID sampleRateField = env->GetFieldID(ffMediaInfoClass, "sampleRate", "I");
     jfieldID bitPerSampleField = env->GetFieldID(ffMediaInfoClass, "bitPerSample", "I");
     jfieldID imageField = env->GetFieldID(ffMediaInfoClass, "image", "[B");
-
+    // LOGD("stream size %d", fmt_ctx->nb_streams);
     for (int i = 0; i < fmt_ctx->nb_streams; i++) {
         AVStream *stream = fmt_ctx->streams[i];
         AVCodecParameters *parameters = stream->codecpar;
@@ -231,8 +232,8 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
         env->SetObjectField(ffMediaInfoObject, channelLayoutField,
                             Utils::charToJString(env, value_str));
     }
-    // LOGD("bits_per_coded_sample %d , bits_per_raw_sample %d", parameters->bits_per_coded_sample,
-    //     parameters->bits_per_raw_sample);
+    //    LOGD("bits_per_coded_sample %d , bits_per_raw_sample %d", parameters->bits_per_coded_sample,
+    //         parameters->bits_per_raw_sample);
     env->SetIntField(ffMediaInfoObject, sampleRateField, parameters->sample_rate);
     env->SetIntField(ffMediaInfoObject, bitPerSampleField, calculateBitDepth(parameters));
 }

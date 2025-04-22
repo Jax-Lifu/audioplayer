@@ -31,7 +31,7 @@ class FFMediaInfo {
         folder: String,
         fileSize: Long,
         albumCover: String? = null,
-    ): AudioInfo.Local {
+    ): AudioInfo {
         return AudioInfo.Local(
             filepath = filename ?: path,
             folder = folder,
@@ -49,8 +49,30 @@ class FFMediaInfo {
             date = date,
             albumImageUrl = albumCover,
             fileSize = fileSize,
+            sourceId = path
         )
     }
+
+    fun toRemoteAudioFileInfo(
+        url: String,
+        albumCover: String?,
+    ): AudioInfo.Remote = AudioInfo.Remote(
+        url = url,
+        codecName = codecName ?: "",
+        formatName = formatName ?: "",
+        duration = duration / 1000,
+        channels = channels,
+        sampleRate = sampleRate,
+        bitRate = bitRate.toInt(),
+        bitPreSample = bitPerSample,
+        title = title ?: url.getFileName(),
+        album = album ?: url.getFolderName(),
+        artist = artist ?: "Unknown Artist",
+        genre = genre?.lowercase() ?: "other",
+        date = date,
+        albumImageUrl = albumCover,
+        sourceId = url
+    )
 
     override fun toString(): String {
         return buildString {

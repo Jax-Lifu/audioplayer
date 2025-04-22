@@ -116,7 +116,8 @@ void av_uuid_unparse(const AVUUID uu, char *out);
  * @param[in]  uu2  AVUUID
  * @return          Nonzero if uu1 and uu2 are identical, 0 otherwise
  */
-static inline int av_uuid_equal(const AVUUID uu1, const AVUUID uu2) {
+static inline int av_uuid_equal(const AVUUID uu1, const AVUUID uu2)
+{
     return memcmp(uu1, uu2, AV_UUID_LEN) == 0;
 }
 
@@ -126,7 +127,8 @@ static inline int av_uuid_equal(const AVUUID uu1, const AVUUID uu2) {
  * @param[out]  dest  AVUUID
  * @param[in]   src   AVUUID
  */
-static inline void av_uuid_copy(AVUUID dest, const AVUUID src) {
+static inline void av_uuid_copy(AVUUID dest, const AVUUID src)
+{
     memcpy(dest, src, AV_UUID_LEN);
 }
 
@@ -136,7 +138,8 @@ static inline void av_uuid_copy(AVUUID dest, const AVUUID src) {
  *
  * @param[in,out]  uu  UUID to be set to the nil UUID
  */
-static inline void av_uuid_nil(AVUUID uu) {
+static inline void av_uuid_nil(AVUUID uu)
+{
     memset(uu, 0, AV_UUID_LEN);
 }
 

@@ -81,10 +81,11 @@ typedef struct AVDetectionBBoxHeader {
  * Get the bounding box at the specified {@code idx}. Must be between 0 and nb_bboxes.
  */
 static av_always_inline AVDetectionBBox *
-av_get_detection_bbox(const AVDetectionBBoxHeader *header, unsigned int idx) {
+av_get_detection_bbox(const AVDetectionBBoxHeader *header, unsigned int idx)
+{
     av_assert0(idx < header->nb_bboxes);
-    return (AVDetectionBBox *) ((uint8_t *) header + header->bboxes_offset +
-                                idx * header->bbox_size);
+    return (AVDetectionBBox *)((uint8_t *)header + header->bboxes_offset +
+                               idx * header->bbox_size);
 }
 
 /**
@@ -104,5 +105,4 @@ AVDetectionBBoxHeader *av_detection_bbox_alloc(uint32_t nb_bboxes, size_t *out_s
  * AV_FRAME_DATA_DETECTION_BBOXES and initializes the variables.
  */
 AVDetectionBBoxHeader *av_detection_bbox_create_side_data(AVFrame *frame, uint32_t nb_bboxes);
-
 #endif

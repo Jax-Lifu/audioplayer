@@ -41,9 +41,7 @@
 #include <stdint.h>
 
 #define Picture QuickdrawPicture
-
 #include <VideoToolbox/VideoToolbox.h>
-
 #undef Picture
 
 #include "libavcodec/avcodec.h"

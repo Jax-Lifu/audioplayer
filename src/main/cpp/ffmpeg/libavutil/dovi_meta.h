@@ -65,8 +65,8 @@ typedef struct AVDOVIDecoderConfigurationRecord {
 } AVDOVIDecoderConfigurationRecord;
 
 enum AVDOVICompression {
-    AV_DOVI_COMPRESSION_NONE = 0,
-    AV_DOVI_COMPRESSION_LIMITED = 1,
+    AV_DOVI_COMPRESSION_NONE     = 0,
+    AV_DOVI_COMPRESSION_LIMITED  = 1,
     AV_DOVI_COMPRESSION_RESERVED = 2,
     AV_DOVI_COMPRESSION_EXTENDED = 3,
 };
@@ -352,24 +352,28 @@ typedef struct AVDOVIMetadata {
 } AVDOVIMetadata;
 
 static av_always_inline AVDOVIRpuDataHeader *
-av_dovi_get_header(const AVDOVIMetadata *data) {
-    return (AVDOVIRpuDataHeader *) ((uint8_t *) data + data->header_offset);
+av_dovi_get_header(const AVDOVIMetadata *data)
+{
+    return (AVDOVIRpuDataHeader *)((uint8_t *) data + data->header_offset);
 }
 
 static av_always_inline AVDOVIDataMapping *
-av_dovi_get_mapping(const AVDOVIMetadata *data) {
-    return (AVDOVIDataMapping *) ((uint8_t *) data + data->mapping_offset);
+av_dovi_get_mapping(const AVDOVIMetadata *data)
+{
+    return (AVDOVIDataMapping *)((uint8_t *) data + data->mapping_offset);
 }
 
 static av_always_inline AVDOVIColorMetadata *
-av_dovi_get_color(const AVDOVIMetadata *data) {
-    return (AVDOVIColorMetadata *) ((uint8_t *) data + data->color_offset);
+av_dovi_get_color(const AVDOVIMetadata *data)
+{
+    return (AVDOVIColorMetadata *)((uint8_t *) data + data->color_offset);
 }
 
 static av_always_inline AVDOVIDmData *
-av_dovi_get_ext(const AVDOVIMetadata *data, int index) {
-    return (AVDOVIDmData *) ((uint8_t *) data + data->ext_block_offset +
-                             data->ext_block_size * index);
+av_dovi_get_ext(const AVDOVIMetadata *data, int index)
+{
+    return (AVDOVIDmData *)((uint8_t *) data + data->ext_block_offset +
+                            data->ext_block_size * index);
 }
 
 /**

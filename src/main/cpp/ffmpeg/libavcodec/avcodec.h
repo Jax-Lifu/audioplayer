@@ -43,7 +43,6 @@
 #include "defs.h"
 #include "packet.h"
 #include "version_major.h"
-
 #ifndef HAVE_AV_CONFIG_H
 /* When included as part of the ffmpeg build, only include the major version
  * to avoid unnecessary rebuilds. When included externally, keep including
@@ -52,7 +51,6 @@
 
 #include "codec_desc.h"
 #include "codec_par.h"
-
 #endif
 
 struct AVCodecParameters;
@@ -203,7 +201,7 @@ struct AVCodecParameters;
 /**
  * @ingroup lavc_encoding
  */
-typedef struct RcOverride {
+typedef struct RcOverride{
     int start_frame;
     int end_frame;
     int qscale; // If this is 0 then quality_factor will be used instead.
@@ -459,8 +457,8 @@ typedef struct AVCodecContext {
     int log_level_offset;
 
     enum AVMediaType codec_type; /* see AVMEDIA_TYPE_xxx */
-    const struct AVCodec *codec;
-    enum AVCodecID codec_id; /* see AV_CODEC_ID_xxx */
+    const struct AVCodec  *codec;
+    enum AVCodecID     codec_id; /* see AV_CODEC_ID_xxx */
 
     /**
      * fourcc (LSB first, so "ABCD" -> ('D'<<24) + ('C'<<16) + ('B'<<8) + 'A').
@@ -545,10 +543,10 @@ typedef struct AVCodecContext {
      * timebase should be 1/framerate and timestamp increments should be
      * identically 1.
      * This often, but not always is the inverse of the frame rate or field rate
-     * for video. 1/timeBase is not the average frame rate if the frame rate is not
+     * for video. 1/time_base is not the average frame rate if the frame rate is not
      * constant.
      *
-     * Like containers, elementary streams also can store timestamps, 1/timeBase
+     * Like containers, elementary streams also can store timestamps, 1/time_base
      * is the unit in which these timestamps are specified.
      * As example of such codec time base see ISO/IEC 14496-2:2001(E)
      * vop_time_increment_resolution and fixed_vop_rate
@@ -578,10 +576,10 @@ typedef struct AVCodecContext {
 #if FF_API_TICKS_PER_FRAME
     /**
      * For some codecs, the time base is closer to the field rate than the frame rate.
-     * Most notably, H.264 and MPEG-2 specify timeBase as half of frame duration
+     * Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
      * if no telecine is used ...
      *
-     * Set to timeBase ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
+     * Set to time_base ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
      *
      * @deprecated
      * - decoding: Use AVCodecDescriptor.props & AV_CODEC_PROP_FIELDS
@@ -800,7 +798,7 @@ typedef struct AVCodecContext {
      *          than one of the formats in fmt or AV_PIX_FMT_NONE.
      * @return the chosen format or AV_PIX_FMT_NONE
      */
-    enum AVPixelFormat (*get_format)(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
+    enum AVPixelFormat (*get_format)(struct AVCodecContext *s, const enum AVPixelFormat * fmt);
 
     /**
      * maximum number of B-frames between non-B-frames
@@ -882,7 +880,7 @@ typedef struct AVCodecContext {
      * - encoding: Set by user.
      * - decoding: unused
      */
-    int nsse_weight;
+     int nsse_weight;
 
     /**
      * motion estimation comparison function
@@ -1585,7 +1583,7 @@ typedef struct AVCodecContext {
      * - encoding: Set by libavcodec.
      * - decoding: Set by user.
      */
-    int bits_per_coded_sample;
+     int bits_per_coded_sample;
 
     /**
      * Bits per sample/pixel of internal libavcodec pixel/sample format.
@@ -1630,8 +1628,7 @@ typedef struct AVCodecContext {
      * - encoding: Set by libavcodec, user can override.
      * - decoding: Set by libavcodec, user can override.
      */
-    int (*execute)(struct AVCodecContext *c, int (*func)(struct AVCodecContext *c2, void *arg),
-                   void *arg2, int *ret, int count, int size);
+    int (*execute)(struct AVCodecContext *c, int (*func)(struct AVCodecContext *c2, void *arg), void *arg2, int *ret, int count, int size);
 
     /**
      * The codec may call this to execute several independent things.
@@ -1650,9 +1647,7 @@ typedef struct AVCodecContext {
      * - encoding: Set by libavcodec, user can override.
      * - decoding: Set by libavcodec, user can override.
      */
-    int (*execute2)(struct AVCodecContext *c,
-                    int (*func)(struct AVCodecContext *c2, void *arg, int jobnr, int threadnr),
-                    void *arg2, int *ret, int count);
+    int (*execute2)(struct AVCodecContext *c, int (*func)(struct AVCodecContext *c2, void *arg, int jobnr, int threadnr), void *arg2, int *ret, int count);
 
     /**
      * profile
@@ -1660,7 +1655,7 @@ typedef struct AVCodecContext {
      * - decoding: Set by libavcodec.
      * See the AV_PROFILE_* defines in defs.h.
      */
-    int profile;
+     int profile;
 #if FF_API_FF_PROFILE_LEVEL
     /** @deprecated The following defines are deprecated; use AV_PROFILE_*
      * in defs.h instead. */
@@ -1804,7 +1799,7 @@ typedef struct AVCodecContext {
      * - decoding: Set by libavcodec.
      * See AV_LEVEL_* in defs.h.
      */
-    int level;
+     int level;
 #if FF_API_FF_PROFILE_LEVEL
     /** @deprecated The following define is deprecated; use AV_LEVEL_UNKOWN
      * in defs.h instead. */
@@ -1875,7 +1870,7 @@ typedef struct AVCodecContext {
      * - encoding: unused
      * - decoding: Set by user.
      */
-    int lowres;
+     int lowres;
 
     /**
      * AVCodecDescriptor
@@ -1945,7 +1940,7 @@ typedef struct AVCodecContext {
      * - encoding: may be set by libavcodec after avcodec_open2().
      */
     AVPacketSideData *coded_side_data;
-    int nb_coded_side_data;
+    int            nb_coded_side_data;
 
     /**
      * Bit set of AV_CODEC_EXPORT_DATA_* flags, which affects the kind of
@@ -2089,7 +2084,7 @@ typedef struct AVCodecContext {
      * The array may also contain a single -1, in which case the preference is
      * switched for all side data types.
      */
-    int *side_data_prefer_packet;
+    int        *side_data_prefer_packet;
     /**
      * Number of entries in side_data_prefer_packet.
      */
@@ -2105,8 +2100,8 @@ typedef struct AVCodecContext {
      *             encoder.
      * - decoding: may be set by libavcodec in avcodec_open2().
      */
-    AVFrameSideData **decoded_side_data;
-    int nb_decoded_side_data;
+    AVFrameSideData  **decoded_side_data;
+    int             nb_decoded_side_data;
 } AVCodecContext;
 
 /**
@@ -2417,7 +2412,6 @@ int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **op
  */
 attribute_deprecated
 int avcodec_close(AVCodecContext *avctx);
-
 #endif
 
 /**
@@ -2754,6 +2748,7 @@ int avcodec_get_supported_config(const AVCodecContext *avctx,
                                  int *out_num_configs);
 
 
+
 /**
  * @defgroup lavc_parsing Frame parsing
  * @{
@@ -2780,7 +2775,7 @@ typedef struct AVCodecParserContext {
      * It signals, how much longer the frame duration of the current frame
      * is compared to normal frame duration.
      *
-     * frame_duration = (1 + repeat_pict) * timeBase
+     * frame_duration = (1 + repeat_pict) * time_base
      *
      * It is used by codecs like H.264 to display telecined material.
      */
@@ -2831,7 +2826,7 @@ typedef struct AVCodecParserContext {
 
     /**
      * Offset of the current timestamp against last timestamp sync point in
-     * units of AVCodecContext.timeBase.
+     * units of AVCodecContext.time_base.
      *
      * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
      * contain a valid timestamp offset.
@@ -2845,7 +2840,7 @@ typedef struct AVCodecParserContext {
     int dts_ref_dts_delta;
 
     /**
-     * Presentation delay of current frame in units of AVCodecContext.timeBase.
+     * Presentation delay of current frame in units of AVCodecContext.time_base.
      *
      * Set to INT_MIN when dts_sync_point unused. Otherwise, it must
      * contain valid non-negative timestamp delta (presentation time of a frame
@@ -2878,7 +2873,7 @@ typedef struct AVCodecParserContext {
     /**
      * Duration of the current frame.
      * For audio, this is in units of 1 / AVCodecContext.sample_rate.
-     * For all other types, this is in units of AVCodecContext.timeBase.
+     * For all other types, this is in units of AVCodecContext.time_base.
      */
     int duration;
 
@@ -2928,18 +2923,14 @@ typedef struct AVCodecParserContext {
 typedef struct AVCodecParser {
     int codec_ids[7]; /* several codec IDs are permitted */
     int priv_data_size;
-
     int (*parser_init)(AVCodecParserContext *s);
-
     /* This callback never returns an error, a negative value means that
      * the frame start was in a previous packet. */
     int (*parser_parse)(AVCodecParserContext *s,
                         AVCodecContext *avctx,
                         const uint8_t **poutbuf, int *poutbuf_size,
                         const uint8_t *buf, int buf_size);
-
     void (*parser_close)(AVCodecParserContext *s);
-
     int (*split)(AVCodecContext *avctx, const uint8_t *buf, int buf_size);
 } AVCodecParser;
 
@@ -3055,11 +3046,10 @@ unsigned int avcodec_pix_fmt_to_codec_tag(enum AVPixelFormat pix_fmt);
  * @return The best pixel format to convert to or -1 if none was found.
  */
 enum AVPixelFormat avcodec_find_best_pix_fmt_of_list(const enum AVPixelFormat *pix_fmt_list,
-                                                     enum AVPixelFormat src_pix_fmt,
-                                                     int has_alpha, int *loss_ptr);
+                                            enum AVPixelFormat src_pix_fmt,
+                                            int has_alpha, int *loss_ptr);
 
-enum AVPixelFormat
-avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
+enum AVPixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat * fmt);
 
 /**
  * @}
@@ -3067,13 +3057,8 @@ avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat *f
 
 void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode);
 
-int
-avcodec_default_execute(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2), void *arg,
-                        int *ret, int count, int size);
-
-int
-avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2, int, int),
-                         void *arg, int *ret, int count);
+int avcodec_default_execute(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2),void *arg, int *ret, int count, int size);
+int avcodec_default_execute2(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2, int, int),void *arg, int *ret, int count);
 //FIXME func typedef
 
 /**

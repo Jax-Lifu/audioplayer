@@ -109,7 +109,8 @@ int av_strerror(int errnum, char *errbuf, size_t errbuf_size);
  * @return the buffer in input, filled with the error description
  * @see av_strerror()
  */
-static inline char *av_make_error_string(char *errbuf, size_t errbuf_size, int errnum) {
+static inline char *av_make_error_string(char *errbuf, size_t errbuf_size, int errnum)
+{
     av_strerror(errnum, errbuf, errbuf_size);
     return errbuf;
 }

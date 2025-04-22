@@ -1,5 +1,10 @@
 package com.qytech.audioplayer.utils
 
+import android.os.Environment
+import com.qytech.audioplayer.extension.calculateMd5
+import timber.log.Timber
+import java.io.File
+
 /**
  * 音频工具类，用于计算音频相关参数。
  */
@@ -41,5 +46,28 @@ object AudioUtils {
     fun getBitRate(sampleRate: Int, channelCount: Int, bitsPerSample: Int): Int =
         sampleRate * channelCount * bitsPerSample
 
+    /**
+     * 保存封面图片
+     */
+    fun saveCoverImage(artBytes: ByteArray): String? {
+        if (artBytes.isEmpty()) return null
 
+        val md5 = artBytes.calculateMd5()
+        val dir = File(Environment.getExternalStorageDirectory().absolutePath, ".qytech/cover/")
+        val outputFile = File(dir, "$md5.jpg")
+
+        return runCatching {
+            if (!dir.exists() && !dir.mkdirs()) {
+                Timber.e("Failed to create directory for cover images")
+                return@runCatching null
+            }
+            if (!outputFile.exists()) {
+                outputFile.writeBytes(artBytes)
+            }
+            outputFile.absolutePath
+        }.getOrElse {
+            Timber.e(it, "Failed to save cover image")
+            null
+        }
+    }
 }

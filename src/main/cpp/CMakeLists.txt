@@ -18,7 +18,7 @@ project("audioplayer")
 
 set(ffmpeg_location "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg")
 set(ffmpeg_binaries "${ffmpeg_location}/android-libs/${ANDROID_ABI}")
-foreach (ffmpeg_lib swscale swresample avutil avformat avfilter avdevice avcodec)
+foreach (ffmpeg_lib swscale swresample avutil avformat avfilter avdevice avcodec postproc ssl crypto)
     set(ffmpeg_lib_filename lib${ffmpeg_lib}.a)
     set(ffmpeg_lib_file_path ${ffmpeg_binaries}/${ffmpeg_lib_filename})
     add_library(${ffmpeg_lib} STATIC IMPORTED)
@@ -66,6 +66,9 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         avfilter
         avdevice
         avcodec
+        postproc
+        ssl
+        crypto
 )
 
 if (ANDROID_ABI STREQUAL "arm64-v8a")

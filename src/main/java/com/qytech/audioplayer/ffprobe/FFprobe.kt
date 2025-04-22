@@ -5,6 +5,6 @@ object FFprobe {
         System.loadLibrary("audioplayer")
     }
 
-    external fun probeFile(filePath: String): FFMediaInfo?
+    external fun probeFile(source: String): FFMediaInfo?
 
 }

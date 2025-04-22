@@ -139,11 +139,12 @@ typedef struct AVVideoBlockParams {
 /**
  * Get the block at the specified {@code idx}. Must be between 0 and nb_blocks - 1.
  */
-static av_always_inline AVVideoBlockParams *
-av_video_enc_params_block(AVVideoEncParams *par, unsigned int idx) {
+static av_always_inline AVVideoBlockParams*
+av_video_enc_params_block(AVVideoEncParams *par, unsigned int idx)
+{
     av_assert0(idx < par->nb_blocks);
-    return (AVVideoBlockParams *) ((uint8_t *) par + par->blocks_offset +
-                                   idx * par->block_size);
+    return (AVVideoBlockParams *)((uint8_t *)par + par->blocks_offset +
+                                  idx * par->block_size);
 }
 
 /**
@@ -163,7 +164,7 @@ AVVideoEncParams *av_video_enc_params_alloc(enum AVVideoEncParamsType type,
  * as AVFrameSideData of type AV_FRAME_DATA_VIDEO_ENC_PARAMS
  * and initializes the variables.
  */
-AVVideoEncParams *
+AVVideoEncParams*
 av_video_enc_params_create_side_data(AVFrame *frame, enum AVVideoEncParamsType type,
                                      unsigned int nb_blocks);
 

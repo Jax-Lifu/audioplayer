@@ -343,9 +343,9 @@ char *av_get_pix_fmt_string(char *buf, int buf_size,
  * @param dst_element_size size of elements in dst array (2 or 4 byte)
  */
 void av_read_image_line2(void *dst, const uint8_t *data[4],
-                         const int linesize[4], const AVPixFmtDescriptor *desc,
-                         int x, int y, int c, int w, int read_pal_component,
-                         int dst_element_size);
+                        const int linesize[4], const AVPixFmtDescriptor *desc,
+                        int x, int y, int c, int w, int read_pal_component,
+                        int dst_element_size);
 
 void av_read_image_line(uint16_t *dst, const uint8_t *data[4],
                         const int linesize[4], const AVPixFmtDescriptor *desc,
@@ -367,8 +367,8 @@ void av_read_image_line(uint16_t *dst, const uint8_t *data[4],
  * @param src_element_size size of elements in src array (2 or 4 byte)
  */
 void av_write_image_line2(const void *src, uint8_t *data[4],
-                          const int linesize[4], const AVPixFmtDescriptor *desc,
-                          int x, int y, int c, int w, int src_element_size);
+                         const int linesize[4], const AVPixFmtDescriptor *desc,
+                         int x, int y, int c, int w, int src_element_size);
 
 void av_write_image_line(const uint16_t *src, uint8_t *data[4],
                          const int linesize[4], const AVPixFmtDescriptor *desc,
@@ -434,8 +434,7 @@ int av_get_pix_fmt_loss(enum AVPixelFormat dst_pix_fmt,
  * @return Combination of flags informing you what kind of losses will occur
  * (maximum loss for an invalid dst_pix_fmt).
  */
-enum AVPixelFormat
-av_find_best_pix_fmt_of_2(enum AVPixelFormat dst_pix_fmt1, enum AVPixelFormat dst_pix_fmt2,
-                          enum AVPixelFormat src_pix_fmt, int has_alpha, int *loss_ptr);
+enum AVPixelFormat av_find_best_pix_fmt_of_2(enum AVPixelFormat dst_pix_fmt1, enum AVPixelFormat dst_pix_fmt2,
+                                             enum AVPixelFormat src_pix_fmt, int has_alpha, int *loss_ptr);
 
 #endif /* AVUTIL_PIXDESC_H */

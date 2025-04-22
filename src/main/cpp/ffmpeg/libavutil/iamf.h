@@ -167,17 +167,17 @@ typedef struct AVIAMFReconGain {
 } AVIAMFReconGain;
 
 enum AVIAMFParamDefinitionType {
-    /**
-     * Subblocks are of struct type AVIAMFMixGain
-     */
+   /**
+    * Subblocks are of struct type AVIAMFMixGain
+    */
     AV_IAMF_PARAMETER_DEFINITION_MIX_GAIN,
-    /**
-     * Subblocks are of struct type AVIAMFDemixingInfo
-     */
+   /**
+    * Subblocks are of struct type AVIAMFDemixingInfo
+    */
     AV_IAMF_PARAMETER_DEFINITION_DEMIXING,
-    /**
-     * Subblocks are of struct type AVIAMFReconGain
-     */
+   /**
+    * Subblocks are of struct type AVIAMFReconGain
+    */
     AV_IAMF_PARAMETER_DEFINITION_RECON_GAIN,
 };
 
@@ -256,10 +256,11 @@ AVIAMFParamDefinition *av_iamf_param_definition_alloc(enum AVIAMFParamDefinition
  * The @ref AVIAMFParamDefinition.type "param definition type" defines
  * the struct type of the returned pointer.
  */
-static av_always_inline void *
-av_iamf_param_definition_get_subblock(const AVIAMFParamDefinition *par, unsigned int idx) {
+static av_always_inline void*
+av_iamf_param_definition_get_subblock(const AVIAMFParamDefinition *par, unsigned int idx)
+{
     av_assert0(idx < par->nb_subblocks);
-    return (void *) ((uint8_t *) par + par->subblocks_offset + idx * par->subblock_size);
+    return (void *)((uint8_t *)par + par->subblocks_offset + idx * par->subblock_size);
 }
 
 /**

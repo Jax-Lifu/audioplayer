@@ -44,9 +44,9 @@ enum AVTXType {
      * Output is not 1/len normalized. Scaling currently unsupported.
      * The stride parameter must be set to the size of a single sample in bytes.
      */
-    AV_TX_FLOAT_FFT = 0,
+    AV_TX_FLOAT_FFT  = 0,
     AV_TX_DOUBLE_FFT = 2,
-    AV_TX_INT32_FFT = 4,
+    AV_TX_INT32_FFT  = 4,
 
     /**
      * Standard MDCT with a sample data type of float, double or int32_t,
@@ -65,9 +65,9 @@ enum AVTXType {
      * contain redundant data. This is what most codecs work with. To do a full
      * inverse transform, set the AV_TX_FULL_IMDCT flag on init.
      */
-    AV_TX_FLOAT_MDCT = 1,
+    AV_TX_FLOAT_MDCT  = 1,
     AV_TX_DOUBLE_MDCT = 3,
-    AV_TX_INT32_MDCT = 5,
+    AV_TX_INT32_MDCT  = 5,
 
     /**
      * Real to complex and complex to real DFTs.
@@ -87,9 +87,9 @@ enum AVTXType {
      * made so by setting the scale value to 1.0/len.
      * NOTE: the inverse transform always overwrites the input.
      */
-    AV_TX_FLOAT_RDFT = 6,
+    AV_TX_FLOAT_RDFT  = 6,
     AV_TX_DOUBLE_RDFT = 7,
-    AV_TX_INT32_RDFT = 8,
+    AV_TX_INT32_RDFT  = 8,
 
     /**
      * Real to real (DCT) transforms.
@@ -101,9 +101,9 @@ enum AVTXType {
      * input be padded with 2 extra samples. Stride must be set to the
      * spacing between two samples in bytes.
      */
-    AV_TX_FLOAT_DCT = 9,
+    AV_TX_FLOAT_DCT  = 9,
     AV_TX_DOUBLE_DCT = 10,
-    AV_TX_INT32_DCT = 11,
+    AV_TX_INT32_DCT  = 11,
 
     /**
      * Discrete Cosine Transform I
@@ -113,9 +113,9 @@ enum AVTXType {
      *
      * The input array is always overwritten.
      */
-    AV_TX_FLOAT_DCT_I = 12,
+    AV_TX_FLOAT_DCT_I  = 12,
     AV_TX_DOUBLE_DCT_I = 13,
-    AV_TX_INT32_DCT_I = 14,
+    AV_TX_INT32_DCT_I  = 14,
 
     /**
      * Discrete Sine Transform I
@@ -125,9 +125,9 @@ enum AVTXType {
      *
      * The input array is always overwritten.
      */
-    AV_TX_FLOAT_DST_I = 15,
+    AV_TX_FLOAT_DST_I  = 15,
     AV_TX_DOUBLE_DST_I = 16,
-    AV_TX_INT32_DST_I = 17,
+    AV_TX_INT32_DST_I  = 17,
 
     /* Not part of the API, do not use */
     AV_TX_NB,
@@ -181,7 +181,7 @@ enum AVTXFlags {
      * Output array must have enough space to hold N complex values
      * (regular size for a real to complex transform).
      */
-    AV_TX_REAL_TO_REAL = 1ULL << 3,
+    AV_TX_REAL_TO_REAL      = 1ULL << 3,
     AV_TX_REAL_TO_IMAGINARY = 1ULL << 4,
 };
 

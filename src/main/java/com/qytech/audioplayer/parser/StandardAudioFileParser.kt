@@ -1,9 +1,8 @@
 package com.qytech.audioplayer.parser
 
-import android.os.Environment
-import com.qytech.audioplayer.extension.calculateMd5
 import com.qytech.audioplayer.ffprobe.FFprobe
 import com.qytech.audioplayer.model.AudioInfo
+import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.getAbsoluteFolder
 import com.qytech.core.extensions.isAudio
 import timber.log.Timber
@@ -42,39 +41,16 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
         if (ffMediaInfo == null) {
             return emptyList()
         }
-        val albumCover = ffMediaInfo.image?.let { saveCoverImage(it) }
+        val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
         return listOf(
             ffMediaInfo.toAudioFileInfo(
                 path = file.absolutePath,
                 folder = file.getAbsoluteFolder(),
                 fileSize = file.length(),
                 albumCover = albumCover
-            )
+            ) as AudioInfo.Local
         )
     }
 
-    /**
-     * 保存封面图片
-     */
-    private fun saveCoverImage(artBytes: ByteArray): String? {
-        if (artBytes.isEmpty()) return null
 
-        val md5 = artBytes.calculateMd5()
-        val dir = File(Environment.getExternalStorageDirectory().absolutePath, ".qytech/cover/")
-        val outputFile = File(dir, "$md5.jpg")
-
-        return runCatching {
-            if (!dir.exists() && !dir.mkdirs()) {
-                Timber.e("Failed to create directory for cover images")
-                return@runCatching null
-            }
-            if (!outputFile.exists()) {
-                outputFile.writeBytes(artBytes)
-            }
-            outputFile.absolutePath
-        }.getOrElse {
-            Timber.e(it, "Failed to save cover image")
-            null
-        }
-    }
 }

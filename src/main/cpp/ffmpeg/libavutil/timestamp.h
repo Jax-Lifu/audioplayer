@@ -18,7 +18,7 @@
 
 /**
  * @file
- * timestamp Utils, mostly useful for debugging/logging purposes
+ * timestamp utils, mostly useful for debugging/logging purposes
  */
 
 #ifndef AVUTIL_TIMESTAMP_H
@@ -40,9 +40,10 @@
  * @param ts the timestamp to represent
  * @return the buffer in input
  */
-static inline char *av_ts_make_string(char *buf, int64_t ts) {
+static inline char *av_ts_make_string(char *buf, int64_t ts)
+{
     if (ts == AV_NOPTS_VALUE) snprintf(buf, AV_TS_MAX_STRING_SIZE, "NOPTS");
-    else snprintf(buf, AV_TS_MAX_STRING_SIZE, "%" PRId64, ts);
+    else                      snprintf(buf, AV_TS_MAX_STRING_SIZE, "%" PRId64, ts);
     return buf;
 }
 
@@ -70,7 +71,8 @@ char *av_ts_make_time_string2(char *buf, int64_t ts, AVRational tb);
  * @see av_ts_make_time_string2
  */
 static inline char *av_ts_make_time_string(char *buf, int64_t ts,
-                                           const AVRational *tb) {
+                                           const AVRational *tb)
+{
     return av_ts_make_time_string2(buf, ts, *tb);
 }
 
