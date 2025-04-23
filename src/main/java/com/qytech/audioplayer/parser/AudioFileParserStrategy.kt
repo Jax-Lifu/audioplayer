@@ -4,5 +4,5 @@ import com.qytech.audioplayer.model.AudioInfo
 
 interface AudioFileParserStrategy {
 
-    fun parse(): List<AudioInfo>?
+    suspend fun parse(): List<AudioInfo>?
 }

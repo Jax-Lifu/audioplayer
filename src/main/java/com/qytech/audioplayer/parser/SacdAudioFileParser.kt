@@ -44,7 +44,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     private var trackTimeList: List<SacdTrackTime>? = null
     private var trackTextList: List<SacdTrackText>? = null
 
-    override fun parse(): List<AudioInfo.Local>? {
+    override suspend fun parse(): List<AudioInfo.Local>? {
         sacdSectorSize = detectSectorSize() ?: return null
         //Timber.d("SACD sector size detected: $sacdSectorSize")
 
@@ -209,11 +209,4 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     }
 
     private fun getTrackCount() = areaToc?.trackCount ?: 0
-}
-
-fun main() {
-    val dstFilePath =
-        "F:\\Download\\Music-Dsd\\SACD\\[SACD ISO_DST] Dawada (ZHU Zheqin) - Sister-Drum.iso"
-    val parser = SacdAudioFileParser(dstFilePath)
-    println(parser.parse())
 }

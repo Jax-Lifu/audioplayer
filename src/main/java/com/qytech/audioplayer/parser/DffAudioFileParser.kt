@@ -16,7 +16,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         const val ENCODING_TYPE_DFF = "DFF"
     }
 
-    override fun parse(): List<AudioInfo.Local>? {
+    override suspend fun parse(): List<AudioInfo.Local>? {
         // 读取文件并确保缓冲区有效
         var buffer =
             reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()

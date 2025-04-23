@@ -9,11 +9,11 @@ import com.qytech.audioplayer.utils.AudioUtils
  * @date 2025/4/21 10:05
  */
 class NetworkAudioFileParser(private val url: String) : AudioFileParserStrategy {
-    override fun parse(): List<AudioInfo.Remote>? {
+    override suspend fun parse(): List<AudioInfo.Remote>? {
         val ffMediaInfo = FFprobe.probeFile(url) ?: return emptyList()
         val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
         return listOf(
-            ffMediaInfo.toRemoteAudioFileInfo(url,albumCover)
+            ffMediaInfo.toRemoteAudioFileInfo(url, albumCover)
         )
     }
 }

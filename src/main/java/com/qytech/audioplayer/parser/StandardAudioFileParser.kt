@@ -31,7 +31,7 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
 
     protected val reader by lazy { AudioFileReader(filePath) }
 
-    override fun parse(): List<AudioInfo.Local>? {
+    override suspend fun parse(): List<AudioInfo.Local>? {
         val file = File(filePath)
         if (!file.exists() || !file.isAudio()) {
             Timber.e("File not found or not an audio file: $filePath")
