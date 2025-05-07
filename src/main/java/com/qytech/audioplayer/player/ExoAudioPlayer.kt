@@ -13,6 +13,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.qytech.audioplayer.decrypted.FlacAesDataSourceFactory
+import com.qytech.audioplayer.decrypted.SecurityKeyDecryptor
 import com.qytech.audioplayer.model.AudioInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +83,7 @@ class ExoAudioPlayer(
                     val currentPosition = getCurrentPosition()
                     val duration = getDuration()
                     val progress = currentPosition.toFloat() / duration
-                    Timber.d("progress: $progress currentPosition: $currentPosition duration: $duration")
+                    // Timber.d("progress: $progress currentPosition: $currentPosition duration: $duration")
                     PlaybackProgress(currentPosition, progress, duration)
                 }
                 onProgressListener?.onProgress(progress)
@@ -104,16 +106,37 @@ class ExoAudioPlayer(
             val media = MediaItem.fromUri(mediaItem.sourceId)
             currentMediaItem = mediaItem
             Timber.d("setMediaItem ${mediaItem.sourceId}")
-            val mediaSource = if (
+            val mediaSource = when {
                 mediaItem is AudioInfo.Remote &&
-                mediaItem.sourceId.contains("u3m8", ignoreCase = true) ||
-                mediaItem.sourceId.contains("m3u8", ignoreCase = true)
-            ) {
-                HlsMediaSource.Factory(cacheDataSourceFactory)
-                    .createMediaSource(media)
-            } else {
-                DefaultMediaSourceFactory(cacheDataSourceFactory)
-                    .createMediaSource(media)
+                        mediaItem.sourceId.contains("sonyselect", ignoreCase = true)
+                    -> {
+                    // 使用自定义解密 DataSource
+                    val securityKey = mediaItem.encryptedSecurityKey?.let { encryptedSecurityKey ->
+                        SecurityKeyDecryptor.decryptSecurityKey(encryptedSecurityKey)
+                    } ?: return@runCatching
+                    val initVector = mediaItem.encryptedInitVector ?: return@runCatching
+
+                    val factory = FlacAesDataSourceFactory(
+                        upstreamFactory = OkHttpDataSource.Factory(OkHttpClient.Builder().build()),
+                        securityKey = securityKey,
+                        initVector = initVector
+                    )
+                    DefaultMediaSourceFactory(factory)
+                        .createMediaSource(media)
+                }
+
+                mediaItem is AudioInfo.Remote &&
+                        (mediaItem.sourceId.contains("u3m8", ignoreCase = true) ||
+                                mediaItem.sourceId.contains("m3u8", ignoreCase = true))
+                    -> {
+                    HlsMediaSource.Factory(cacheDataSourceFactory)
+                        .createMediaSource(media)
+                }
+
+                else -> {
+                    DefaultMediaSourceFactory(cacheDataSourceFactory)
+                        .createMediaSource(media)
+                }
             }
             player.setMediaSource(mediaSource)
         }.onFailure {
@@ -152,6 +175,7 @@ class ExoAudioPlayer(
     }
 
     override fun seekTo(position: Long) {
+        // Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
         if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
             player.seekTo(position)
         }

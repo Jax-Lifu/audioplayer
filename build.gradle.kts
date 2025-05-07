@@ -59,7 +59,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
     implementation (libs.androidx.media3.datasource.okhttp)
-
+// https://mvnrepository.com/artifact/commons-codec/commons-codec
+    implementation("commons-codec:commons-codec:1.18.0")
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     // exoplayer

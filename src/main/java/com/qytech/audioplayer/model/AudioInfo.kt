@@ -44,6 +44,8 @@ sealed class AudioInfo {
 
     data class Remote(
         val url: String,
+        val encryptedSecurityKey: String? = null,
+        val encryptedInitVector: String? = null,
         override val codecName: String,
         override val formatName: String,
         override val duration: Long,
