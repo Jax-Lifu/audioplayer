@@ -175,7 +175,7 @@ class ExoAudioPlayer(
     }
 
     override fun seekTo(position: Long) {
-        // Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
+         Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
         if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
             player.seekTo(position)
         }

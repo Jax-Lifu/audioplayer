@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
+import okio.IOException
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -19,107 +20,88 @@ class FlacAesDataSource(
     companion object {
         private const val BLOCK_SIZE = 2048
         private const val TRANSFORMATION = "AES/OFB/NoPadding"
-        //        private const val DEBUG_DUMP_TO_FILE = false
     }
 
     private lateinit var cipher: Cipher
-    private lateinit var dataSpec: DataSpec
-
     private var cipherBuf = ByteArray(0)
     private var cipherBufOffset = 0
     private var finished = false
-
-    // private var debugOutput: FileOutputStream? = null
+    private var pendingInitialSkipBytes = 0
 
     private val encBuffer = ByteArray(BLOCK_SIZE)
-    private var encBufferOffset = 0 // 当前缓冲偏移
-    private var encBufferFilled = 0 // 当前已填充字节数
+    override fun addTransferListener(transferListener: TransferListener) {
+        upstream.addTransferListener(transferListener)
+    }
 
     override fun open(dataSpec: DataSpec): Long {
-        this.dataSpec = dataSpec
-        upstream.open(dataSpec)
+        // BLOCK_SIZE 对齐
+        val alignedPosition = (dataSpec.position / BLOCK_SIZE) * BLOCK_SIZE
+        // 解密后我们要跳过的前置无效解密字节
+        pendingInitialSkipBytes = (dataSpec.position - alignedPosition).toInt()
 
+        // 调整 DataSpec，向下对齐 seek
+        val adjustedDataSpec = dataSpec.buildUpon()
+            .setPosition(alignedPosition)
+            .build()
+        val length = upstream.open(adjustedDataSpec)
+
+        // 初始化 Cipher
         val keySpec = SecretKeySpec(securityKey.toByteArray(), "AES")
         val ivSpec = IvParameterSpec(iv.toByteArray())
-        cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+        cipher = Cipher.getInstance(TRANSFORMATION).apply {
+            init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+        }
 
-        /*if (DEBUG_DUMP_TO_FILE) {
-            val file = File(context.cacheDir, "decrypted_debug.flac")
-            debugOutput = FileOutputStream(file)
-            Timber.d("Debug output file: ${file.absolutePath}")
-        }*/
-//        Timber.d("dataSpec.length ${dataSpec.length}")
-        return if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else C.LENGTH_UNSET.toLong()
-//        return 464233
+        var totalRead = 0
+        while (totalRead < BLOCK_SIZE) {
+            val read = upstream.read(encBuffer, totalRead, BLOCK_SIZE - totalRead)
+            if (read == C.RESULT_END_OF_INPUT) throw IOException("EOF during initial read")
+            totalRead += read
+        }
+
+        // 解密第一块数据
+        cipherBuf = cipher.update(encBuffer, 0, BLOCK_SIZE)
+        cipherBufOffset = pendingInitialSkipBytes
+
+        // 返回实际可读的剩余长度
+        return if (length == C.LENGTH_UNSET.toLong()) C.LENGTH_UNSET.toLong()
+        else length - (dataSpec.position - alignedPosition)
     }
+
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (finished) return C.RESULT_END_OF_INPUT
-        var bytesReadTotal = 0
+        var bytesCopied = 0
 
-        while (bytesReadTotal < length) {
-            // 先处理已解密但还未输出的数据
+        while (bytesCopied < length) {
             if (cipherBufOffset < cipherBuf.size) {
-                val toCopy = minOf(length - bytesReadTotal, cipherBuf.size - cipherBufOffset)
-                System.arraycopy(
-                    cipherBuf,
-                    cipherBufOffset,
-                    buffer,
-                    offset + bytesReadTotal,
-                    toCopy
-                )
+                val toCopy = minOf(length - bytesCopied, cipherBuf.size - cipherBufOffset)
+                System.arraycopy(cipherBuf, cipherBufOffset, buffer, offset + bytesCopied, toCopy)
                 cipherBufOffset += toCopy
-                bytesReadTotal += toCopy
+                bytesCopied += toCopy
                 continue
             }
 
-            // 开始读取新一块加密数据直到凑满 BLOCK_SIZE
-            encBufferOffset = 0
-            encBufferFilled = 0
-
-            while (encBufferFilled < BLOCK_SIZE) {
-                val read = upstream.read(encBuffer, encBufferFilled, BLOCK_SIZE - encBufferFilled)
+            var totalRead = 0
+            while (totalRead < BLOCK_SIZE) {
+                val read = upstream.read(encBuffer, totalRead, BLOCK_SIZE - totalRead)
                 if (read == C.RESULT_END_OF_INPUT) {
                     finished = true
-                    // 如果缓冲区里还有残留数据，不能解密，不足一个完整块，直接结束
-                    return if (bytesReadTotal > 0) bytesReadTotal else C.RESULT_END_OF_INPUT
+                    return if (bytesCopied > 0) bytesCopied else C.RESULT_END_OF_INPUT
                 }
-                encBufferFilled += read
+                totalRead += read
             }
 
-            // 满了2048后才解密
-            val decrypted = cipher.doFinal(encBuffer)
-            if (decrypted != null && decrypted.isNotEmpty()) {
-                cipherBuf = decrypted
-                cipherBufOffset = 0
-
-                /*if (DEBUG_DUMP_TO_FILE) {
-                    debugOutput?.write(decrypted)
-                }*/
-            }
+            cipherBuf = cipher.doFinal(encBuffer)
+            cipherBufOffset = 0
         }
 
-        return bytesReadTotal
+        return bytesCopied
     }
 
     override fun getUri() = upstream.uri
 
     override fun close() {
         upstream.close()
-        /*if (DEBUG_DUMP_TO_FILE) {
-            debugOutput?.flush()
-            debugOutput?.close()
-        }*/
-        // 清理 Cipher 状态
-        cipher.doFinal()
     }
-
-    override fun addTransferListener(transferListener: TransferListener) {
-        upstream.addTransferListener(transferListener)
-    }
-
-    override fun getResponseHeaders(): Map<String, List<String>> = emptyMap()
-
-
 }
