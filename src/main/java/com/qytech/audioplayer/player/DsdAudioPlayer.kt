@@ -52,8 +52,14 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
         val audioInfo = audioFileInfo ?: return@runCatching
         var sampleRate = audioInfo.sampleRate
         val encoding = when {
-            audioInfo.codecName.startsWith("DSD") || audioInfo.codecName.startsWith("DST") -> AudioFormat.ENCODING_DSD.also { sampleRate /= 32 }
-            isDopEnable -> AudioFormat.ENCODING_PCM_32BIT.also { sampleRate /= 16 }
+            audioInfo.codecName.startsWith("DSD") || audioInfo.codecName.startsWith("DST") -> {
+                if (isDopEnable) {
+                    AudioFormat.ENCODING_PCM_32BIT.also { sampleRate /= 16 }
+                } else {
+                    AudioFormat.ENCODING_DSD.also { sampleRate /= 32 }
+                }
+            }
+
             else -> AudioFormat.ENCODING_PCM_16BIT
         }
 
@@ -75,6 +81,9 @@ class DsdAudioPlayer(context: Context) : AudioPlayer {
             .build()
 
         val bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding)
+        Timber.d(
+            "initializeAudioTrack isDop $isDopEnable sampleRate=$sampleRate, encoding=$encoding, channelMask=$channelMask, bufferSize=$bufferSize"
+        )
         audioTrack = AudioTrack(
             audioAttributes,
             audioFormat,

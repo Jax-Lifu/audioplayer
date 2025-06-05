@@ -1,0 +1,61 @@
+# Generated with JReleaser 1.18.0 at 2025-05-16T10:43:29.7294757+08:00
+project:
+  name: audioplayer
+  version: 0.0.3
+  description: qytech audioplayer library
+  longDescription: qytech audioplayer library
+  authors:
+    - qytech
+  license: Apache-2.0
+  links:
+    homepage: https://github.com/qytech
+  languages:
+    java:
+      groupId: com.qytech
+      version: 8
+  inceptionYear: 2025
+
+release:
+  github:
+    owner: qytech
+    overwrite: true
+
+signing:
+  active: ALWAYS
+  armored: true
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://central.sonatype.com/api/v1/publisher
+        snapshotSupported: true
+        authorization: BEARER
+        username: rpInkCTl
+        sign: true
+        checksums: true
+        sourceJar: true
+        javadocJar: true
+        verifyPom: false
+        applyMavenCentralRules: true
+
+        artifactOverrides:
+          - groupId: io.github.qytech
+            artifactId: audioplayer
+            jar: true
+            sourceJar: true
+            javadocJar: true
+            verifyPom: false
+
+        stagingRepositories:
+          - build/staging-deploy
+        extraProperties:
+          foo: bar
+        # verifyUrl: "https://repo1.maven.org/maven2/{{path}}/{{filename}}"
+        namespace: io.github.qytech
+        deploymentId: 0c92b04b-e490-47dd-8b8c-2e8ec2dbefcc
+        connectTimeout: 20
+        readTimeout: 60
+        retryDelay: 60
+        maxRetries: 100

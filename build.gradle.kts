@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.maven.publish)
+    // alias(libs.plugins.jreleaser)
 }
 
 android {
@@ -60,7 +62,7 @@ dependencies {
     implementation(libs.gson)
     implementation (libs.androidx.media3.datasource.okhttp)
 // https://mvnrepository.com/artifact/commons-codec/commons-codec
-    implementation("commons-codec:commons-codec:1.18.0")
+    implementation(libs.commons.codec)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     // exoplayer
@@ -77,4 +79,55 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
+}
+
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = "io.github.qytech"
+                artifactId = "audioplayer"
+                version = "0.0.3"
+
+                // 用于发布 Android 的 release 组件
+                // from(components["release"])
+                afterEvaluate {
+                    artifact(tasks.getByName("bundleReleaseAar"))
+                }
+                pom {
+                    name.set("audioplayer")
+                    description.set("audioplayer")
+                    url.set("https://github.com/qytech/audioplayer")
+                    inceptionYear.set("2021")
+
+                    licenses {
+                        license {
+                            name.set("Apache-2.0")
+                            url.set("https://spdx.org/licenses/Apache-2.0.html")
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id.set("qytech")
+                            name.set("qytech")
+                        }
+                    }
+
+                    scm {
+                        connection.set("scm:git:https://github.com/qytech/audioplayer.git")
+                        developerConnection.set("scm:git:ssh://github.com/qytech/audioplayer.git")
+                        url.set("http://github.com/qytech/audioplayer")
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                url = layout.buildDirectory.dir("staging-deploy").get().asFile.toURI()
+            }
+        }
+    }
 }
