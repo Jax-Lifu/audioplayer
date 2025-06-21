@@ -60,8 +60,7 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
-    implementation (libs.androidx.media3.datasource.okhttp)
-// https://mvnrepository.com/artifact/commons-codec/commons-codec
+    implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.commons.codec)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -72,7 +71,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.smoothstreaming)
     implementation(libs.androidx.media3.exoplayer.rtsp)
-//    implementation(libs.androidx.media3.exoplayer.midi)
     implementation(libs.androidx.media3.exoplayer.ima)
     implementation(libs.juniversalchardet)
 
@@ -88,7 +86,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.0.3"
+                version = "0.0.4"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])
@@ -128,6 +126,7 @@ afterEvaluate {
             maven {
                 url = layout.buildDirectory.dir("staging-deploy").get().asFile.toURI()
             }
+            mavenLocal()
         }
     }
 }

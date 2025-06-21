@@ -14,7 +14,7 @@ object DsfAudioFrame {
      * @param length 数据大小
      * @param lsbFirst 是否LSB优先
      */
-    private fun convertToDffStream(
+    private fun convertToDsfStream(
         srcData: ByteArray,
         destData: ByteArray,
         length: Int,
@@ -122,7 +122,7 @@ object DsfAudioFrame {
         if (isDopEnable) {
             convertToDopStream(srcData, destData, length)
         } else {
-            convertToDffStream(srcData, destData, length)
+            convertToDsfStream(srcData, destData, length)
         }
         return if (isDopEnable) 2 * length else length
     }

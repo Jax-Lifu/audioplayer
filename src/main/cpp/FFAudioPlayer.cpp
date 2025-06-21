@@ -121,7 +121,6 @@ void FFAudioPlayer::pause() {
 
 void FFAudioPlayer::stop() {
     shouldStopped.store(true);
-    std::lock_guard<std::mutex> lock(decodeMutex);
     isStopped = true;
     isPlaying = false;
     isSeeking = false;

@@ -29,7 +29,7 @@ import timber.log.Timber
 @SuppressLint("UnsafeOptInUsageError")
 class ExoAudioPlayer(
     val context: Context,
-    val simpleCache: SimpleCache?
+    val simpleCache: SimpleCache?,
 ) : AudioPlayer {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -175,7 +175,7 @@ class ExoAudioPlayer(
     }
 
     override fun seekTo(position: Long) {
-         Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
+        Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
         if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
             player.seekTo(position)
         }
