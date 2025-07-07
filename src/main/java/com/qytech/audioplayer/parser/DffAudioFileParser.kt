@@ -3,6 +3,7 @@ package com.qytech.audioplayer.parser
 import com.qytech.audioplayer.extension.getBigEndianUInt64
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
+import com.qytech.audioplayer.ffprobe.FFprobe
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
@@ -66,6 +67,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
         val endOffset = startOffset + dataSize
 
+        val fingerprint = FFprobe.getFingerprint(filePath, 30)
         // 调用父类解析，并对结果进行修改
         return super.parse()?.map { audioDetails ->
             audioDetails.copy(
@@ -78,6 +80,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
                 startOffset = startOffset,
                 endOffset = endOffset,
                 dataLength = dataSize,
+                fingerprint = fingerprint
             )
         }
     }

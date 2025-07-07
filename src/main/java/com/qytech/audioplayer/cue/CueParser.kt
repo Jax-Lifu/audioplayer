@@ -1,131 +1,132 @@
-/*
 package com.qytech.audioplayer.cue
 
-import android.annotation.SuppressLint
-import com.qytech.core.extensions.detectedCharset
-import com.qytech.core.extensions.find
-import java.io.BufferedReader
+import org.mozilla.universalchardet.UniversalDetector
 import java.io.File
-import java.io.FileReader
+import java.io.FileInputStream
 
-data class CueTrack(
-    val trackNumber: Int = 0,
-    val title: String? = null,
-    val performer: String? = null,
-    val indexTime: List<String> = emptyList(),
-)
+object CueParser {
 
-data class CueSheet(
-    val performer: String? = null,
-    val title: String? = null,
-    val date: String? = null,
-    val genre: String? = null,
-    val file: String? = null,
-    val disc: String? = null,
-    val encoding: String? = null,
-    val format: String? = null,
-    val tracks: List<CueTrack> = emptyList()
-)
-
-class CueParser {
-    @SuppressLint("NewApi")
-    fun parse(cueFile: String): CueSheet {
-        val encoding = File(cueFile).detectedCharset()
+    fun parse(filePath: String, charset: String? = null): CueSheet {
+        val file = File(filePath)
+        val actualCharset = charset ?: file.detectedCharset()
+        val lines = file.readLines(charset(actualCharset))
+        val rem = mutableMapOf<String, String>()
         var performer: String? = null
         var title: String? = null
-        var file: String? = null
-        var format: String? = null
-        var date: String? = null
-        var disc: String? = null
-        var genre: String? = null
-        var tracks = mutableListOf<CueTrack>()
-        var currentTrack: CueTrack? = null
-        BufferedReader(FileReader(cueFile, charset(encoding))).use { reader ->
-            reader.lineSequence().forEach { line ->
-                when {
-                    line.startsWith("PERFORMER") ->
-                        performer = extractQuotedString(line)
+        val files = mutableListOf<CueFile>()
 
-                    line.startsWith("TITLE") ->
-                        title = extractQuotedString(line)
+        var currentTracks: MutableList<Track>? = null
 
-                    line.startsWith("FILE") -> {
-                        val (fileName, fileFormat) = extractFileFormat(line)
-                        file = fileName
-                        format = fileFormat
+        for (line in lines) {
+            val parts = line.trim().split(Regex(" "), 2)
+            val command = parts[0].uppercase()
+
+            when (command) {
+                "REM" -> {
+                    val remParts = parts[1].split(Regex(" "), 2)
+                    rem[remParts[0]] = remParts.getOrNull(1) ?: ""
+                }
+
+                "PERFORMER" -> {
+                    if (currentTracks?.isNotEmpty() == true) {
+                        val lastTrack = currentTracks.last()
+                        currentTracks[currentTracks.size - 1] =
+                            lastTrack.copy(performer = parts[1].unquote())
+                    } else {
+                        performer = parts[1].unquote()
                     }
+                }
 
-                    line.startsWith("REM DATE") ->
-                        date = extractRemStrings(line)
-
-                    line.startsWith("REM GENRE") ->
-                        genre = extractRemStrings(line)
-
-                    line.startsWith("REM DISCID") ->
-                        disc = extractRemStrings(line)
-
-                    line.trim().startsWith("TRACK") -> {
-                        currentTrack?.let { tracks.add(it) }
-                        currentTrack = CueTrack(trackNumber = extractTrackNumber(line))
+                "TITLE" -> {
+                    if (currentTracks?.isNotEmpty() == true) {
+                        val lastTrack = currentTracks.last()
+                        currentTracks[currentTracks.size - 1] =
+                            lastTrack.copy(title = parts[1].unquote())
+                    } else {
+                        title = parts[1].unquote()
                     }
+                }
 
-                    line.trim().startsWith("TITLE") ->
-                        currentTrack = currentTrack?.copy(title = extractQuotedString(line))
+                "FILE" -> {
+                    val fileParts = parts[1].split(" ")
+                    val fileName =
+                        fileParts.subList(0, fileParts.size - 1).joinToString(" ").unquote()
+                    val fileType = fileParts.last()
+                    currentTracks = mutableListOf()
+                    files.add(CueFile(fileName, fileType, currentTracks))
+                }
 
-                    line.trim().startsWith("PERFORMER") ->
-                        currentTrack = currentTrack?.copy(performer = extractQuotedString(line))
+                "TRACK" -> {
+                    val trackParts = parts[1].split(" ")
+                    val trackNumber = trackParts[0].toInt()
+                    val trackType = trackParts[1]
+                    val trackTitle = files.lastOrNull()?.name?.let {
+                        File(it).nameWithoutExtension.replace(Regex("^\\d+\\s*\\.?\\s*"), "")
+                    }
+                    currentTracks?.add(
+                        Track(
+                            trackNumber,
+                            trackType,
+                            trackTitle,
+                            null,
+                            mutableListOf()
+                        )
+                    )
+                }
 
-                    line.trim().startsWith("INDEX") ->
-                        extractIndexTime(line)?.let { indexTime ->
-                            currentTrack?.let { cueTrack ->
-                                currentTrack = currentTrack?.copy(
-                                    indexTime = cueTrack.indexTime + indexTime
-                                )
-                            }
-                        }
+                "INDEX" -> {
+                    val indexParts = parts[1].split(" ")
+                    val indexNumber = indexParts[0].toInt()
+                    val timestamp = indexParts[1].toTimestamp()
+                    currentTracks?.last()?.indices?.add(Index(indexNumber, timestamp))
                 }
             }
         }
-        currentTrack?.let { tracks.add(it) }
-
-        return CueSheet(
-            performer = performer,
-            title = title,
-            file = file,
-            encoding = encoding,
-            format = format,
-            date = date,
-            disc = disc,
-            genre = genre,
-            tracks = tracks
-        )
+        return CueSheet(rem, performer, title, files)
     }
 
-    private fun extractQuotedString(line: String): String? {
-        val regex = "\"([^\"]+)\"".toRegex()
-        return line.find(regex)?.firstOrNull()
+    fun calculateTrackDurations(
+        tracks: List<Track>,
+        totalDurationSec: Long,
+    ): List<Pair<Track, Long>> {
+        val result = mutableListOf<Pair<Track, Long>>()
+        for (i in tracks.indices) {
+            val start =
+                tracks[i].indices.find { it.number == 1 }?.timestamp?.toMilliseconds() ?: continue
+            val end = if (i + 1 < tracks.size) {
+                tracks[i + 1].indices.find { it.number == 1 }?.timestamp?.toMilliseconds()
+            } else {
+                totalDurationSec
+            }
+            val duration = (end ?: totalDurationSec) - start
+            result.add(tracks[i] to duration)
+        }
+        return result
     }
 
-    private fun extractRemStrings(line: String): String? {
-        val regex = "REM\\s+.*?\\s+(.*?)$".toRegex()
-        return line.find(regex)?.firstOrNull()
+    private fun String.unquote(): String {
+        return if (startsWith("\"") && endsWith("\"")) {
+            substring(1, length - 1)
+        } else {
+            this
+        }
     }
 
-    private fun extractFileFormat(line: String): Pair<String?, String?> {
-        // FILE "CDImage.wav" WAVE
-        val regex = "FILE\\s+\"(.*?)\"\\s+(.*?)$".toRegex()
-        val result = line.find(regex)
-        return result?.get(0) to result?.get(1)
+    private fun String.toTimestamp(): Timestamp {
+        val parts = split(":").map { it.toInt() }
+        return Timestamp(parts[0], parts[1], parts[2])
     }
 
-    private fun extractIndexTime(line: String): String? {
-        val regex = "INDEX\\s\\d+\\s([\\d:]+)".toRegex()
-        return line.find(regex)?.firstOrNull()
-    }
-
-    private fun extractTrackNumber(line: String): Int {
-        val regex = "TRACK\\s(\\d+)".toRegex()
-        return line.find(regex)?.firstOrNull()?.toInt() ?: -1
+    fun File.detectedCharset(): String {
+        val detector = UniversalDetector(null)
+        val buffer = ByteArray(4096)
+        FileInputStream(this).use { fis ->
+            var byteRead: Int
+            while (fis.read(buffer).also { byteRead = it } > 0 && !detector.isDone) {
+                detector.handleData(buffer, 0, byteRead)
+            }
+        }
+        detector.dataEnd()
+        return detector.detectedCharset ?: "GBK"
     }
 }
-*/

@@ -26,11 +26,12 @@ class FFMediaInfo {
     var date: String? = null
     var comment: String? = null
 
-    fun toAudioFileInfo(
+    fun toLocalAudioFileInfo(
         path: String,
         folder: String,
         fileSize: Long,
         albumCover: String? = null,
+        fingerprint: String? = null,
     ): AudioInfo {
         return AudioInfo.Local(
             filepath = filename ?: path,
@@ -49,7 +50,8 @@ class FFMediaInfo {
             date = date,
             albumImageUrl = albumCover,
             fileSize = fileSize,
-            sourceId = path
+            sourceId = path,
+            fingerprint = fingerprint,
         )
     }
 

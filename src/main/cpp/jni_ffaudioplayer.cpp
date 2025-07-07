@@ -78,15 +78,17 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, [[maybe_unused]] void *reserved) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobject thiz,
-                                                              jstring file_path) {
+                                                              jstring file_path,
+                                                              jobject headers) {
     if (player != nullptr) {
         player->stop();
         player->release();
         delete player;
         player = nullptr;
     }
+    std::string header = Utils::buildHeaderStringFromMap(env, headers);
     player = new FFAudioPlayer();
-    player->init(Utils::jStringToChar(env, file_path));
+    player->init(Utils::jStringToChar(env, file_path), header.c_str());
 }
 
 extern "C"

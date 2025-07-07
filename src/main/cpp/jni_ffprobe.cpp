@@ -10,7 +10,8 @@ JNIEXPORT jobject JNICALL
 Java_com_qytech_audioplayer_ffprobe_FFprobe_probeFile(
         JNIEnv *env,
         jobject thiz,
-        jstring file_path
+        jstring file_path,
+        jobject headers
 ) {
     // 创建 FFMediaInfo 对象
     jobject ffMediaInfoObject = createFFMediaInfoObject(env);
@@ -19,7 +20,15 @@ Java_com_qytech_audioplayer_ffprobe_FFprobe_probeFile(
     }
 
     const char *path = env->GetStringUTFChars(file_path, nullptr);
-    AVFormatContext *fmt_ctx = openMediaFile(path);
+
+    AVDictionary *options = nullptr;
+    std::string header = Utils::buildHeaderStringFromMap(env, headers);
+    if (!header.empty()) {
+        LOGD("header: %s", header.c_str());
+        av_dict_set(&options, "headers", header.c_str(), 0);
+    }
+
+    AVFormatContext *fmt_ctx = openMediaFile(path, options);
     env->ReleaseStringUTFChars(file_path, path);
 
     if (fmt_ctx == nullptr || fmt_ctx->duration <= 0) {
@@ -57,7 +66,7 @@ jobject createFFMediaInfoObject(JNIEnv *env) {
 }
 
 // 打开媒体文件并返回 AVFormatContext
-AVFormatContext *openMediaFile(const char *path) {
+AVFormatContext *openMediaFile(const char *path, AVDictionary *options) {
     AVFormatContext *fmt_ctx = nullptr;
     fmt_ctx = avformat_alloc_context();
     if (!fmt_ctx) {
@@ -66,7 +75,7 @@ AVFormatContext *openMediaFile(const char *path) {
     }
 
     int error;
-    if ((error = avformat_open_input(&fmt_ctx, path, nullptr, nullptr)) < 0) {
+    if ((error = avformat_open_input(&fmt_ctx, path, nullptr, &options)) < 0) {
         char errBuff[AV_ERROR_MAX_STRING_SIZE];
         av_strerror(error, errBuff, sizeof(errBuff));
         LOGE("avformat_open_input failed, error code: %d, message: %s", error, errBuff);

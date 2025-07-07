@@ -37,7 +37,7 @@ extern "C" {
 jobject createFFMediaInfoObject(JNIEnv *env);
 
 // 打开媒体文件并返回 AVFormatContext
-AVFormatContext *openMediaFile(const char *path);
+AVFormatContext *openMediaFile(const char *path, AVDictionary *options);
 
 // 设置基础的媒体信息字段
 void setBasicMediaInfoFields(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_ctx);

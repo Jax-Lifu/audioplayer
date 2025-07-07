@@ -41,16 +41,34 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
         if (ffMediaInfo == null) {
             return emptyList()
         }
+        val fingerprint = FFprobe.getFingerprint(filePath, 30)
         val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
+            ?: findLocalCoverImage(file.parentFile)?.absolutePath
         return listOf(
-            ffMediaInfo.toAudioFileInfo(
+            ffMediaInfo.toLocalAudioFileInfo(
                 path = file.absolutePath,
                 folder = file.getAbsoluteFolder(),
                 fileSize = file.length(),
-                albumCover = albumCover
+                albumCover = albumCover,
+                fingerprint = fingerprint,
             ) as AudioInfo.Local
         )
     }
 
-
+    private fun findLocalCoverImage(directory: File?): File? {
+        if (directory?.exists() != true) {
+            return null
+        }
+        val images = directory.listFiles { file ->
+            // 常见的封面图片扩展名列表
+            file.isFile && file.extension.lowercase() in listOf("jpg", "jpeg", "png", "gif", "bmp")
+        } ?: return null
+        val priorityKeywords = listOf("cover", "folder", "front", "album")
+        for (keyword in priorityKeywords) {
+            val match =
+                images.firstOrNull { it.nameWithoutExtension.contains(keyword, ignoreCase = true) }
+            if (match != null) return match
+        }
+        return images.firstOrNull()
+    }
 }

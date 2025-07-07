@@ -16,9 +16,8 @@ project("audioplayer")
 #add_library(icu STATIC IMPORTED)
 #set_target_properties(icu  PROPERTIES IMPORTED_LOCATION ${icu_path})
 
-set(ffmpeg_location "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg")
-set(ffmpeg_binaries "${ffmpeg_location}/android-libs/${ANDROID_ABI}")
-foreach (ffmpeg_lib swscale swresample avutil avformat avfilter avdevice avcodec postproc ssl crypto)
+set(ffmpeg_binaries "${CMAKE_CURRENT_SOURCE_DIR}/libs/${ANDROID_ABI}")
+foreach (ffmpeg_lib swscale swresample avutil avformat avfilter avdevice avcodec postproc ssl crypto chromaprint)
     set(ffmpeg_lib_filename lib${ffmpeg_lib}.a)
     set(ffmpeg_lib_file_path ${ffmpeg_binaries}/${ffmpeg_lib_filename})
     add_library(${ffmpeg_lib} STATIC IMPORTED)
@@ -26,7 +25,10 @@ foreach (ffmpeg_lib swscale swresample avutil avformat avfilter avdevice avcodec
     message("FFmpeg library: ${ffmpeg_lib} ${ffmpeg_lib_file_path}")  # 输出库路径
 endforeach ()
 
-include_directories(${ffmpeg_location})
+include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/chromaprint
+)
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -47,6 +49,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         FFAudioPlayer.cpp
         jni_ffaudioplayer.cpp
         Utils.cpp
+        fpcalc_jni.cpp
 )
 
 
@@ -69,6 +72,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         postproc
         ssl
         crypto
+        chromaprint
 )
 
 if (ANDROID_ABI STREQUAL "arm64-v8a")

@@ -2,7 +2,6 @@ package com.qytech.audioplayer.player
 
 import android.annotation.SuppressLint
 import android.content.Context
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -30,200 +29,210 @@ import timber.log.Timber
 class ExoAudioPlayer(
     val context: Context,
     val simpleCache: SimpleCache?,
-) : AudioPlayer {
-
+    override val audioInfo: AudioInfo,
+    val headers: Map<String, String> = emptyMap(),
+) : BaseAudioPlayer(audioInfo) {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    private var progressJob: Job? = null
+    private var player: ExoPlayer? = null
+
     private val cacheDataSourceFactory by lazy {
         CacheDataSource.Factory().apply {
             simpleCache?.let { setCache(it) }
-            setUpstreamDataSourceFactory(OkHttpDataSource.Factory(OkHttpClient.Builder().build()))
+            setUpstreamDataSourceFactory(
+                OkHttpDataSource.Factory(
+                    OkHttpClient
+                        .Builder()
+                        .build()
+                ).setDefaultRequestProperties(
+                    headers
+                )
+            )
         }
     }
-    private var player: ExoPlayer = ExoPlayer.Builder(context)
-        .setRenderersFactory(
-            DefaultRenderersFactory(context).apply {
-                setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+
+    private val exoPlayerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            when (state) {
+                Player.STATE_IDLE -> {
+                    updateStateChange(PlaybackState.IDLE)
+                }
+
+                Player.STATE_BUFFERING -> {
+                    updateStateChange(PlaybackState.BUFFERING)
+                }
+
+                Player.STATE_READY -> {
+                    updateStateChange(PlaybackState.PLAYING)
+                }
+
+                Player.STATE_ENDED -> {
+                    updateStateChange(PlaybackState.COMPLETED)
+                }
             }
-        )
-        .setMediaSourceFactory(
-            DefaultMediaSourceFactory(cacheDataSourceFactory)
-        )
-        .build()
-    private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
-    private var onProgressListener: OnProgressListener? = null
-    private var progressJob: Job? = null
-    private var currentMediaItem: AudioInfo? = null
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            super.onPlayerError(error)
+            updateStateChange(PlaybackState.ERROR)
+            progressListener?.onProgress(PlaybackProgress.DEFAULT)
+        }
+    }
+
 
     init {
-        // 监听播放器状态变化
-        player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                when (state) {
-                    Player.STATE_IDLE -> updatePlaybackState(PlaybackState.IDLE)
-                    Player.STATE_BUFFERING -> updatePlaybackState(PlaybackState.BUFFERING)
-                    Player.STATE_READY -> updatePlaybackState(PlaybackState.PLAYING)
-                    Player.STATE_ENDED -> updatePlaybackState(PlaybackState.COMPLETED)
-                }
-            }
+        initExoPlayer()
+        player?.addListener(exoPlayerListener)
 
-            override fun onPlayerError(error: PlaybackException) {
-                super.onPlayerError(error)
-                updatePlaybackState(PlaybackState.ERROR)
-                onProgressListener?.onProgress(PlaybackProgress.DEFAULT)
-                stopProgressUpdate()
-            }
-        })
-    }
-
-    private fun startProgressUpdate() {
-        progressJob?.cancel()
-        progressJob = coroutineScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                val progress = withContext(Dispatchers.Main) {
-                    val currentPosition = getCurrentPosition()
-                    val duration = getDuration()
-                    val progress = currentPosition.toFloat() / duration
-                    // Timber.d("progress: $progress currentPosition: $currentPosition duration: $duration")
-                    PlaybackProgress(currentPosition, progress, duration)
-                }
-                onProgressListener?.onProgress(progress)
-                delay(500L) // 每500ms更新一次进度
-            }
-        }
-    }
-
-    private fun stopProgressUpdate() {
-        progressJob?.cancel()
-        progressJob = null
-    }
-
-    private fun updatePlaybackState(state: PlaybackState) {
-        onPlaybackStateChanged?.onPlaybackStateChanged(state)
-    }
-
-    override fun setMediaItem(mediaItem: AudioInfo) {
-        runCatching {
-            val media = MediaItem.fromUri(mediaItem.sourceId)
-            currentMediaItem = mediaItem
-            Timber.d("setMediaItem ${mediaItem.sourceId}")
-            val mediaSource = when {
-                mediaItem is AudioInfo.Remote &&
-                        mediaItem.sourceId.contains("sonyselect", ignoreCase = true)
-                    -> {
-                    // 使用自定义解密 DataSource
-                    val securityKey = mediaItem.encryptedSecurityKey?.let { encryptedSecurityKey ->
-                        SecurityKeyDecryptor.decryptSecurityKey(encryptedSecurityKey)
-                    } ?: return@runCatching
-                    val initVector = mediaItem.encryptedInitVector ?: return@runCatching
-
-                    val factory = FlacAesDataSourceFactory(
-                        upstreamFactory = OkHttpDataSource.Factory(OkHttpClient.Builder().build()),
-                        securityKey = securityKey,
-                        initVector = initVector
-                    )
-                    DefaultMediaSourceFactory(factory)
-                        .createMediaSource(media)
-                }
-
-                mediaItem is AudioInfo.Remote &&
-                        (mediaItem.sourceId.contains("u3m8", ignoreCase = true) ||
-                                mediaItem.sourceId.contains("m3u8", ignoreCase = true))
-                    -> {
-                    HlsMediaSource.Factory(cacheDataSourceFactory)
-                        .createMediaSource(media)
-                }
-
-                else -> {
-                    DefaultMediaSourceFactory(cacheDataSourceFactory)
-                        .createMediaSource(media)
-                }
-            }
-            player.setMediaSource(mediaSource)
-        }.onFailure {
-            updatePlaybackState(PlaybackState.ERROR)
-        }
     }
 
     override fun prepare() {
-        player.prepare()
+        val media = MediaItem.fromUri(audioInfo.sourceId)
+        val mediaSource = when (audioInfo) {
+            is AudioInfo.Local -> {
+                DefaultMediaSourceFactory(cacheDataSourceFactory)
+                    .createMediaSource(media)
+            }
+
+            is AudioInfo.Remote -> {
+                when {
+                    audioInfo.sourceId.contains("sonyselect", ignoreCase = true) -> {
+                        val securityKey =
+                            audioInfo.encryptedSecurityKey?.let { encryptedSecurityKey ->
+                                SecurityKeyDecryptor.decryptSecurityKey(encryptedSecurityKey)
+                            } ?: return
+                        val initVector = audioInfo.encryptedInitVector ?: return
+
+                        val factory = FlacAesDataSourceFactory(
+                            upstreamFactory = OkHttpDataSource.Factory(
+                                OkHttpClient.Builder().build()
+                            ),
+                            securityKey = securityKey,
+                            initVector = initVector
+                        )
+                        DefaultMediaSourceFactory(factory)
+                            .createMediaSource(media)
+                    }
+
+                    (audioInfo.sourceId.contains("u3m8", ignoreCase = true) ||
+                            audioInfo.sourceId.contains("m3u8", ignoreCase = true)) -> {
+                        HlsMediaSource.Factory(cacheDataSourceFactory)
+                            .createMediaSource(media)
+                    }
+
+                    else -> {
+                        DefaultMediaSourceFactory(cacheDataSourceFactory)
+                            .createMediaSource(media)
+                    }
+                }
+            }
+        }
+        player?.setMediaSource(mediaSource)
+        player?.prepare()
+        if (needsCueSeek()) {
+            seekTo(0)
+        }
     }
 
     override fun play() {
-        player.play()
-        updatePlaybackState(PlaybackState.PLAYING)
-        startProgressUpdate()
+        player?.play()
+        updateStateChange(PlaybackState.PLAYING)
+        startProgressJob()
     }
 
     override fun pause() {
-        player.pause()
-        updatePlaybackState(PlaybackState.PAUSED)
-        stopProgressUpdate()
+        player?.pause()
+        stopProgressJob()
+        updateStateChange(PlaybackState.PAUSED)
     }
 
     override fun stop() {
-        player.stop()
-        updatePlaybackState(PlaybackState.STOPPED)
-        stopProgressUpdate()
+        player?.stop()
+        stopProgressJob()
+        updateStateChange(PlaybackState.STOPPED)
     }
 
     override fun release() {
-        player.release()
-        stopProgressUpdate()
-        updatePlaybackState(PlaybackState.IDLE)
-        onPlaybackStateChanged = null
-        onProgressListener = null
+        player?.stop()
+        player?.release()
+        stopProgressJob()
     }
 
-    override fun seekTo(position: Long) {
-        Timber.d("seekTo isCommandAvailable ${player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)} $position ${getDuration()} ")
-        if (player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
-            player.seekTo(position)
+    override fun seekTo(positionMs: Long) {
+        if (player?.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) == true) {
+            val position = if (needsCueSeek()) {
+                positionMs + getCueStartTime()
+            } else {
+                positionMs
+            }
+            player?.seekTo(position)
         }
     }
 
-    override fun fastForward(milliseconds: Long) {
-        if (player.isCommandAvailable(Player.COMMAND_SEEK_FORWARD)) {
-            player.seekForward()
+    override fun fastForward(ms: Long) {
+        if (player?.isCommandAvailable(Player.COMMAND_SEEK_FORWARD) == true) {
+            player?.seekForward()
         }
     }
 
-    override fun fastRewind(milliseconds: Long) {
-        if (player.isCommandAvailable(Player.COMMAND_SEEK_BACK)) {
-            player.seekBack()
+    override fun fastRewind(ms: Long) {
+        if (player?.isCommandAvailable(Player.COMMAND_SEEK_BACK) == true) {
+            player?.seekBack()
         }
     }
+
 
     override fun getCurrentPosition(): Long {
-        if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-            return player.currentPosition
+        var position = player?.currentPosition ?: 0L
+        if (needsCueSeek()) {
+            position -= getCueStartTime()
         }
-        return 0
+        return position
     }
 
-    override fun getDuration(): Long {
-        if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && player.duration != C.TIME_UNSET) {
-            return player.duration
-        }
-        return currentMediaItem?.duration ?: 0
-    }
+    override fun isPlaying(): Boolean = player?.isPlaying ?: super.isPlaying()
+
+    override fun getPlaybackSpeed(): Float =
+        player?.playbackParameters?.speed ?: super.getPlaybackSpeed()
 
     override fun setPlaybackSpeed(speed: Float) {
-        player.playbackParameters.speed = speed
+        super.setPlaybackSpeed(speed)
+        player?.let {
+            it.playbackParameters = it.playbackParameters.withSpeed(speed)
+        }
     }
 
-    override fun getPlaybackSpeed(): Float {
-        return player.playbackParameters.speed
+    private fun initExoPlayer() = runCatching {
+        player = ExoPlayer.Builder(context)
+            .setRenderersFactory(
+                DefaultRenderersFactory(context).apply {
+                    setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                }
+            )
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
+            .build()
+    }.onFailure {
+        Timber.e(it, "initExoPlayer error")
     }
 
-    override fun isPlaying(): Boolean {
-        return player.isPlaying
+    private fun startProgressJob() {
+        progressJob?.cancel()
+        progressJob = coroutineScope.launch {
+            while (isActive) {
+                withContext(Dispatchers.Main) {
+                    // 需要考虑到CUE文件，播放到CUE当前轨道结束的时候应该Stop
+                    if (needsCueSeek() && getCurrentPosition() >= getDuration()) {
+                        stop()
+                    }
+                    updateProgress(getCurrentPosition())
+                }
+                delay(500)
+            }
+        }
     }
 
-    override fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener?) {
-        onPlaybackStateChanged = listener
-    }
-
-    override fun setOnProgressListener(listener: OnProgressListener?) {
-        onProgressListener = listener
+    private fun stopProgressJob() {
+        progressJob?.cancel()
+        progressJob = null
     }
 }

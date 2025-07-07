@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.extension.getString
+import com.qytech.audioplayer.ffprobe.FFprobe
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.utils.AudioUtils
 import com.qytech.core.extensions.toAudioCodec
@@ -46,6 +47,8 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         // 计算音频文件的关键属性
         val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, bitsPerSample)
         val codec = sampleRate.toAudioCodec()
+
+        val fingerprint = FFprobe.getFingerprint(filePath, 30)
         // 返回解析后的 AudioDetails
         return super.parse()?.map { audioDetails ->
             audioDetails.copy(
@@ -58,6 +61,7 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
                 startOffset = startOffset,
                 endOffset = endOffset,
                 dataLength = dataSize,
+                fingerprint = fingerprint
             )
         }
     }

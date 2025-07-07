@@ -5,17 +5,9 @@
 #ifndef QYLAUNCHER_UTILS_H
 #define QYLAUNCHER_UTILS_H
 
-
+#include <string>
 #include <jni.h>
-#include <android/log.h>
-
-#define LOG_TAG "qy-ffmpeg"
-
-#define LOGE(...) \
-  ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
-#define LOGD(...) \
-  ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
-
+#include "android_log.h"
 
 class Utils {
 
@@ -24,6 +16,7 @@ public:
 
     static const char *jStringToChar(JNIEnv *env, jstring data);
 
+    static std::string buildHeaderStringFromMap(JNIEnv *env, jobject jMap);
 };
 
 

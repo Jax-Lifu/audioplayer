@@ -86,7 +86,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.0.4"
+                version = "0.0.7"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])
@@ -117,6 +117,17 @@ afterEvaluate {
                         connection.set("scm:git:https://github.com/qytech/audioplayer.git")
                         developerConnection.set("scm:git:ssh://github.com/qytech/audioplayer.git")
                         url.set("http://github.com/qytech/audioplayer")
+                    }
+                }
+
+                pom.withXml {
+                    asNode().appendNode("dependencies").apply {
+                        configurations.implementation.get().dependencies.forEach {
+                            val dep = appendNode("dependency")
+                            dep.appendNode("groupId", it.group)
+                            dep.appendNode("artifactId", it.name)
+                            dep.appendNode("version", it.version)
+                        }
                     }
                 }
             }
