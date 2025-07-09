@@ -32,7 +32,8 @@ object AudioPlayerFactory {
         trackId: Int = 0,
         headers: Map<String, String> = emptyMap(),
     ): AudioPlayer? {
-        val parser = AudioFileParserFactory.createParser(source) ?: return null
+        Timber.d("createAudioPlayer: $source")
+        val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
         val index = if (trackId == 0) 0 else trackId - 1
         val audioInfo = parser.parse()?.getOrNull(index) ?: return null
         Timber.d("createAudioPlayer: $audioInfo")
@@ -48,6 +49,14 @@ object AudioPlayerFactory {
         audioInfo: AudioInfo,
         headers: Map<String, String> = emptyMap(),
     ): AudioPlayer {
+        val headers = if (
+            audioInfo is AudioInfo.Remote &&
+            audioInfo.headers?.isNotEmpty() == true
+        ) {
+            audioInfo.headers
+        } else {
+            headers
+        }
         return createInternal(context, audioInfo, headers)
     }
 
@@ -79,7 +88,7 @@ object AudioPlayerFactory {
         headers: Map<String, String> = emptyMap(),
     ): AudioPlayer {
         val codec = info.codecName.lowercase()
-        if (codec in exoPlayerCodecs) {
+        if (codec in exoPlayerCodecs && !info.sourceId.contains("115cdn")) {
             return ExoAudioPlayer(context, simpleCache, info, headers)
         }
         return FFAudioPlayer(info, headers)

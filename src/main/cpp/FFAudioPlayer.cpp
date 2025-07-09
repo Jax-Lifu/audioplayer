@@ -13,7 +13,10 @@ FFAudioPlayer::~FFAudioPlayer() {
 }
 
 bool FFAudioPlayer::init(const char *filePath, const char *headers) {
-    if (!openAudioFile(filePath, headers)) return false;
+    if (!openAudioFile(filePath, headers)) {
+        LOGE("Failed to open audio file: %s", filePath);
+        return false;
+    }
 
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
@@ -158,6 +161,7 @@ long FFAudioPlayer::getDuration() const { return duration; }
 
 bool FFAudioPlayer::openAudioFile(const char *filePath, const char *headers) {
     AVDictionary *options = nullptr;
+    LOGD("openAudioFile: %s headers %s", filePath, headers);
     if (headers) {
         av_dict_set(&options, "headers", headers, 0);
     }

@@ -58,6 +58,7 @@ class FFMediaInfo {
     fun toRemoteAudioFileInfo(
         url: String,
         albumCover: String?,
+        headers: Map<String, String>? = null,
     ): AudioInfo.Remote = AudioInfo.Remote(
         url = url,
         codecName = codecName ?: "",
@@ -73,7 +74,8 @@ class FFMediaInfo {
         genre = genre?.lowercase() ?: "other",
         date = date,
         albumImageUrl = albumCover,
-        sourceId = url
+        sourceId = url,
+        headers = headers,
     )
 
     override fun toString(): String {

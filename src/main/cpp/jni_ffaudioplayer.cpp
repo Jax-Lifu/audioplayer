@@ -87,6 +87,9 @@ Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobje
         player = nullptr;
     }
     std::string header = Utils::buildHeaderStringFromMap(env, headers);
+    if (!header.empty()) {
+        LOGD("header: %s", header.c_str());
+    }
     player = new FFAudioPlayer();
     player->init(Utils::jStringToChar(env, file_path), header.c_str());
 }

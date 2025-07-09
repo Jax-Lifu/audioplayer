@@ -49,6 +49,7 @@ sealed class AudioInfo {
         val url: String,
         val encryptedSecurityKey: String? = null,
         val encryptedInitVector: String? = null,
+        val headers: Map<String, String>? = null,
         override val codecName: String,
         override val formatName: String,
         override val duration: Long,
@@ -63,6 +64,6 @@ sealed class AudioInfo {
         override val date: String?,
         override val albumImageUrl: String? = null,
         override val artistImageUrl: String? = null,
-        override val sourceId: String = url
+        override val sourceId: String = url,
     ) : AudioInfo()
 }

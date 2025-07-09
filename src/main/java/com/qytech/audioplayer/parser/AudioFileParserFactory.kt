@@ -14,9 +14,12 @@ object AudioFileParserFactory {
     /**
      * 根据文件扩展名选择正确的解析策略。
      */
-    fun createParser(source: String): AudioFileParserStrategy? {
+    fun createParser(
+        source: String,
+        headers: Map<String, String> = emptyMap(),
+    ): AudioFileParserStrategy? {
         if (source.isRemoteUrl()) {
-            return NetworkAudioFileParser(source)
+            return NetworkAudioFileParser(source, headers)
         }
         val extension = source.getFileExtension()
         if (extension !in AUDIO_FILE_EXTENSIONS) {
