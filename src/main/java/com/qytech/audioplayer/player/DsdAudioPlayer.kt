@@ -51,18 +51,21 @@ class DsdAudioPlayer(
     }
 
     override fun play() {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         runCatching {
-            if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-                initializeAudioTrack()
-            }
-            lock.withLock {
-                if (paused) {
-                    paused = false
-                    audioTrack?.play()
-                } else {
-                    playDsd()
+            audioTrack?.let {
+                lock.withLock {
+                    if (paused) {
+                        paused = false
+                        it.play()
+                    } else {
+                        playDsd()
+                    }
+                    updateStateChange(PlaybackState.PLAYING)
                 }
-                updateStateChange(PlaybackState.PLAYING)
             }
         }.onFailure {
             Timber.e(it, "play error")
@@ -71,6 +74,10 @@ class DsdAudioPlayer(
     }
 
     override fun pause() {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         runCatching {
             lock.withLock {
                 paused = true
@@ -84,6 +91,10 @@ class DsdAudioPlayer(
     }
 
     override fun stop() {
+        if (audioTrack?.state!= AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         runCatching {
             shouldCancelDstDecode.set(true)
             lock.withLock {
@@ -125,6 +136,10 @@ class DsdAudioPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
+        if (audioTrack?.state!= AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         if (offsetPreSeconds == -1L) {
             Timber.d("seek failed: offsetPreSeconds = $offsetPreSeconds")
             return
@@ -252,6 +267,7 @@ class DsdAudioPlayer(
                         // 读取文件数据并处理异常
                         val bytesRead = file.read(srcData)
                         if (bytesRead == -1) {
+                            Timber.d("EOF reached")
                             updateStateChange(PlaybackState.COMPLETED)
                             return@launch
                         }
@@ -275,6 +291,8 @@ class DsdAudioPlayer(
                         currentOffset += bytesRead
                     }
                 }
+
+                updateStateChange(PlaybackState.COMPLETED)
             }
         }
     }.onFailure {

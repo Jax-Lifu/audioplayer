@@ -65,6 +65,10 @@ class FFAudioPlayer(
     }
 
     override fun play() {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         runCatching {
             audioTrack?.play()
             native_play()
@@ -74,6 +78,10 @@ class FFAudioPlayer(
     }
 
     override fun pause() {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         audioTrack?.pause()
         native_pause()
         stopProgressUpdate()
@@ -95,6 +103,10 @@ class FFAudioPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            onPlayerError(Exception("AudioTrack not initialized"))
+            return
+        }
         val position = if (needsCueSeek()) {
             positionMs + getCueStartTime()
         } else {

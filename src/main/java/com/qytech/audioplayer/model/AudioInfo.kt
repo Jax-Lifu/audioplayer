@@ -18,6 +18,8 @@ sealed class AudioInfo {
     abstract val albumImageUrl: String?
     abstract val artistImageUrl: String?
 
+    abstract val trackId: Int
+
     data class Local(
         val filepath: String,
         val folder: String,
@@ -27,7 +29,7 @@ sealed class AudioInfo {
         val dataLength: Long? = 0,
         val fingerprint: String? = null,
         val startTime: Long? = 0,
-        val trackId: Int = 0,
+        override val trackId: Int = 0,
         override val codecName: String,
         override val formatName: String,
         override val duration: Long,
@@ -50,6 +52,7 @@ sealed class AudioInfo {
         val encryptedSecurityKey: String? = null,
         val encryptedInitVector: String? = null,
         val headers: Map<String, String>? = null,
+        override val trackId: Int = 0,
         override val codecName: String,
         override val formatName: String,
         override val duration: Long,

@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.player
 
 import com.qytech.audioplayer.model.AudioInfo
+import timber.log.Timber
 
 /**
  * @author Administrator
@@ -15,10 +16,12 @@ abstract class BaseAudioPlayer(
     protected var progressListener: OnProgressListener? = null
 
     override fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener) {
+        Timber.d("setOnPlaybackStateChangeListener: $listener")
         stateListener = listener
     }
 
     override fun setOnProgressListener(listener: OnProgressListener) {
+        Timber.d("setOnProgressListener: $listener")
         progressListener = listener
     }
 
@@ -34,6 +37,7 @@ abstract class BaseAudioPlayer(
 
 
     protected fun updateStateChange(newState: PlaybackState) {
+        Timber.d("updateStateChange: $newState $stateListener")
         state = newState
         stateListener?.onPlaybackStateChanged(newState)
     }
@@ -56,6 +60,7 @@ abstract class BaseAudioPlayer(
     }
 
     protected fun onPlayerError(exception: Throwable) {
+        Timber.d("onPlayerError: ${exception.message} ${stateListener}")
         updateStateChange(PlaybackState.ERROR)
         progressListener?.onProgress(PlaybackProgress.DEFAULT)
         stateListener?.onPlayerError(exception.message ?: "未知错误")
@@ -71,7 +76,7 @@ abstract class BaseAudioPlayer(
     }
 
     protected fun getCueStartTime(): Long {
-        return (audioInfo as? AudioInfo.Local)?.startTime?: 0
+        return (audioInfo as? AudioInfo.Local)?.startTime ?: 0
     }
 
 }
