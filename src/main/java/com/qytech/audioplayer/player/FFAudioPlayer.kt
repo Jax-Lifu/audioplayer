@@ -1,5 +1,6 @@
 package com.qytech.audioplayer.player
 
+import android.annotation.SuppressLint
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -26,8 +27,6 @@ class FFAudioPlayer(
 ) : BaseAudioPlayer(audioInfo) {
     private var audioTrack: AudioTrack? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private var onPlaybackStateChanged: OnPlaybackStateChangeListener? = null
-    private var onProgressListener: OnProgressListener? = null
     private var progressJob: Job? = null
 
     private fun startProgressUpdate() {
@@ -150,9 +149,26 @@ class FFAudioPlayer(
         return native_getPlayState() == 3
     }
 
+    private fun isDsd(): Boolean {
+        val codecName = audioInfo.codecName.lowercase()
+        return codecName.startsWith("dsd") || codecName.startsWith("dst")
 
+    }
+
+
+    @SuppressLint("InlinedApi")
     private fun initAudioTrack() = runCatching {
-        val encoding = AudioFormat.ENCODING_PCM_16BIT
+        val encoding = if (isDsd()) {
+            AudioFormat.ENCODING_DSD
+        } else {
+            AudioFormat.ENCODING_PCM_16BIT
+        }
+        val sampleRate = if (isDsd()) {
+            audioInfo.sampleRate / 32
+        } else {
+            audioInfo.sampleRate
+        }
+        Timber.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding")
         val channelMask = when (native_getChannels()) {
             1 -> AudioFormat.CHANNEL_OUT_MONO
             4 -> AudioFormat.CHANNEL_OUT_QUAD
@@ -162,15 +178,14 @@ class FFAudioPlayer(
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
             .build()
-
         val audioFormat = AudioFormat.Builder()
-            .setSampleRate(native_getSampleRate())
+            .setSampleRate(sampleRate)
             .setEncoding(encoding)
             .setChannelMask(channelMask)
             .build()
 
         val bufferSize =
-            AudioTrack.getMinBufferSize(native_getSampleRate(), channelMask, encoding)
+            AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding)
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(audioAttributes)
             .setAudioFormat(audioFormat)
@@ -186,11 +201,12 @@ class FFAudioPlayer(
                 }
             }
         })
-        native_setOnCompletionListener(object : OnCompletionListener {
-            override fun onCompletion() {
-                onPlaybackStateChanged?.onPlaybackStateChanged(PlaybackState.COMPLETED)
-            }
-        })
+        native_setOnCompletionListener(
+            object : OnCompletionListener {
+                override fun onCompletion() {
+                    updateStateChange(PlaybackState.COMPLETED)
+                }
+            })
     }.onFailure {
         Timber.e(it, "init audio track failed")
         updateStateChange(PlaybackState.ERROR)

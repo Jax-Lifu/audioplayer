@@ -26,6 +26,10 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
+enum class AudioEncodingType {
+    PCM, DSD, DST, MQA, Unknown
+};
+
 // 播放状态定义
 enum PlayState {
     IDLE = 0,     // 初始状态，未开始播放
@@ -80,6 +84,8 @@ private:
     long duration = 0;
     long currentPosition = 0;
     int audioStreamIndex = -1;
+    bool isMSBF = false;
+    AudioEncodingType encodingType = AudioEncodingType::Unknown;
 
     // 播放状态
     bool isPlaying = false;
@@ -101,6 +107,8 @@ private:
     bool decodePacket(AVPacket *packet, AVFrame *frame);
 
     void decodeLoop();
+
+    bool isNativeDSDAudio() const;
 
     int result = -1;
 };

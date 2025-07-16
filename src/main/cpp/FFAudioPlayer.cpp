@@ -1,11 +1,26 @@
 #include "FFAudioPlayer.h"
 #include "Utils.h"
 
+// MSBF → LSBF lookup table（提前生成）
+static uint8_t bit_reverse_table[256];
+
+static void init_bit_reverse_table() {
+    for (int i = 0; i < 256; ++i) {
+        uint8_t b = i;
+        b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+        b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+        b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+        bit_reverse_table[i] = b;
+    }
+}
+
+
 FFAudioPlayer::FFAudioPlayer() :
         sampleRate(44100), channels(2), duration(0), currentPosition(0), audioStreamIndex(-1),
         isPaused(false), isPlaying(false), isSeeking(false), isStopped(false), shouldStopped(false),
         isDecodeThreadRunning(false) {
     avformat_network_init();
+    init_bit_reverse_table();
 }
 
 FFAudioPlayer::~FFAudioPlayer() {
@@ -32,31 +47,49 @@ bool FFAudioPlayer::init(const char *filePath, const char *headers) {
     codecContext = avcodec_alloc_context3(codec);
     if (!codecContext) return false;
 
+    AVCodecParameters *codecpar = formatContext->streams[audioStreamIndex]->codecpar;
+    AVCodecID codecId = codecpar->codec_id;
+    LOGD("codecId: %d , %s", codecId,
+         avcodec_descriptor_get(codecId)->name);
+    switch (codecId) {
+        case AV_CODEC_ID_DSD_LSBF:
+        case AV_CODEC_ID_DSD_MSBF:
+        case AV_CODEC_ID_DSD_LSBF_PLANAR:
+        case AV_CODEC_ID_DSD_MSBF_PLANAR:
+            encodingType = AudioEncodingType::DSD;
+            break;
+        case AV_CODEC_ID_DST:
+            encodingType = AudioEncodingType::DST;
+            break;
+        default:
+            encodingType = AudioEncodingType::PCM;
+            break;
+    }
+    isMSBF = codecId == AV_CODEC_ID_DSD_MSBF || codecId == AV_CODEC_ID_DSD_MSBF_PLANAR;
     result = avcodec_parameters_to_context(codecContext,
-                                           formatContext->streams[audioStreamIndex]->codecpar);
-    if (result < 0) return false;
+                                           codecpar);
 
+    if (result < 0) return false;
     result = avcodec_open2(codecContext, codec, nullptr);
     if (result < 0) return false;
+    if (!isNativeDSDAudio()) {
+        swrContext = swr_alloc();
+        if (!swrContext) return false;
+        const AVChannelLayout in_ch_layout = codecContext->ch_layout;
+        const AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+        AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
+        AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
 
-    swrContext = swr_alloc();
-    if (!swrContext) return false;
+        swr_alloc_set_opts2(&swrContext, &out_ch_layout, out_sample_fmt, sampleRate,
+                            &in_ch_layout, in_sample_fmt, sampleRate, 0, nullptr);
+        result = swr_init(swrContext);
+        if (result < 0) return false;
+    }
 
     sampleRate = codecContext->sample_rate;
     duration = formatContext->duration / AV_TIME_BASE * 1000;
     channels = codecContext->ch_layout.nb_channels;
     timeBase = &formatContext->streams[audioStreamIndex]->time_base;
-
-    const AVChannelLayout in_ch_layout = codecContext->ch_layout;
-    const AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-    AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
-    AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
-
-    swr_alloc_set_opts2(&swrContext, &out_ch_layout, out_sample_fmt, sampleRate,
-                        &in_ch_layout, in_sample_fmt, sampleRate, 0, nullptr);
-    result = swr_init(swrContext);
-    if (result < 0) return false;
-
     return true;
 }
 
@@ -184,6 +217,56 @@ bool FFAudioPlayer::decodePacket(AVPacket *packet, AVFrame *frame) {
         return true;
     }
 
+    if (isNativeDSDAudio()) {
+        // 更新播放进度
+        if (packet->pts != AV_NOPTS_VALUE) {
+            double timeSec = packet->pts * av_q2d(*timeBase);
+            long positionMs = static_cast<long>(timeSec * 1000);
+            {
+                std::lock_guard<std::mutex> lock(stateMutex);
+                currentPosition = positionMs;
+            }
+        }
+        std::vector<uint8_t> destData(packet->size);
+        const uint8_t *src = packet->data;
+        if (isMSBF) {
+            // 直接复制左右声道，交错 8 字节，但不 bit reverse
+            for (int i = 0; i < packet->size; i += 8) {
+                // 左声道
+                destData[i] = src[i];
+                destData[i + 1] = src[i + 2];
+                destData[i + 2] = src[i + 4];
+                destData[i + 3] = src[i + 6];
+                // 右声道
+                destData[i + 4] = src[i + 1];
+                destData[i + 5] = src[i + 3];
+                destData[i + 6] = src[i + 5];
+                destData[i + 7] = src[i + 7];
+            }
+        } else {
+            // 带 bit reverse 的交错处理
+            // 每声道大小（用 packet->size / channels ）
+            const int channelSize = packet->size / channels;
+            for (int j = 0, k = 0; j < channelSize; j += 4, k += 8) {
+                // 左声道
+                destData[k] = bit_reverse_table[src[j] & 0xFF];
+                destData[k + 1] = bit_reverse_table[src[j + 1] & 0xFF];
+                destData[k + 2] = bit_reverse_table[src[j + 2] & 0xFF];
+                destData[k + 3] = bit_reverse_table[src[j + 3] & 0xFF];
+                // 右声道
+                destData[k + 4] = bit_reverse_table[src[j + channelSize] & 0xFF];
+                destData[k + 5] = bit_reverse_table[src[j + channelSize + 1] & 0xFF];
+                destData[k + 6] = bit_reverse_table[src[j + channelSize + 2] & 0xFF];
+                destData[k + 7] = bit_reverse_table[src[j + channelSize + 3] & 0xFF];
+            }
+        }
+
+        playAudio(reinterpret_cast<const char *>(destData.data()), packet->size);
+        av_packet_unref(packet);
+        return true;
+    }
+
+
     result = avcodec_send_packet(codecContext, packet);
     if (result < 0) {
         av_packet_unref(packet);
@@ -194,6 +277,7 @@ bool FFAudioPlayer::decodePacket(AVPacket *packet, AVFrame *frame) {
     int outputChannelNumber = 2;
 
     while (avcodec_receive_frame(codecContext, frame) == 0) {
+
         int outSampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
         int outSamples = swr_get_out_samples(swrContext, frame->nb_samples);
         int bufferOutSize = outSampleSize * outSamples * outputChannelNumber;
@@ -247,4 +331,8 @@ void FFAudioPlayer::decodeLoop() {
     av_packet_unref(packet);
     av_packet_free(&packet);
     av_frame_free(&frame);
+}
+
+bool FFAudioPlayer::isNativeDSDAudio() const {
+    return encodingType == AudioEncodingType::DSD || encodingType == AudioEncodingType::DST;
 }

@@ -75,7 +75,7 @@ object AudioPlayerFactory {
     private fun buildLocalPlayer(context: Context, info: AudioInfo.Local): AudioPlayer {
         val codec = info.codecName.lowercase()
         return when {
-            codec.startsWith("dsd") || codec.startsWith("dst") -> DsdAudioPlayer(context, info)
+            codec.startsWith("dst") -> DsdAudioPlayer(context, info)
             codec in mediaPlayerCodecs -> RockitPlayer(context, info)
             codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
             else -> FFAudioPlayer(info)
