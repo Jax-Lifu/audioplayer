@@ -88,7 +88,8 @@ object AudioPlayerFactory {
         headers: Map<String, String> = emptyMap(),
     ): AudioPlayer {
         val codec = info.codecName.lowercase()
-        if (codec in exoPlayerCodecs && !info.sourceId.contains("115cdn")) {
+        val formatName = info.formatName.lowercase()
+        if (codec in exoPlayerCodecs || formatName == "hls") {
             return ExoAudioPlayer(context, simpleCache, info, headers)
         }
         return FFAudioPlayer(info, headers)

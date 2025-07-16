@@ -24,7 +24,7 @@ Java_com_qytech_audioplayer_ffprobe_FFprobe_probeFile(
     AVDictionary *options = nullptr;
     std::string header = Utils::buildHeaderStringFromMap(env, headers);
     if (!header.empty()) {
-        LOGD("header: %s", header.c_str());
+        // LOGD("header: %s", header.c_str());
         av_dict_set(&options, "headers", header.c_str(), 0);
     }
 
@@ -243,7 +243,17 @@ void setAudioStreamInfo(JNIEnv *env, jobject ffMediaInfoObject, AVCodecParameter
     }
     //    LOGD("bits_per_coded_sample %d , bits_per_raw_sample %d", parameters->bits_per_coded_sample,
     //         parameters->bits_per_raw_sample);
-    env->SetIntField(ffMediaInfoObject, sampleRateField, parameters->sample_rate);
+    // FFmpeg 为了表示成 PCM-like 格式（供内部处理）使用了 采样率 = sample_rate ÷ 8
+    // 此处需要真实的 DSD 采样率
+    int sampleRate = parameters->sample_rate;
+    if (parameters->codec_id == AV_CODEC_ID_DSD_MSBF_PLANAR ||
+        parameters->codec_id == AV_CODEC_ID_DSD_LSBF_PLANAR ||
+        parameters->codec_id == AV_CODEC_ID_DSD_MSBF ||
+        parameters->codec_id == AV_CODEC_ID_DSD_LSBF ||
+        parameters->codec_id == AV_CODEC_ID_DST) {
+        sampleRate = parameters->sample_rate * 8;
+    }
+    env->SetIntField(ffMediaInfoObject, sampleRateField, sampleRate);
     env->SetIntField(ffMediaInfoObject, bitPerSampleField, calculateBitDepth(parameters));
 }
 

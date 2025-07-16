@@ -72,6 +72,10 @@ bool FFAudioPlayer::init(const char *filePath, const char *headers) {
     if (result < 0) return false;
     result = avcodec_open2(codecContext, codec, nullptr);
     if (result < 0) return false;
+    sampleRate = codecContext->sample_rate;
+    duration = formatContext->duration / AV_TIME_BASE * 1000;
+    channels = codecContext->ch_layout.nb_channels;
+    timeBase = &formatContext->streams[audioStreamIndex]->time_base;
     if (!isNativeDSDAudio()) {
         swrContext = swr_alloc();
         if (!swrContext) return false;
@@ -84,12 +88,11 @@ bool FFAudioPlayer::init(const char *filePath, const char *headers) {
                             &in_ch_layout, in_sample_fmt, sampleRate, 0, nullptr);
         result = swr_init(swrContext);
         if (result < 0) return false;
+    } else {
+        // FFmpeg 为了表示成 PCM-like 格式（供内部处理）使用了 采样率 = sample_rate ÷ 8
+        // 此处需要真实的 DSD 采样率
+        sampleRate = codecContext->sample_rate * 8;
     }
-
-    sampleRate = codecContext->sample_rate;
-    duration = formatContext->duration / AV_TIME_BASE * 1000;
-    channels = codecContext->ch_layout.nb_channels;
-    timeBase = &formatContext->streams[audioStreamIndex]->time_base;
     return true;
 }
 
@@ -194,7 +197,7 @@ long FFAudioPlayer::getDuration() const { return duration; }
 
 bool FFAudioPlayer::openAudioFile(const char *filePath, const char *headers) {
     AVDictionary *options = nullptr;
-    LOGD("openAudioFile: %s headers %s", filePath, headers);
+    // LOGD("openAudioFile: %s headers %s", filePath, headers);
     if (headers) {
         av_dict_set(&options, "headers", headers, 0);
     }
