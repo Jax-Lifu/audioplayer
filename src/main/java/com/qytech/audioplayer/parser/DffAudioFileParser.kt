@@ -36,7 +36,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         var channelCount = 0
 
         // 解析文件内容并处理各个子块
-        while (currentOffset < reader.fileSize) {
+        while (currentOffset < reader.getFileSize()) {
             val subId = buffer.getString()
             val subChunkSize = buffer.getBigEndianUInt64()
 
@@ -59,7 +59,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
 
             // 更新偏移量并确保缓冲区内容充足
             currentOffset += subChunkSize + HEADER_SIZE
-            if (!buffer.hasRemaining() && currentOffset < reader.fileSize) {
+            if (!buffer.hasRemaining() && currentOffset < reader.getFileSize()) {
                 buffer = reader.readBuffer(currentOffset) ?: break
             }
         }
@@ -67,7 +67,7 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, DSD_BITS_PER_SAMPLE)
         val endOffset = startOffset + dataSize
 
-        val fingerprint = FFprobe.getFingerprint(filePath, 30)
+        val fingerprint = FFprobe.getFingerprint(sourceId, 30)
         // 调用父类解析，并对结果进行修改
         return super.parse()?.map { audioDetails ->
             audioDetails.copy(

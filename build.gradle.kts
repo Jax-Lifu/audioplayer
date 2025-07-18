@@ -63,6 +63,8 @@ dependencies {
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.commons.codec)
     implementation(libs.hilt.android)
+
+    implementation(libs.okhttp3)
     ksp(libs.hilt.compiler)
     // exoplayer
     implementation(libs.androidx.media3.ui)

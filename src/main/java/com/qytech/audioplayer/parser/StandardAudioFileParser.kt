@@ -8,7 +8,10 @@ import com.qytech.core.extensions.isAudio
 import timber.log.Timber
 import java.io.File
 
-open class StandardAudioFileParser(protected val filePath: String) : AudioFileParserStrategy {
+open class StandardAudioFileParser(
+    protected val sourceId: String,
+    protected val headers: Map<String, String> = emptyMap(),
+) : AudioFileParserStrategy {
 
     companion object {
         const val DSD_BITS_PER_SAMPLE = 1
@@ -29,19 +32,19 @@ open class StandardAudioFileParser(protected val filePath: String) : AudioFilePa
         const val BLOCK_ID_COMMENTS = "COMT" // 注释块
     }
 
-    protected val reader by lazy { AudioFileReader(filePath) }
+    protected val reader by lazy { AudioFileReader(sourceId, headers) }
 
     override suspend fun parse(): List<AudioInfo.Local>? {
-        val file = File(filePath)
+        val file = File(sourceId)
         if (!file.exists() || !file.isAudio()) {
-            Timber.e("File not found or not an audio file: $filePath")
+            Timber.e("File not found or not an audio file: $sourceId")
             return null
         }
-        val ffMediaInfo = FFprobe.probeFile(filePath)
+        val ffMediaInfo = FFprobe.probeFile(sourceId)
         if (ffMediaInfo == null) {
             return emptyList()
         }
-        val fingerprint = FFprobe.getFingerprint(filePath, 30)
+        val fingerprint = FFprobe.getFingerprint(sourceId, 30)
         val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
             ?: findLocalCoverImage(file.parentFile)?.absolutePath
         return listOf(

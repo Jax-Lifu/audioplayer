@@ -48,7 +48,7 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
         val bitRate = AudioUtils.getBitRate(sampleRate, channelCount, bitsPerSample)
         val codec = sampleRate.toAudioCodec()
 
-        val fingerprint = FFprobe.getFingerprint(filePath, 30)
+        val fingerprint = FFprobe.getFingerprint(sourceId, 30)
         // 返回解析后的 AudioDetails
         return super.parse()?.map { audioDetails ->
             audioDetails.copy(

@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.extension
 
 
+import timber.log.Timber
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
@@ -82,12 +83,14 @@ fun ByteBuffer.getByteBuffer(length: Int): ByteBuffer {
  * @param length 获取的字符串长度，默认为4
  * @return 获取的字符串
  */
+@OptIn(ExperimentalStdlibApi::class)
 fun ByteBuffer.getString(length: Int = 4, charset: Charset = Charsets.UTF_8): String {
     if (this.remaining() < length) {
         return ""
     }
     val bytes = ByteArray(length)
     this.get(bytes)
+    //Timber.d("getString: ${bytes.toHexString()}")
     return String(bytes, charset)
 }
 

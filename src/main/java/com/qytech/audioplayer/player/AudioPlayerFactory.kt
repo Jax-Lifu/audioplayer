@@ -11,6 +11,12 @@ import com.qytech.audioplayer.parser.AudioFileParserFactory
 import timber.log.Timber
 import java.io.File
 
+
+data class PlayerExtras(
+    val encryptedSecurityKey: String? = null,
+    val encryptedInitVector: String? = null,
+)
+
 @OptIn(UnstableApi::class)
 object AudioPlayerFactory {
 
@@ -31,11 +37,18 @@ object AudioPlayerFactory {
         source: String,
         trackId: Int = 0,
         headers: Map<String, String> = emptyMap(),
+        playerExtras: PlayerExtras? = null,
     ): AudioPlayer? {
         Timber.d("createAudioPlayer: $source")
         val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
         val index = if (trackId == 0) 0 else trackId - 1
-        val audioInfo = parser.parse()?.getOrNull(index) ?: return null
+        var audioInfo = parser.parse()?.getOrNull(index) ?: return null
+        if (audioInfo is AudioInfo.Remote && playerExtras != null) {
+            audioInfo = audioInfo.copy(
+                encryptedSecurityKey = playerExtras.encryptedSecurityKey,
+                encryptedInitVector = playerExtras.encryptedInitVector,
+            )
+        }
         Timber.d("createAudioPlayer: $audioInfo")
         return createInternal(context, audioInfo, headers)
     }
@@ -89,6 +102,10 @@ object AudioPlayerFactory {
     ): AudioPlayer {
         val codec = info.codecName.lowercase()
         val formatName = info.formatName.lowercase()
+        Timber.d("buildRemotePlayer: $codec $formatName")
+        if (formatName == "sacd") {
+            return DsdAudioPlayer(context, info, headers)
+        }
         if (codec in exoPlayerCodecs || formatName == "hls") {
             return ExoAudioPlayer(context, simpleCache, info, headers)
         }

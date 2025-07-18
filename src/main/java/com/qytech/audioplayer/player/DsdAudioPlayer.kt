@@ -12,13 +12,12 @@ import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.DffAudioFileParser
 import com.qytech.audioplayer.parser.DsfAudioFileParser
 import com.qytech.audioplayer.parser.SacdAudioFileParser
+import com.qytech.audioplayer.stream.SeekableInputStreamFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.io.File
-import java.io.RandomAccessFile
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -27,7 +26,8 @@ import kotlin.math.roundToLong
 
 class DsdAudioPlayer(
     context: Context,
-    override val audioInfo: AudioInfo.Local,
+    override val audioInfo: AudioInfo,
+    private val headers: Map<String, String> = emptyMap(),
 ) : BaseAudioPlayer(audioInfo) {
     private val lock = ReentrantLock()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -91,7 +91,7 @@ class DsdAudioPlayer(
     }
 
     override fun stop() {
-        if (audioTrack?.state!= AudioTrack.STATE_INITIALIZED) {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
             onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
@@ -136,7 +136,7 @@ class DsdAudioPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
-        if (audioTrack?.state!= AudioTrack.STATE_INITIALIZED) {
+        if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
             onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
@@ -229,7 +229,7 @@ class DsdAudioPlayer(
     }
 
     private fun playDsd() = runCatching {
-        val filePath = audioInfo.filepath
+        val sourceId = audioInfo.sourceId
         val bufferSize = 8 * 1024
         val byteRate = audioInfo.bitRate / 8
         val startOffset = audioInfo.startOffset ?: 0L
@@ -242,58 +242,49 @@ class DsdAudioPlayer(
         currentOffset = startOffset
         SacdAudioFrame.frameIndex = 0
         coroutineScope.launch {
-            val audioFile = File(filePath)
-            if (!audioFile.exists()) {
-                updateStateChange(PlaybackState.ERROR)
-                return@launch
-            }
+            val stream = SeekableInputStreamFactory.create(sourceId, headers) ?: return@launch
             audioTrack?.play()
-            RandomAccessFile(audioFile, "r").use { file ->
-                file.seek(startOffset)
-                while (!stopped && currentOffset < endOffset) {
-                    if (paused) {
-                        delay(200L)
-                        continue
-                    }
-
-                    lock.withLock {
-                        if (seeking) {
-                            file.seek(currentOffset)
-                            seeking = false
-                            audioTrack?.flush()
-                            shouldCancelDstDecode.set(false)
-                        }
-
-                        // 读取文件数据并处理异常
-                        val bytesRead = file.read(srcData)
-                        if (bytesRead == -1) {
-                            Timber.d("EOF reached")
-                            updateStateChange(PlaybackState.COMPLETED)
-                            return@launch
-                        }
-
-                        position = if (isDstCodec()) {
-                            ((currentOffset - startOffset) * compressionRate / byteRate).roundToLong()
-                        } else {
-                            (currentOffset - startOffset) / byteRate
-                        }
-                        if (position != currentPosition) {
-                            if (previousOffset != -1L && offsetPreSeconds == -1L) {
-                                offsetPreSeconds = currentOffset - previousOffset
-                            }
-                            updateProgress(position * 1000L)
-                            currentPosition = position
-                            previousOffset = currentOffset
-                        }
-
-                        writeAudioData(srcData, destData, bytesRead)
-
-                        currentOffset += bytesRead
+            stream.seek(startOffset)
+            while (!stopped && currentOffset < endOffset) {
+                if (paused) {
+                    delay(200L)
+                    continue
+                }
+                lock.withLock {
+                    if (seeking) {
+                        stream.seek(currentOffset)
+                        seeking = false
+                        audioTrack?.flush()
+                        shouldCancelDstDecode.set(false)
                     }
                 }
 
-                updateStateChange(PlaybackState.COMPLETED)
+                val bytesRead = stream.read(srcData)
+                if (bytesRead == -1) {
+                    Timber.d("EOF reached")
+                    updateStateChange(PlaybackState.COMPLETED)
+                    break
+                }
+
+                // 更新时间 & 进度
+                position = if (isDstCodec()) {
+                    ((currentOffset - startOffset) * compressionRate / byteRate).roundToLong()
+                } else {
+                    (currentOffset - startOffset) / byteRate
+                }
+
+                if (position != currentPosition) {
+                    if (previousOffset != -1L && offsetPreSeconds == -1L) {
+                        offsetPreSeconds = currentOffset - previousOffset
+                    }
+                    updateProgress(position * 1000L)
+                    currentPosition = position
+                    previousOffset = currentOffset
+                }
+                writeAudioData(srcData, destData, bytesRead)
+                currentOffset += bytesRead
             }
+            updateStateChange(PlaybackState.COMPLETED)
         }
     }.onFailure {
         Timber.e(it, "playDsd error")

@@ -18,7 +18,10 @@ import timber.log.Timber
 import java.nio.ByteBuffer
 import java.util.Locale
 
-class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
+class SacdAudioFileParser(
+    val sourceId: String,
+    val headers: Map<String, String> = emptyMap(),
+) : AudioFileParserStrategy {
     companion object {
         // 默认参数常量
         const val DSD_BITS_PER_SAMPLE = 1
@@ -32,7 +35,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         const val ENCODING_TYPE_SACD = "SACD"
     }
 
-    private val reader = AudioFileReader(filePath)
+    private val reader = AudioFileReader(sourceId, headers)
     private var sacdSectorSize = SACD_LOGICAL_SECTOR_SIZE
     private var buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
 
@@ -44,7 +47,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     private var trackTimeList: List<SacdTrackTime>? = null
     private var trackTextList: List<SacdTrackText>? = null
 
-    override suspend fun parse(): List<AudioInfo.Local>? {
+    override suspend fun parse(): List<AudioInfo>? {
         sacdSectorSize = detectSectorSize() ?: return null
         //Timber.d("SACD sector size detected: $sacdSectorSize")
 
@@ -89,11 +92,11 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
     }
 
     private val filename by lazy {
-        filePath.getFileName()
+        sourceId.getFileName()
     }
 
     private val folder by lazy {
-        filePath.getAbsoluteFolder()
+        sourceId.getAbsoluteFolder()
     }
     private val codecName by lazy {
         sampleRate.toAudioCodec(areaToc?.frameFormat?.getFormatName())
@@ -106,39 +109,65 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         toc?.albumGenreList?.firstOrNull()?.genre?.toLocalizedString() ?: "other"
     }
 
-    private fun generateTrackInfo(): List<AudioInfo.Local> = List(getTrackCount()) { index ->
-        val trackOffset = trackOffsetList?.get(index)
-        val trackTime = trackTimeList?.get(index)
-        val trackText = trackTextList?.get(index)
-        val startOffset = trackOffset?.trackStart?.times(sacdSectorSize) ?: 0
-        val endOffset = trackOffset?.trackEnd?.times(sacdSectorSize) ?: 0
-        val dataLength = endOffset - startOffset
+    private suspend fun generateTrackInfo(): List<AudioInfo> =
+        List(getTrackCount()) { index ->
+            val trackOffset = trackOffsetList?.get(index)
+            val trackTime = trackTimeList?.get(index)
+            val trackText = trackTextList?.get(index)
+            val startOffset = trackOffset?.trackStart?.times(sacdSectorSize) ?: 0
+            val endOffset = trackOffset?.trackEnd?.times(sacdSectorSize) ?: 0
+            val dataLength = endOffset - startOffset
 
-        val duration = (trackTime?.durationTime?.getDuration() ?: 0L) * 1000
-        AudioInfo.Local(
-            filepath = filePath,
-            folder = folder,
-            codecName = codecName,
-            formatName = ENCODING_TYPE_SACD,
-            channels = channelCount,
-            sampleRate = sampleRate,
-            bitRate = bitRate,
-            bitPreSample = DSD_BITS_PER_SAMPLE,
-            duration = duration,
-            title = trackText?.title ?: "${filename}_Track${index + 1}",
-            album = album,
-            artist = trackText?.performer ?: "Unknown artist",
-            genre = genre,
-            date = date,
-            startOffset = startOffset,
-            endOffset = endOffset,
-            dataLength = dataLength,
-            fileSize = reader.fileSize,
-            trackId = index + 1,
-        )
-    }
+            val duration = (trackTime?.durationTime?.getDuration() ?: 0L) * 1000
 
-    private fun detectSectorSize(): Int? {
+            if (reader.isHttp()) {
+                AudioInfo.Remote(
+                    sourceId = sourceId,
+                    url = sourceId,
+                    codecName = codecName,
+                    formatName = ENCODING_TYPE_SACD,
+                    channels = channelCount,
+                    sampleRate = sampleRate,
+                    bitRate = bitRate,
+                    bitPreSample = DSD_BITS_PER_SAMPLE,
+                    duration = duration,
+                    title = trackText?.title ?: "${filename}_Track${index + 1}",
+                    album = album,
+                    artist = trackText?.performer ?: "Unknown artist",
+                    genre = genre,
+                    date = date,
+                    startOffset = startOffset,
+                    endOffset = endOffset,
+                    dataLength = dataLength,
+                    trackId = index + 1,
+                )
+            } else {
+                AudioInfo.Local(
+                    filepath = sourceId,
+                    folder = folder,
+                    codecName = codecName,
+                    formatName = ENCODING_TYPE_SACD,
+                    channels = channelCount,
+                    sampleRate = sampleRate,
+                    bitRate = bitRate,
+                    bitPreSample = DSD_BITS_PER_SAMPLE,
+                    duration = duration,
+                    title = trackText?.title ?: "${filename}_Track${index + 1}",
+                    album = album,
+                    artist = trackText?.performer ?: "Unknown artist",
+                    genre = genre,
+                    date = date,
+                    startOffset = startOffset,
+                    endOffset = endOffset,
+                    dataLength = dataLength,
+                    fileSize = reader.getFileSize(),
+                    trackId = index + 1,
+                )
+            }
+
+        }
+
+    private suspend fun detectSectorSize(): Int? {
         // 尝试使用逻辑扇区大小读取
         buffer =
             reader.readBuffer(absoluteOffset = SACD_TOC_START * SACD_LOGICAL_SECTOR_SIZE.toLong())
@@ -164,7 +193,7 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
 
     private fun isValidSacdToc(buffer: ByteBuffer): Boolean {
         val id = buffer.getString(ScarletBook.SACD_ID_LENGTH)
-        // Timber.d("isValidSacdToc: $id")
+        //Timber.d("isValidSacdToc: $id")
         return id == ScarletBook.SACD_TOC
     }
 
@@ -172,13 +201,13 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         buffer.position(if (isMultiChannel) 12 else 0)
     }
 
-    private fun readSacdAlbumInfo(): SacdAlbumInfo? {
+    private suspend fun readSacdAlbumInfo(): SacdAlbumInfo? {
         buffer = reader.readBuffer() ?: return null
         updateBufferPosition()
         return SacdAlbumInfo.read(buffer)
     }
 
-    private fun readSacdAreaToc(): SacdAreaToc? {
+    private suspend fun readSacdAreaToc(): SacdAreaToc? {
         val areaStart = toc?.area1Toc1Start.takeIf { it != 0 } ?: toc?.area2Toc2Start ?: return null
         buffer =
             reader.readBuffer(absoluteOffset = areaStart * sacdSectorSize.toLong()) ?: return null
@@ -186,19 +215,19 @@ class SacdAudioFileParser(val filePath: String) : AudioFileParserStrategy {
         return SacdAreaToc.read(buffer)
     }
 
-    private fun readSacdTrackOffsets(): List<SacdTrackOffset>? {
+    private suspend fun readSacdTrackOffsets(): List<SacdTrackOffset>? {
         buffer = reader.readBuffer() ?: return null
         updateBufferPosition()
         return SacdTrackOffset.read(buffer, getTrackCount(), isMultiChannel)
     }
 
-    private fun readSacdTrackTimes(): List<SacdTrackTime>? {
+    private suspend fun readSacdTrackTimes(): List<SacdTrackTime>? {
         buffer = reader.readBuffer() ?: return null
         updateBufferPosition()
         return SacdTrackTime.read(buffer, getTrackCount(), isMultiChannel)
     }
 
-    private fun readSacdTrackTexts(): List<SacdTrackText>? {
+    private suspend fun readSacdTrackTexts(): List<SacdTrackText>? {
         val areaStart = toc?.area1Toc1Start.takeIf { it != 0 } ?: toc?.area2Toc2Start ?: return null
         val trackTextOffset = areaToc?.trackTextOffset ?: return null
         reader.resetBufferSize(sacdSectorSize * 4)

@@ -1,77 +1,149 @@
 package com.qytech.audioplayer.parser
 
+import com.qytech.audioplayer.utils.SuspendLazy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.Headers.Companion.toHeaders
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import timber.log.Timber
+import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 
-// 文件读取器类，负责管理文件读取
-class AudioFileReader(val filePath: String) : AutoCloseable {
+class AudioFileReader(
+    val source: String,
+    val headers: Map<String, String> = emptyMap(),
+) : AutoCloseable {
+
     companion object {
         const val DEFAULT_BUFFER_SIZE = 2048
     }
 
-    private val file = RandomAccessFile(filePath, "r").apply {
-        require(fd != null && channel != null)
+    private var buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
+    private var currentOffset = 0L
+
+    private val isHttp = source.startsWith("http://") || source.startsWith("https://")
+
+    private val file: RandomAccessFile? = if (!isHttp) {
+        val f = File(source)
+        require(f.exists()) { "File does not exist: $source" }
+        RandomAccessFile(f, "r")
+    } else {
+        null
     }
 
+    private val httpClient = if (isHttp) OkHttpClient() else null
+    private val fileSizeLazy = SuspendLazy {
+        if (isHttp) {
+            withContext(Dispatchers.IO) {
+                fetchHttpContentLength()
+            }
+        } else {
+            file?.length() ?: 0L
+        }
+    }
 
-    val fileSize = file.length()
-    private var currentOffset = 0L
-    private var buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
+    suspend fun getFileSize(): Long = fileSizeLazy.get()
 
+    fun isHttp(): Boolean = isHttp
 
     /**
-     * 从绝对偏移量或相对偏移量开始读取数据。
-     * @param absoluteOffset 绝对偏移量（文件的固定位置），如果为 null，则使用相对偏移量。
-     * @param relativeOffset 相对偏移量，如果为 null，则使用绝对偏移量。
-     * @return 读取到的数据缓冲区，或 null 如果超出文件大小。
+     * 支持绝对位置或相对位置的读取
      */
-    fun readBuffer(absoluteOffset: Long? = null, relativeOffset: Long? = null): ByteBuffer? {
-        // 计算最终的读取位置
+    suspend fun readBuffer(
+        absoluteOffset: Long? = null,
+        relativeOffset: Long? = null,
+    ): ByteBuffer? {
         val startPosition = when {
-            absoluteOffset != null -> absoluteOffset        // 如果指定了绝对偏移量，则从该位置开始读取
-            relativeOffset != null -> currentOffset + relativeOffset  // 使用相对偏移量
-            else -> currentOffset          // 否则使用当前的偏移量
+            absoluteOffset != null -> absoluteOffset
+            relativeOffset != null -> currentOffset + relativeOffset
+            else -> currentOffset
         }
 
         return readData(startPosition)
     }
 
     /**
-     * 从指定位置读取数据。
-     * @param position 文件中的绝对位置。
-     * @return 读取到的数据缓冲区，或 null 如果超出文件大小。
+     * 根据位置读取数据并填充到 ByteBuffer
      */
-    private fun readData(position: Long): ByteBuffer? {
+    @OptIn(ExperimentalStdlibApi::class)
+    private suspend fun readData(position: Long): ByteBuffer? {
+        if (position < 0) return null
+
         currentOffset = position
-        // Timber.d("readData currentOffset: ${currentOffset / 2048}")
-        if (currentOffset >= fileSize) {
-            return null
-        }
-
         buffer.clear()
-        val bytesRead = file.channel.read(buffer, currentOffset)
 
-        // 如果没有读到任何数据或读取失败，则返回 null
-        if (bytesRead < 0) {
-            return null
+        return if (isHttp) {
+            readHttpRange(position)
+        } else {
+            val bytesRead = file?.channel?.read(buffer, position) ?: -1
+            if (bytesRead < 0) return null
+            buffer.flip()
+            currentOffset += bytesRead
+            buffer
         }
-
-        buffer.flip()
-        currentOffset += bytesRead
-        return buffer
     }
 
     /**
-     * 重置缓冲区大小。
-     * @param newSize 新的缓冲区大小（字节）。
+     * 网络读取指定 Range 数据
      */
+    private suspend fun readHttpRange(position: Long): ByteBuffer? = withContext(Dispatchers.IO) {
+        val endPosition = position + buffer.capacity() - 1
+
+        try {
+            val request = Request.Builder()
+                .url(source)
+                .headers(headers.toHeaders())
+                .addHeader("Range", "bytes=$position-$endPosition")
+                .build()
+
+            val response = httpClient?.newCall(request)?.execute()
+            if (response == null || !response.isSuccessful) {
+                Timber.e("HTTP Range 请求失败: code=${response?.code}")
+                return@withContext null
+            }
+
+            val bytes = response.body?.bytes() ?: return@withContext null
+
+            buffer.put(bytes)
+            buffer.flip()
+            currentOffset += bytes.size
+            buffer
+        } catch (e: Exception) {
+            Timber.e(e, "读取 HTTP Range [$position-$endPosition] 失败")
+            null
+        }
+    }
+
+    /**
+     * 获取远程文件大小
+     */
+    private suspend fun fetchHttpContentLength(): Long = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(source)
+                .headers(headers.toHeaders())
+                .build()
+
+            val response = httpClient?.newCall(request)?.execute()
+            if (response == null || !response.isSuccessful) {
+                Timber.e("获取 Content-Length 失败: ${response?.code}")
+                return@withContext -1
+            }
+            response.header("Content-Length")?.toLongOrNull() ?: -1
+        } catch (e: Exception) {
+            Timber.e(e, "请求 Content-Length 失败")
+            -1
+        }
+    }
+
     fun resetBufferSize(newSize: Int) {
         require(newSize > 0) { "Buffer size must be greater than 0." }
         buffer = ByteBuffer.allocate(newSize)
     }
 
-    // 显式关闭文件
     override fun close() {
-        file.close()
+        file?.close()
     }
 }

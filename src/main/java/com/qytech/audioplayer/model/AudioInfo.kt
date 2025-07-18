@@ -9,7 +9,6 @@ sealed class AudioInfo {
     abstract val sampleRate: Int
     abstract val bitRate: Int
     abstract val bitPreSample: Int
-
     abstract val title: String
     abstract val album: String
     abstract val artist: String
@@ -17,16 +16,15 @@ sealed class AudioInfo {
     abstract val date: String?
     abstract val albumImageUrl: String?
     abstract val artistImageUrl: String?
-
+    abstract val startOffset: Long?
+    abstract val endOffset: Long?
+    abstract val dataLength: Long?
     abstract val trackId: Int
 
     data class Local(
         val filepath: String,
         val folder: String,
         val fileSize: Long,
-        val startOffset: Long? = 0,
-        val endOffset: Long? = 0,
-        val dataLength: Long? = 0,
         val fingerprint: String? = null,
         val startTime: Long? = 0,
         override val trackId: Int = 0,
@@ -45,6 +43,9 @@ sealed class AudioInfo {
         override val albumImageUrl: String? = null,
         override val artistImageUrl: String? = null,
         override val sourceId: String = filepath,
+        override val startOffset: Long? = 0,
+        override val endOffset: Long? = 0,
+        override val dataLength: Long? = 0,
     ) : AudioInfo()
 
     data class Remote(
@@ -68,5 +69,8 @@ sealed class AudioInfo {
         override val albumImageUrl: String? = null,
         override val artistImageUrl: String? = null,
         override val sourceId: String = url,
+        override val startOffset: Long? = 0,
+        override val endOffset: Long? = 0,
+        override val dataLength: Long? = 0,
     ) : AudioInfo()
 }

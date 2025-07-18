@@ -13,7 +13,7 @@ class CueAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
     override suspend fun parse(): List<AudioInfo.Local>? {
         val cueAudioInfo = super.parse()?.firstOrNull() ?: return emptyList()
         // 获取当前当前音频对应的CUE文件
-        val audioFile = File(filePath)
+        val audioFile = File(sourceId)
         val cueFile = File(audioFile.parentFile, "${audioFile.nameWithoutExtension}.cue")
         if (!cueFile.exists()) {
             return emptyList()
@@ -25,12 +25,12 @@ class CueAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
             val title = track.title ?: "Track ${track.number}"
             val artist = track.performer ?: sheet.performer ?: "Unknown artist"
             val album = sheet.title ?: "Unknown album"
-            val folder = filePath.getAbsoluteFolder()
+            val folder = sourceId.getAbsoluteFolder()
             AudioInfo.Local(
                 title = title,
                 artist = artist,
                 album = album,
-                filepath = filePath,
+                filepath = sourceId,
                 folder = folder,
                 codecName = cueAudioInfo.codecName,
                 fileSize = cueAudioInfo.fileSize,
