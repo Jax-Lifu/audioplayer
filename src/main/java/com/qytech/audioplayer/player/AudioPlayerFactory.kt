@@ -28,7 +28,7 @@ object AudioPlayerFactory {
         "vorbis", "pcm_s16le", "pcm_s24le", "pcm_s32le", "flac"
     )
     val exoPlayerCodecs = setOf(
-        "opus", "alac", "pcm_mulaw", "pcm_alaw", "amrnb",
+        "opus", "pcm_mulaw", "pcm_alaw", "amrnb",
         "amrwb", "ac3", "dca"
     )
 
@@ -87,11 +87,12 @@ object AudioPlayerFactory {
 
     private fun buildLocalPlayer(context: Context, info: AudioInfo.Local): AudioPlayer {
         val codec = info.codecName.lowercase()
+//        val formatName = info.formatName.lowercase()
         return when {
-            codec.startsWith("dst") -> DsdAudioPlayer(context, info)
+            codec.startsWith("dst") || codec.startsWith("dsd") -> DsdAudioPlayer(context, info)
             codec in mediaPlayerCodecs -> RockitPlayer(context, info)
             codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
-            else -> FFAudioPlayer(info)
+            else -> FFAudioPlayer(context, info)
         }
     }
 
@@ -109,7 +110,7 @@ object AudioPlayerFactory {
         if (codec in exoPlayerCodecs || formatName == "hls") {
             return ExoAudioPlayer(context, simpleCache, info, headers)
         }
-        return FFAudioPlayer(info, headers)
+        return FFAudioPlayer(context, info, headers)
     }
 
     private fun initCache(context: Context) {

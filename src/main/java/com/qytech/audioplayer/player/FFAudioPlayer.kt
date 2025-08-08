@@ -1,6 +1,10 @@
 package com.qytech.audioplayer.player
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -22,12 +26,46 @@ interface OnCompletionListener {
 }
 
 class FFAudioPlayer(
+    private val context: Context,
     override val audioInfo: AudioInfo,
     val headers: Map<String, String> = emptyMap(),
 ) : BaseAudioPlayer(audioInfo) {
     private var audioTrack: AudioTrack? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private var progressJob: Job? = null
+
+    private var isUsbReceiverRegister = false
+
+    val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action
+            val path = intent?.data?.path ?: ""
+            if (action == Intent.ACTION_MEDIA_UNMOUNTED ||
+                action == Intent.ACTION_MEDIA_EJECT ||
+                action == Intent.ACTION_MEDIA_REMOVED
+            ) {
+                if (audioInfo.sourceId.contains(path)) {
+                    Timber.d("usbReceiver onReceive: $action $path")
+                    stop()
+                    release()
+                }
+            }
+        }
+    }
+
+
+    init {
+        if (!isUsbReceiverRegister) {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+                addAction(Intent.ACTION_MEDIA_EJECT)
+                addAction(Intent.ACTION_MEDIA_REMOVED)
+                addDataScheme("file")
+            }
+            context.registerReceiver(usbReceiver, filter)
+            isUsbReceiverRegister = true
+        }
+    }
 
     private fun startProgressUpdate() {
         progressJob?.cancel()
@@ -65,7 +103,6 @@ class FFAudioPlayer(
 
     override fun play() {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         runCatching {
@@ -78,7 +115,6 @@ class FFAudioPlayer(
 
     override fun pause() {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         audioTrack?.pause()
@@ -99,11 +135,15 @@ class FFAudioPlayer(
         native_release()
         stopProgressUpdate()
         updateStateChange(PlaybackState.IDLE)
+        if (isUsbReceiverRegister) {
+            context.unregisterReceiver(usbReceiver)
+            isUsbReceiverRegister = false
+        }
+
     }
 
     override fun seekTo(positionMs: Long) {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         val position = if (needsCueSeek()) {

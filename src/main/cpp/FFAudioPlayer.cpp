@@ -14,7 +14,6 @@ static void init_bit_reverse_table() {
     }
 }
 
-
 FFAudioPlayer::FFAudioPlayer() :
         sampleRate(44100), channels(2), duration(0), currentPosition(0), audioStreamIndex(-1),
         isPaused(false), isPlaying(false), isSeeking(false), isStopped(false), shouldStopped(false),
@@ -149,11 +148,13 @@ void FFAudioPlayer::release() {
     stop();
     std::lock_guard<std::mutex> lock(stateMutex);
     if (codecContext) {
+        avcodec_flush_buffers(codecContext);
         avcodec_free_context(&codecContext);
         codecContext = nullptr;
     }
     if (formatContext) {
         avformat_close_input(&formatContext);
+        avformat_free_context(formatContext);
         formatContext = nullptr;
     }
     if (swrContext) {

@@ -24,6 +24,10 @@ import kotlin.concurrent.withLock
 import kotlin.math.roundToLong
 
 
+interface DsdLoopbackDataCallback {
+    fun onDataReceived(data: ByteArray, offset: Int, size: Int)
+}
+
 class DsdAudioPlayer(
     context: Context,
     override val audioInfo: AudioInfo,
@@ -34,7 +38,7 @@ class DsdAudioPlayer(
 
     private var audioTrack: AudioTrack? = null
 
-    private var isDopEnable = false
+    var isDopEnable: Boolean = false
 
     private var offsetPreSeconds = -1L
     private var previousOffset = -1L
@@ -45,6 +49,11 @@ class DsdAudioPlayer(
     private var paused = false
 
     private var shouldCancelDstDecode = AtomicBoolean(false)
+    private var dsdLoopbackDataCallback: DsdLoopbackDataCallback? = null
+
+    fun setDsdLoopbackDataCallback(callback: DsdLoopbackDataCallback?) {
+        dsdLoopbackDataCallback = callback
+    }
 
     override fun prepare() {
         initializeAudioTrack()
@@ -52,9 +61,9 @@ class DsdAudioPlayer(
 
     override fun play() {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
+        stopped = false
         runCatching {
             audioTrack?.let {
                 lock.withLock {
@@ -75,7 +84,6 @@ class DsdAudioPlayer(
 
     override fun pause() {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         runCatching {
@@ -92,7 +100,6 @@ class DsdAudioPlayer(
 
     override fun stop() {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         runCatching {
@@ -137,7 +144,6 @@ class DsdAudioPlayer(
 
     override fun seekTo(positionMs: Long) {
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
-            onPlayerError(Exception("AudioTrack not initialized"))
             return
         }
         if (offsetPreSeconds == -1L) {
@@ -186,6 +192,21 @@ class DsdAudioPlayer(
         return audioInfo.codecName.lowercase().startsWith("dsd")
     }
 
+    private fun getOversampleRate(): Int {
+        return when (audioInfo.codecName.lowercase()) {
+            "dsd128" -> 128
+            "dsd256" -> 256
+            "dsd512" -> 512
+            else -> 64
+        }.apply {
+            Timber.d("getOversampleRate: $this")
+        }
+    }
+
+    private val dsdOversampleRatio by lazy {
+        getOversampleRate()
+    }
+
     @SuppressLint("InlinedApi")
     private fun initializeAudioTrack() = runCatching {
         if (!isDsdCodec() && !isDstCodec()) {
@@ -217,6 +238,7 @@ class DsdAudioPlayer(
             .setChannelMask(channelMask)
             .build()
         val bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding)
+        Timber.d("sampleRate: $sampleRate, channelMask: $channelMask, encoding: $encoding, bufferSize: $bufferSize")
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(audioAttributes)
             .setAudioFormat(audioFormat)
@@ -228,6 +250,7 @@ class DsdAudioPlayer(
         onPlayerError(it)
     }
 
+//    private var testFile = File(context.filesDir, "test.pcm")
     private fun playDsd() = runCatching {
         val sourceId = audioInfo.sourceId
         val bufferSize = 8 * 1024
@@ -243,6 +266,8 @@ class DsdAudioPlayer(
         SacdAudioFrame.frameIndex = 0
         coroutineScope.launch {
             val stream = SeekableInputStreamFactory.create(sourceId, headers) ?: return@launch
+            /*testFile.delete()
+            testFile.createNewFile()*/
             audioTrack?.play()
             stream.seek(startOffset)
             while (!stopped && currentOffset < endOffset) {
@@ -281,6 +306,7 @@ class DsdAudioPlayer(
                     currentPosition = position
                     previousOffset = currentOffset
                 }
+
                 writeAudioData(srcData, destData, bytesRead)
                 currentOffset += bytesRead
             }
@@ -292,6 +318,7 @@ class DsdAudioPlayer(
     }
 
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, length: Int) = runCatching {
+
         var lengthToWrite = if (isDopEnable) length * 2 else length
         if (isDstCodec()) {
             SacdAudioFrame.readDstFrame(srcData, length, shouldCancelDstDecode) { data, size ->
@@ -320,6 +347,14 @@ class DsdAudioPlayer(
 
             else -> srcData // 默认使用源数据
         }
+        /*if (isPlaying()) {
+            val pcmData = DsdInterleavedToPcm.convert(
+                srcData.copyOf(length),
+                dsdOversampleRatio
+            )
+//            dsdLoopbackDataCallback?.onDataReceived(pcmData, 0, pcmData.size)
+            testFile.appendBytes(pcmData)
+        }*/
         audioTrack?.write(dataToWrite, 0, lengthToWrite)
     }.onFailure {
         Timber.e(it, "writeAudioData error")

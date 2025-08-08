@@ -127,57 +127,73 @@ class ExoAudioPlayer(
                 }
             }
         }
-        player?.setMediaSource(mediaSource)
-        player?.prepare()
-        if (needsCueSeek()) {
-            seekTo(0)
+        coroutineScope.launch(Dispatchers.Main) {
+            player?.setMediaSource(mediaSource)
+            player?.prepare()
+            if (needsCueSeek()) {
+                seekTo(0)
+            }
         }
     }
 
     override fun play() {
-        player?.play()
+        coroutineScope.launch(Dispatchers.Main) {
+            player?.play()
+        }
         updateStateChange(PlaybackState.PLAYING)
         startProgressJob()
     }
 
     override fun pause() {
-        player?.pause()
+        coroutineScope.launch(Dispatchers.Main) {
+            player?.pause()
+        }
         stopProgressJob()
         updateStateChange(PlaybackState.PAUSED)
     }
 
     override fun stop() {
-        player?.stop()
+        coroutineScope.launch(Dispatchers.Main) {
+            player?.stop()
+        }
         stopProgressJob()
         updateStateChange(PlaybackState.STOPPED)
     }
 
     override fun release() {
-        player?.stop()
-        player?.release()
+        coroutineScope.launch(Dispatchers.Main) {
+            player?.stop()
+            player?.release()
+        }
         stopProgressJob()
     }
 
     override fun seekTo(positionMs: Long) {
-        if (player?.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) == true) {
-            val position = if (needsCueSeek()) {
-                positionMs + getCueStartTime()
-            } else {
-                positionMs
+        coroutineScope.launch(Dispatchers.Main) {
+            if (player?.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) == true) {
+                val position = if (needsCueSeek()) {
+                    positionMs + getCueStartTime()
+                } else {
+                    positionMs
+                }
+                player?.seekTo(position)
             }
-            player?.seekTo(position)
         }
     }
 
     override fun fastForward(ms: Long) {
-        if (player?.isCommandAvailable(Player.COMMAND_SEEK_FORWARD) == true) {
-            player?.seekForward()
+        coroutineScope.launch(Dispatchers.Main) {
+            if (player?.isCommandAvailable(Player.COMMAND_SEEK_FORWARD) == true) {
+                player?.seekForward()
+            }
         }
     }
 
     override fun fastRewind(ms: Long) {
-        if (player?.isCommandAvailable(Player.COMMAND_SEEK_BACK) == true) {
-            player?.seekBack()
+        coroutineScope.launch(Dispatchers.Main) {
+            if (player?.isCommandAvailable(Player.COMMAND_SEEK_BACK) == true) {
+                player?.seekBack()
+            }
         }
     }
 
