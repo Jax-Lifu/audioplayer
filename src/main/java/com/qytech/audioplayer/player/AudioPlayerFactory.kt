@@ -11,6 +11,11 @@ import com.qytech.audioplayer.parser.AudioFileParserFactory
 import timber.log.Timber
 import java.io.File
 
+enum class DSDMode(val value: Int) {
+    NATIVE(0),
+    D2P(1),
+    DOP(2)
+}
 
 data class PlayerExtras(
     val encryptedSecurityKey: String? = null,
@@ -87,9 +92,9 @@ object AudioPlayerFactory {
 
     private fun buildLocalPlayer(context: Context, info: AudioInfo.Local): AudioPlayer {
         val codec = info.codecName.lowercase()
-//        val formatName = info.formatName.lowercase()
+        val formatName = info.formatName.lowercase()
         return when {
-            codec.startsWith("dst") || codec.startsWith("dsd") -> DsdAudioPlayer(context, info)
+            formatName == "sacd" -> DsdAudioPlayer(context, info)
             codec in mediaPlayerCodecs -> RockitPlayer(context, info)
             codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
             else -> FFAudioPlayer(context, info)

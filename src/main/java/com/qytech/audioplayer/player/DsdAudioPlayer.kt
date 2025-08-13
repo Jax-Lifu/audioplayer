@@ -13,6 +13,7 @@ import com.qytech.audioplayer.parser.DffAudioFileParser
 import com.qytech.audioplayer.parser.DsfAudioFileParser
 import com.qytech.audioplayer.parser.SacdAudioFileParser
 import com.qytech.audioplayer.stream.SeekableInputStreamFactory
+import com.qytech.audioplayer.utils.DsdInterleavedToPcm
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -38,8 +39,6 @@ class DsdAudioPlayer(
 
     private var audioTrack: AudioTrack? = null
 
-    var isDopEnable: Boolean = false
-
     private var offsetPreSeconds = -1L
     private var previousOffset = -1L
     private var currentOffset = 0L
@@ -49,11 +48,11 @@ class DsdAudioPlayer(
     private var paused = false
 
     private var shouldCancelDstDecode = AtomicBoolean(false)
-    private var dsdLoopbackDataCallback: DsdLoopbackDataCallback? = null
-
-    fun setDsdLoopbackDataCallback(callback: DsdLoopbackDataCallback?) {
-        dsdLoopbackDataCallback = callback
-    }
+//    private var dsdLoopbackDataCallback: DsdLoopbackDataCallback? = null
+//
+//    fun setDsdLoopbackDataCallback(callback: DsdLoopbackDataCallback?) {
+//        dsdLoopbackDataCallback = callback
+//    }
 
     override fun prepare() {
         initializeAudioTrack()
@@ -212,15 +211,31 @@ class DsdAudioPlayer(
         if (!isDsdCodec() && !isDstCodec()) {
             throw IllegalStateException("Codec is not DSD")
         }
-        val sampleRate = if (isDopEnable) {
-            audioInfo.sampleRate / 16
-        } else {
-            audioInfo.sampleRate / 32
+        val sampleRate = when (dsdMode) {
+            DSDMode.NATIVE -> {
+                audioInfo.sampleRate / 32
+            }
+
+            DSDMode.D2P -> {
+                44100
+            }
+
+            DSDMode.DOP -> {
+                audioInfo.sampleRate / 16
+            }
         }
-        val encoding = if (isDopEnable) {
-            AudioFormat.ENCODING_PCM_32BIT
-        } else {
-            AudioFormat.ENCODING_DSD
+        val encoding = when (dsdMode) {
+            DSDMode.NATIVE -> {
+                AudioFormat.ENCODING_DSD
+            }
+
+            DSDMode.D2P -> {
+                AudioFormat.ENCODING_PCM_16BIT
+            }
+
+            DSDMode.DOP -> {
+                AudioFormat.ENCODING_PCM_32BIT
+            }
         }
 
         val channelMask = when (audioInfo.channels) {
@@ -250,7 +265,7 @@ class DsdAudioPlayer(
         onPlayerError(it)
     }
 
-//    private var testFile = File(context.filesDir, "test.pcm")
+    //    private var testFile = File(context.filesDir, "test.pcm")
     private fun playDsd() = runCatching {
         val sourceId = audioInfo.sourceId
         val bufferSize = 8 * 1024
@@ -259,7 +274,7 @@ class DsdAudioPlayer(
         val endOffset = audioInfo.endOffset ?: 0L
         val dataByte = (audioInfo.dataLength ?: 0L) * 8f
         val srcData = ByteArray(bufferSize)
-        val destData = ByteArray(if (isDopEnable) bufferSize * 2 else bufferSize)
+        val destData = ByteArray(if (dsdMode == DSDMode.DOP) bufferSize * 2 else bufferSize)
         val compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
         var position: Long
         currentOffset = startOffset
@@ -319,7 +334,7 @@ class DsdAudioPlayer(
 
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, length: Int) = runCatching {
 
-        var lengthToWrite = if (isDopEnable) length * 2 else length
+        var lengthToWrite = if (dsdMode == DSDMode.DOP) length * 2 else length
         if (isDstCodec()) {
             SacdAudioFrame.readDstFrame(srcData, length, shouldCancelDstDecode) { data, size ->
                 if (!shouldCancelDstDecode.get()) {
@@ -330,32 +345,32 @@ class DsdAudioPlayer(
         }
         val dataToWrite: ByteArray = when (audioInfo.formatName) {
             DsfAudioFileParser.ENCODING_TYPE_DSF -> {
-                DsfAudioFrame.read(srcData, destData, length, isDopEnable)
+                DsfAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
                 destData
             }
 
             DffAudioFileParser.ENCODING_TYPE_DFF -> {
-                DffAudioFrame.read(srcData, destData, length, isDopEnable)
+                DffAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
                 destData
             }
 
             SacdAudioFileParser.ENCODING_TYPE_SACD -> {
                 lengthToWrite =
-                    SacdAudioFrame.read(srcData, destData, length, isDopEnable)
+                    SacdAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
                 destData
             }
 
             else -> srcData // 默认使用源数据
         }
-        /*if (isPlaying()) {
+        if (dsdMode == DSDMode.D2P) {
             val pcmData = DsdInterleavedToPcm.convert(
-                srcData.copyOf(length),
+                srcData.copyOf(lengthToWrite),
                 dsdOversampleRatio
             )
-//            dsdLoopbackDataCallback?.onDataReceived(pcmData, 0, pcmData.size)
-            testFile.appendBytes(pcmData)
-        }*/
-        audioTrack?.write(dataToWrite, 0, lengthToWrite)
+            audioTrack?.write(pcmData, 0, pcmData.size)
+        } else {
+            audioTrack?.write(dataToWrite, 0, lengthToWrite)
+        }
     }.onFailure {
         Timber.e(it, "writeAudioData error")
         onPlayerError(it)

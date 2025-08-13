@@ -79,7 +79,8 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobject thiz,
                                                               jstring file_path,
-                                                              jobject headers) {
+                                                              jobject headers,
+                                                              jint dsd_mode) {
     if (player != nullptr) {
         player->stop();
         player->release();
@@ -91,7 +92,7 @@ Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobje
     //        LOGD("header: %s", header.c_str());
     //    }
     player = new FFAudioPlayer();
-    player->init(Utils::jStringToChar(env, file_path), header.c_str());
+    player->init(Utils::jStringToChar(env, file_path), header.c_str(), dsd_mode);
 }
 
 extern "C"
@@ -194,13 +195,14 @@ Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1setCallback(JNIEnv *env
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1setOnCompletionListener(JNIEnv *env,
-                                                                                 jobject thiz,
-                                                                                 jobject listener) {
+Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1setOnCompletionListener(
+        JNIEnv *env,
+        jobject thiz,
+        jobject listener
+) {
     env->GetJavaVM(&jvm);
     if (onCompletionListener != nullptr) {
         env->DeleteGlobalRef(onCompletionListener);
     }
     onCompletionListener = env->NewGlobalRef(listener);
-
 }

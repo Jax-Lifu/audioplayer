@@ -23,11 +23,20 @@ extern "C" {
 #include <libavutil/avutil.h>
 #include <libavutil/opt.h>
 #include <libavutil/error.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 #include <libswresample/swresample.h>
 }
 
 enum class AudioEncodingType {
     PCM, DSD, DST, MQA, Unknown
+};
+
+enum DSDMode {
+    NATIVE = 0,
+    D2P = 1,
+    DOP = 2,
 };
 
 // 播放状态定义
@@ -44,8 +53,9 @@ public:
 
     ~FFAudioPlayer();
 
+
     // 初始化播放器，传入音频文件路径
-    bool init(const char *filePath, const char *headers);
+    bool init(const char *filePath, const char *headers, int dsd_mode);
 
     // 控制方法
     void play();
@@ -77,6 +87,9 @@ private:
     AVCodecContext *codecContext = nullptr;
     SwrContext *swrContext = nullptr;
     AVRational *timeBase = nullptr;
+    AVFilterGraph *filterGraph = nullptr;
+    AVFilterContext *srcFilter = nullptr;
+    AVFilterContext *sinkFilter = nullptr;
 
     // 音频参数
     int sampleRate = 44100;
@@ -108,9 +121,17 @@ private:
 
     void decodeLoop();
 
-    bool isNativeDSDAudio() const;
+    bool isDsdAudio() const;
+
+    DSDMode dsdMode = DSDMode::NATIVE;
 
     int result = -1;
+
+    void processDSDNative(const uint8_t *src, size_t size);
+
+    void processDSDOp(const uint8_t *src, size_t size);
+
+    void processDSDD2P(AVCodecContext *avctx, const AVPacket *avpkt);
 };
 
 

@@ -90,7 +90,7 @@ class FFAudioPlayer(
 
     override fun prepare() {
         runCatching {
-            native_init(audioInfo.sourceId, headers)
+            native_init(audioInfo.sourceId, headers, dsdMode.value)
             initAudioTrack()
             if (needsCueSeek()) {
                 seekTo(0)
@@ -192,21 +192,28 @@ class FFAudioPlayer(
     private fun isDsd(): Boolean {
         val codecName = audioInfo.codecName.lowercase()
         return codecName.startsWith("dsd") || codecName.startsWith("dst")
-
     }
 
 
     @SuppressLint("InlinedApi")
     private fun initAudioTrack() = runCatching {
-        val encoding = if (isDsd()) {
-            AudioFormat.ENCODING_DSD
-        } else {
+        val encoding = if (!isDsd()) {
             AudioFormat.ENCODING_PCM_16BIT
-        }
-        val sampleRate = if (isDsd()) {
-            audioInfo.sampleRate / 32
         } else {
+            when (dsdMode) {
+                DSDMode.NATIVE -> AudioFormat.ENCODING_DSD
+                DSDMode.D2P -> AudioFormat.ENCODING_PCM_16BIT
+                DSDMode.DOP -> AudioFormat.ENCODING_PCM_32BIT
+            }
+        }
+        val sampleRate = if (!isDsd()) {
             audioInfo.sampleRate
+        } else {
+            when (dsdMode) {
+                DSDMode.NATIVE -> audioInfo.sampleRate / 32
+                DSDMode.D2P -> 96000
+                DSDMode.DOP -> audioInfo.sampleRate / 16
+            }
         }
         Timber.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding")
         val channelMask = when (native_getChannels()) {
@@ -268,7 +275,12 @@ class FFAudioPlayer(
     external fun native_getDuration(): Long
     external fun native_setCallback(callback: FFAudioPlayerCallback)
     external fun native_setOnCompletionListener(listener: OnCompletionListener)
-    external fun native_init(filePath: String, headers: Map<String, String> = emptyMap())
+    external fun native_init(
+        filePath: String,
+        headers: Map<String, String> = emptyMap(),
+        dsdMode: Int = DSDMode.NATIVE.value,
+    )
+
     external fun native_getPlayState(): Int
     external fun native_getCurrentPosition(): Long
 }
