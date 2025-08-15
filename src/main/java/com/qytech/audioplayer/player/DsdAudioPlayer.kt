@@ -211,7 +211,7 @@ class DsdAudioPlayer(
         if (!isDsdCodec() && !isDstCodec()) {
             throw IllegalStateException("Codec is not DSD")
         }
-        val sampleRate = when (dsdMode) {
+        val sampleRate = when (dsdPlayMode) {
             DSDMode.NATIVE -> {
                 audioInfo.sampleRate / 32
             }
@@ -224,7 +224,7 @@ class DsdAudioPlayer(
                 audioInfo.sampleRate / 16
             }
         }
-        val encoding = when (dsdMode) {
+        val encoding = when (dsdPlayMode) {
             DSDMode.NATIVE -> {
                 AudioFormat.ENCODING_DSD
             }
@@ -274,7 +274,7 @@ class DsdAudioPlayer(
         val endOffset = audioInfo.endOffset ?: 0L
         val dataByte = (audioInfo.dataLength ?: 0L) * 8f
         val srcData = ByteArray(bufferSize)
-        val destData = ByteArray(if (dsdMode == DSDMode.DOP) bufferSize * 2 else bufferSize)
+        val destData = ByteArray(if (dsdPlayMode == DSDMode.DOP) bufferSize * 2 else bufferSize)
         val compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
         var position: Long
         currentOffset = startOffset
@@ -334,7 +334,7 @@ class DsdAudioPlayer(
 
     private fun writeAudioData(srcData: ByteArray, destData: ByteArray, length: Int) = runCatching {
 
-        var lengthToWrite = if (dsdMode == DSDMode.DOP) length * 2 else length
+        var lengthToWrite = if (dsdPlayMode == DSDMode.DOP) length * 2 else length
         if (isDstCodec()) {
             SacdAudioFrame.readDstFrame(srcData, length, shouldCancelDstDecode) { data, size ->
                 if (!shouldCancelDstDecode.get()) {
@@ -345,24 +345,24 @@ class DsdAudioPlayer(
         }
         val dataToWrite: ByteArray = when (audioInfo.formatName) {
             DsfAudioFileParser.ENCODING_TYPE_DSF -> {
-                DsfAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
+                DsfAudioFrame.read(srcData, destData, length, dsdPlayMode == DSDMode.DOP)
                 destData
             }
 
             DffAudioFileParser.ENCODING_TYPE_DFF -> {
-                DffAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
+                DffAudioFrame.read(srcData, destData, length, dsdPlayMode == DSDMode.DOP)
                 destData
             }
 
             SacdAudioFileParser.ENCODING_TYPE_SACD -> {
                 lengthToWrite =
-                    SacdAudioFrame.read(srcData, destData, length, dsdMode == DSDMode.DOP)
+                    SacdAudioFrame.read(srcData, destData, length, dsdPlayMode == DSDMode.DOP)
                 destData
             }
 
             else -> srcData // 默认使用源数据
         }
-        if (dsdMode == DSDMode.D2P) {
+        if (dsdPlayMode == DSDMode.D2P) {
             val pcmData = DsdInterleavedToPcm.convert(
                 srcData.copyOf(lengthToWrite),
                 dsdOversampleRatio

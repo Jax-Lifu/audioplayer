@@ -90,7 +90,7 @@ class FFAudioPlayer(
 
     override fun prepare() {
         runCatching {
-            native_init(audioInfo.sourceId, headers, dsdMode.value)
+            native_init(audioInfo.sourceId, headers, dsdPlayMode.value)
             initAudioTrack()
             if (needsCueSeek()) {
                 seekTo(0)
@@ -200,7 +200,7 @@ class FFAudioPlayer(
         val encoding = if (!isDsd()) {
             AudioFormat.ENCODING_PCM_16BIT
         } else {
-            when (dsdMode) {
+            when (dsdPlayMode) {
                 DSDMode.NATIVE -> AudioFormat.ENCODING_DSD
                 DSDMode.D2P -> AudioFormat.ENCODING_PCM_16BIT
                 DSDMode.DOP -> AudioFormat.ENCODING_PCM_32BIT
@@ -209,7 +209,7 @@ class FFAudioPlayer(
         val sampleRate = if (!isDsd()) {
             audioInfo.sampleRate
         } else {
-            when (dsdMode) {
+            when (dsdPlayMode) {
                 DSDMode.NATIVE -> audioInfo.sampleRate / 32
                 DSDMode.D2P -> 96000
                 DSDMode.DOP -> audioInfo.sampleRate / 16

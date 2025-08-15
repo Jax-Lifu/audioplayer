@@ -13,7 +13,7 @@ abstract class BaseAudioPlayer(
     protected var state: PlaybackState = PlaybackState.IDLE
     protected var playSpeed: Float = 1f
 
-    protected var dsdMode: DSDMode = DSDMode.NATIVE
+    protected var dsdPlayMode: DSDMode = DSDMode.NATIVE
     protected var stateListener: OnPlaybackStateChangeListener? = null
     protected var progressListener: OnProgressListener? = null
 
@@ -84,10 +84,10 @@ abstract class BaseAudioPlayer(
     /**
      * 设置DSD模式，如果是DSD512，采样率为22579200，只能使用NATIVE模式或者D2P
      * */
-    fun setDsdMode(dsdMode: DSDMode) {
-        this.dsdMode = dsdMode
+    override fun setDsdMode(dsdMode: DSDMode) {
+        this.dsdPlayMode = dsdMode
         if (audioInfo.sampleRate == 22579200) {
-            this.dsdMode = DSDMode.NATIVE
+            this.dsdPlayMode = DSDMode.NATIVE
         }
     }
 

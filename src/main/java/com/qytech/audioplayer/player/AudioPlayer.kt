@@ -75,4 +75,6 @@ interface AudioPlayer {
 
     fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener)
     fun setOnProgressListener(listener: OnProgressListener)
+
+    fun setDsdMode(dsdMode: DSDMode)
 }
