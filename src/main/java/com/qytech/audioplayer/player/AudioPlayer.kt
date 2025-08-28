@@ -25,6 +25,30 @@ data class PlaybackProgress(
     fun isAvailable(): Boolean = currentPosition >= 0 && duration > 0 && progress in 0f..1f
 }
 
+
+enum class D2pSampleRate(val hz: Int) {
+    // 自动匹配，根据输入 DSD 速率选择合适的 PCM 速率
+    AUTO(0),
+
+    // 基于 44.1kHz 倍频
+    PCM_44100(44100),
+    PCM_88200(88200),
+    PCM_176400(176400),
+    PCM_352800(352800),
+    PCM_705600(705600),
+
+    // 基于 48kHz 倍频
+    PCM_48000(48000),
+    PCM_96000(96000),
+    PCM_192000(192000),
+    PCM_384000(384000),
+    PCM_768000(768000),
+}
+
+interface DsdLoopbackDataCallback {
+    fun onDataReceived(data: ByteArray)
+}
+
 interface OnProgressListener {
     /**
      * 当播放进度更新时调用
@@ -77,4 +101,7 @@ interface AudioPlayer {
     fun setOnProgressListener(listener: OnProgressListener)
 
     fun setDsdMode(dsdMode: DSDMode)
+    fun setDsdLoopbackCallback(callback: DsdLoopbackDataCallback?)
+
+    fun setD2pSampleRate(sampleRate: D2pSampleRate)
 }

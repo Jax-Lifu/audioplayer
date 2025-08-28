@@ -55,7 +55,7 @@ public:
 
 
     // 初始化播放器，传入音频文件路径
-    bool init(const char *filePath, const char *headers, int dsd_mode);
+    bool init(const char *filePath, const char *headers, int dsd_mode, int d2p_sample_rate);
 
     // 控制方法
     void play();
@@ -93,6 +93,7 @@ private:
 
     // 音频参数
     int sampleRate = 44100;
+    int d2pSampleRate = 48000;
     int channels = 2;
     long duration = 0;
     long currentPosition = 0;
@@ -118,6 +119,7 @@ private:
     bool openAudioFile(const char *filePath, const char *headers);
 
     bool decodePacket(AVPacket *packet, AVFrame *frame);
+
 
     void decodeLoop();
 

@@ -1,7 +1,6 @@
 #include "FFAudioPlayer.h"
 #include "Utils.h"
 
-#define D2P_SAMPLE_RATE  96000
 // MSBF → LSBF lookup table（提前生成）
 static uint8_t bit_reverse_table[256];
 
@@ -27,7 +26,8 @@ FFAudioPlayer::~FFAudioPlayer() {
     release();
 }
 
-bool FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode) {
+bool
+FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int d2p_sample_rate) {
     if (!openAudioFile(filePath, headers)) {
         LOGE("Failed to open audio file: %s", filePath);
         return false;
@@ -47,6 +47,7 @@ bool FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode
             this->dsdMode = NATIVE;
             break;
     }
+    this->d2pSampleRate = d2p_sample_rate;
     LOGD("dsd mode %d", dsd_mode);
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
@@ -106,7 +107,7 @@ bool FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode
 
             AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
             AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
-            int out_sample_rate = isDsdAudio() ? D2P_SAMPLE_RATE : sampleRate;
+            int out_sample_rate = isDsdAudio() ? d2pSampleRate : sampleRate;
 
             swr_alloc_set_opts2(&swrContext,
                                 &out_ch_layout, out_sample_fmt, out_sample_rate,
@@ -339,7 +340,7 @@ void FFAudioPlayer::processDSDD2P(AVCodecContext *avctx, const AVPacket *avpkt) 
     while (avcodec_receive_frame(avctx, frame) == 0) {
         int outSamples = av_rescale_rnd(
                 swr_get_delay(swrContext, frame->sample_rate) + frame->nb_samples,
-                D2P_SAMPLE_RATE, frame->sample_rate, AV_ROUND_UP);
+                d2pSampleRate, frame->sample_rate, AV_ROUND_UP);
         int outSampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
         int bufferOutSize = outSamples * outSampleSize * 2;
 
@@ -370,7 +371,6 @@ void FFAudioPlayer::processDSDD2P(AVCodecContext *avctx, const AVPacket *avpkt) 
 
 
 void FFAudioPlayer::processDSDNative(const uint8_t *src, size_t size) {
-    LOGD("processDSDNative size: %d", size);
     std::vector<uint8_t> destData(size);
     if (isMSBF) {
         // 直接复制左右声道，交错 8 字节，但不 bit reverse
@@ -419,18 +419,28 @@ void FFAudioPlayer::processDSDOp(const uint8_t *src, size_t size) {
         if (isMSBF) {
             // DFF 处理
             for (size_t i = 0, j = 0; j + 3 < chunkSize; i += 2, j += 4) {
-                destData[i] = (marker << 24) | (src[offset + j + 0] << 16) | (src[offset + j + 2] << 8) | 0x0;
-                destData[i + 1] = (marker << 24) | (src[offset + j + 1] << 16) | (src[offset + j + 3] << 8) | 0x0;
+                destData[i] =
+                        (marker << 24) | (src[offset + j + 0] << 16) | (src[offset + j + 2] << 8) |
+                        0x0;
+                destData[i + 1] =
+                        (marker << 24) | (src[offset + j + 1] << 16) | (src[offset + j + 3] << 8) |
+                        0x0;
                 marker ^= 0xFF;
             }
         } else {
             // DSF 处理（带 bit-reversal，左右声道平面交错 4096）
             for (size_t i = 0; 4096 + i + 3 < chunkSize; i += 4) {
-                destData[i]     = (marker << 24) | (bit_reverse_table[src[offset + i + 0]] << 16) | (bit_reverse_table[src[offset + i + 1]] << 8) | 0x0;
-                destData[i + 1] = (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 0]] << 16) | (bit_reverse_table[src[offset + 4096 + i + 1]] << 8) | 0x0;
+                destData[i] = (marker << 24) | (bit_reverse_table[src[offset + i + 0]] << 16) |
+                              (bit_reverse_table[src[offset + i + 1]] << 8) | 0x0;
+                destData[i + 1] =
+                        (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 0]] << 16) |
+                        (bit_reverse_table[src[offset + 4096 + i + 1]] << 8) | 0x0;
                 marker ^= 0xFF;
-                destData[i + 2] = (marker << 24) | (bit_reverse_table[src[offset + i + 2]] << 16) | (bit_reverse_table[src[offset + i + 3]] << 8) | 0x0;
-                destData[i + 3] = (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 2]] << 16) | (bit_reverse_table[src[offset + 4096 + i + 3]] << 8) | 0x0;
+                destData[i + 2] = (marker << 24) | (bit_reverse_table[src[offset + i + 2]] << 16) |
+                                  (bit_reverse_table[src[offset + i + 3]] << 8) | 0x0;
+                destData[i + 3] =
+                        (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 2]] << 16) |
+                        (bit_reverse_table[src[offset + 4096 + i + 3]] << 8) | 0x0;
                 marker ^= 0xFF;
             }
         }

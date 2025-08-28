@@ -90,7 +90,7 @@ class FFAudioPlayer(
 
     override fun prepare() {
         runCatching {
-            native_init(audioInfo.sourceId, headers, dsdPlayMode.value)
+            native_init(audioInfo.sourceId, headers, dsdPlayMode.value, calculateD2pSampleRate())
             initAudioTrack()
             if (needsCueSeek()) {
                 seekTo(0)
@@ -195,6 +195,14 @@ class FFAudioPlayer(
     }
 
 
+    private fun calculateD2pSampleRate(): Int {
+        return if (dsdToPcmSampleRate == D2pSampleRate.AUTO) {
+            audioInfo.sampleRate / 64
+        } else {
+            dsdToPcmSampleRate.hz
+        }
+    }
+
     @SuppressLint("InlinedApi")
     private fun initAudioTrack() = runCatching {
         val encoding = if (!isDsd()) {
@@ -211,7 +219,7 @@ class FFAudioPlayer(
         } else {
             when (dsdPlayMode) {
                 DSDMode.NATIVE -> audioInfo.sampleRate / 32
-                DSDMode.D2P -> 96000
+                DSDMode.D2P -> calculateD2pSampleRate()
                 DSDMode.DOP -> audioInfo.sampleRate / 16
             }
         }
@@ -245,6 +253,22 @@ class FFAudioPlayer(
                     audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
                 ) {
                     audioTrack?.write(data, 0, data.size)
+                    /*if (isDsd()) {
+                        when (dsdPlayMode) {
+                            DSDMode.NATIVE -> {
+                                dsdLoopbackDataCallback?.onDataReceived(data)
+                            }
+
+                            DSDMode.D2P -> {
+                                dsdLoopbackDataCallback?.onDataReceived(data)
+                            }
+
+                            DSDMode.DOP -> {
+                                val pcmData = DopToPcm.convert(data.copyOf(), sampleRate)
+                                dsdLoopbackDataCallback?.onDataReceived(pcmData)
+                            }
+                        }
+                    }*/
                 }
             }
         })
@@ -279,6 +303,7 @@ class FFAudioPlayer(
         filePath: String,
         headers: Map<String, String> = emptyMap(),
         dsdMode: Int = DSDMode.NATIVE.value,
+        d2pSampleRate: Int = D2pSampleRate.PCM_48000.hz,
     )
 
     external fun native_getPlayState(): Int

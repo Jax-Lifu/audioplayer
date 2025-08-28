@@ -25,10 +25,6 @@ import kotlin.concurrent.withLock
 import kotlin.math.roundToLong
 
 
-interface DsdLoopbackDataCallback {
-    fun onDataReceived(data: ByteArray, offset: Int, size: Int)
-}
-
 class DsdAudioPlayer(
     context: Context,
     override val audioInfo: AudioInfo,
@@ -48,11 +44,6 @@ class DsdAudioPlayer(
     private var paused = false
 
     private var shouldCancelDstDecode = AtomicBoolean(false)
-//    private var dsdLoopbackDataCallback: DsdLoopbackDataCallback? = null
-//
-//    fun setDsdLoopbackDataCallback(callback: DsdLoopbackDataCallback?) {
-//        dsdLoopbackDataCallback = callback
-//    }
 
     override fun prepare() {
         initializeAudioTrack()
@@ -202,9 +193,6 @@ class DsdAudioPlayer(
         }
     }
 
-    private val dsdOversampleRatio by lazy {
-        getOversampleRate()
-    }
 
     @SuppressLint("InlinedApi")
     private fun initializeAudioTrack() = runCatching {
@@ -362,13 +350,17 @@ class DsdAudioPlayer(
 
             else -> srcData // 默认使用源数据
         }
-        if (dsdPlayMode == DSDMode.D2P) {
+        if (dsdLoopbackDataCallback != null || dsdPlayMode == DSDMode.D2P) {
             val pcmData = DsdInterleavedToPcm.convert(
                 srcData.copyOf(lengthToWrite),
-                dsdOversampleRatio
+                audioInfo.sampleRate
             )
-            audioTrack?.write(pcmData, 0, pcmData.size)
-        } else {
+            dsdLoopbackDataCallback?.onDataReceived(pcmData.copyOf())
+            if (dsdPlayMode == DSDMode.D2P) {
+                audioTrack?.write(pcmData, 0, pcmData.size)
+            }
+        }
+        if (dsdPlayMode != DSDMode.D2P) {
             audioTrack?.write(dataToWrite, 0, lengthToWrite)
         }
     }.onFailure {

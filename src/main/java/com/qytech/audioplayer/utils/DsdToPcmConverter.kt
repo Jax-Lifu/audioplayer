@@ -12,7 +12,7 @@ object DsdInterleavedToPcm {
 
     // 默认参数
     private const val DEFAULT_GAIN = 0.8f           // 音量增益，避免爆音
-    private const val DEFAULT_OVERSAMPLE_RATIO = 64 // DSD64
+    private const val DEFAULT_OVERSAMPLE_RATIO = 2822400 // DSD64
     private const val DEFAULT_FILTER_TAPS = 256     // FIR滤波器长度
 
     /**
@@ -20,9 +20,10 @@ object DsdInterleavedToPcm {
      */
     fun convert(
         dsdData: ByteArray,
-        oversampleRatio: Int = DEFAULT_OVERSAMPLE_RATIO,
+        sampleRate: Int = DEFAULT_OVERSAMPLE_RATIO,
         gain: Float = DEFAULT_GAIN,
     ): ByteArray {
+        val oversampleRatio = sampleRate / 44100
         // 1. 拆分左右声道的DSD数据
         val (leftDsd, rightDsd) = splitDsdInterleaved(dsdData)
 

@@ -14,8 +14,14 @@ abstract class BaseAudioPlayer(
     protected var playSpeed: Float = 1f
 
     protected var dsdPlayMode: DSDMode = DSDMode.NATIVE
+
+    protected var dsdToPcmSampleRate: D2pSampleRate = D2pSampleRate.AUTO
+
+    protected var dsdLoopbackDataCallback: DsdLoopbackDataCallback? = null
+
     protected var stateListener: OnPlaybackStateChangeListener? = null
     protected var progressListener: OnProgressListener? = null
+
 
     override fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener) {
         Timber.d("setOnPlaybackStateChangeListener: $listener")
@@ -82,13 +88,24 @@ abstract class BaseAudioPlayer(
     }
 
     /**
-     * 设置DSD模式，如果是DSD512，采样率为22579200，只能使用NATIVE模式或者D2P
+     * 设置DSD模式，如果是DSD512，采样率为 22579200，只能使用NATIVE模式或者D2P
      * */
     override fun setDsdMode(dsdMode: DSDMode) {
         this.dsdPlayMode = dsdMode
-        if (audioInfo.sampleRate == 22579200) {
+        if (dsdMode == DSDMode.DOP && audioInfo.sampleRate == 22579200) {
+            // 如果是DSD512，采样率为 22579200，只能使用NATIVE模式或者D2P
             this.dsdPlayMode = DSDMode.NATIVE
+        } else if (audioInfo.sampleRate > 22579200) {
+            // 如果采样率大于22579200，只能使用D2P
+            this.dsdPlayMode = DSDMode.D2P
         }
     }
 
+    override fun setDsdLoopbackCallback(callback: DsdLoopbackDataCallback?) {
+        this.dsdLoopbackDataCallback = callback
+    }
+
+    override fun setD2pSampleRate(sampleRate: D2pSampleRate) {
+        this.dsdToPcmSampleRate = sampleRate
+    }
 }

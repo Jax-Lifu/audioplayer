@@ -80,7 +80,8 @@ JNIEXPORT void JNICALL
 Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobject thiz,
                                                               jstring file_path,
                                                               jobject headers,
-                                                              jint dsd_mode) {
+                                                              jint dsd_mode,
+                                                              jint d2p_sample_rate) {
     if (player != nullptr) {
         player->stop();
         player->release();
@@ -92,7 +93,7 @@ Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1init(JNIEnv *env, jobje
     //        LOGD("header: %s", header.c_str());
     //    }
     player = new FFAudioPlayer();
-    player->init(Utils::jStringToChar(env, file_path), header.c_str(), dsd_mode);
+    player->init(Utils::jStringToChar(env, file_path), header.c_str(), dsd_mode, d2p_sample_rate);
 }
 
 extern "C"
