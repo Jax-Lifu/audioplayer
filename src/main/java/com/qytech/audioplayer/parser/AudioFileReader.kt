@@ -20,6 +20,8 @@ class AudioFileReader(
         const val DEFAULT_BUFFER_SIZE = 2048
     }
 
+    var fatalError = false
+
     private var buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
     private var currentOffset = 0L
 
@@ -27,8 +29,17 @@ class AudioFileReader(
 
     private val file: RandomAccessFile? = if (!isHttp) {
         val f = File(source)
-        require(f.exists()) { "File does not exist: $source" }
-        RandomAccessFile(f, "r")
+        if (!f.exists()) {
+            Timber.w("File not found: $source")
+            null
+        } else {
+            try {
+                RandomAccessFile(f, "r")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to open file: $source")
+                null
+            }
+        }
     } else {
         null
     }
@@ -40,7 +51,12 @@ class AudioFileReader(
                 fetchHttpContentLength()
             }
         } else {
-            file?.length() ?: 0L
+            try {
+                file?.length() ?: 0L
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to get file size: $source")
+                0L
+            }
         }
     }
 
@@ -77,11 +93,17 @@ class AudioFileReader(
         return if (isHttp) {
             readHttpRange(position)
         } else {
-            val bytesRead = file?.channel?.read(buffer, position) ?: -1
-            if (bytesRead < 0) return null
-            buffer.flip()
-            currentOffset += bytesRead
-            buffer
+            try {
+                val bytesRead = file?.channel?.read(buffer, position) ?: -1
+                if (bytesRead < 0) return null
+                buffer.flip()
+                currentOffset += bytesRead
+                buffer
+            } catch (e: Exception) {
+                Timber.e(e, "Read file failed at position=$position, source=$source")
+                fatalError = true
+                null
+            }
         }
     }
 
@@ -144,6 +166,10 @@ class AudioFileReader(
     }
 
     override fun close() {
-        file?.close()
+        try {
+            file?.close()
+        } catch (e: Exception) {
+            Timber.e(e, "Error closing file: $source")
+        }
     }
 }

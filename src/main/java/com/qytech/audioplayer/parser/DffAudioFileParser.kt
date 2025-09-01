@@ -20,7 +20,8 @@ class DffAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
     override suspend fun parse(): List<AudioInfo.Local>? {
         // 读取文件并确保缓冲区有效
         var buffer =
-            reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) } ?: return super.parse()
+            reader.readBuffer()?.apply { order(ByteOrder.BIG_ENDIAN) }
+                ?: return if (reader.fatalError) null else super.parse()
 
         // 验证文件头
         if (buffer.getString() != HEADER_ID_DFF) return super.parse()

@@ -16,7 +16,8 @@ class DsfAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
     override suspend fun parse(): List<AudioInfo.Local>? {
         // 初始化缓冲区并设置为小端字节序
         val buffer =
-            reader.readBuffer()?.apply { order(ByteOrder.LITTLE_ENDIAN) } ?: return super.parse()
+            reader.readBuffer()?.apply { order(ByteOrder.LITTLE_ENDIAN) }
+                ?: return if (reader.fatalError) null else super.parse()
 
         // 验证文件标识符和格式标识符
         if (buffer.getString() != HEADER_ID_DSF) return super.parse() // 验证是否为 DSF 文件
