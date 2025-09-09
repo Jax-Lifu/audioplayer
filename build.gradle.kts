@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.maven.publish)
-    // alias(libs.plugins.jreleaser)
 }
 
 android {
@@ -88,7 +87,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.2.1"
+                version = "0.2.3"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])

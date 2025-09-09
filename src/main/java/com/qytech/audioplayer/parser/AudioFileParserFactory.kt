@@ -18,11 +18,14 @@ object AudioFileParserFactory {
         source: String,
         headers: Map<String, String> = emptyMap(),
     ): AudioFileParserStrategy? {
+        //Timber.d("createParser: source = $source")
         if (source.isRemoteUrl()) {
             return NetworkAudioFileParser(source, headers)
         }
-        val extension = source.getFileExtension()
+        val extension = source.getFileExtension().lowercase()
+        //Timber.d("createParser: extension = $extension")
         if (extension !in AUDIO_FILE_EXTENSIONS) {
+            //Timber.d("createParser: extension = $extension not support")
             return null
         }
         // 查找当前目录下有没有对应的CUE文件，如果有就走 Cue 解析器

@@ -199,22 +199,10 @@ int calculateBitDepth(const AVCodecParameters *parameters) {
                    ? parameters->bits_per_coded_sample
                    : parameters->bits_per_raw_sample;
 
-    // 如果位深仍为0，尝试通过比特率、采样率和通道数推算
-    if (bitDepth == 0 &&
-        parameters->bit_rate != 0 &&
-        parameters->sample_rate != 0 &&
-        parameters->ch_layout.nb_channels != 0) {
-        bitDepth = parameters->bit_rate / parameters->sample_rate /
-                   parameters->ch_layout.nb_channels;
-    }
-
+    // 如果位深仍为0，说明这个音频文件没有位深信息，直接返回 -1
     if (bitDepth == 0) {
-        LOGD("Invalid parameters: bit_rate=%ld, sample_rate=%d, channels=%d parameters->bits_per_raw_sample %d",
-             parameters->bit_rate, parameters->sample_rate, parameters->ch_layout.nb_channels,
-             parameters->bits_per_raw_sample);
-        bitDepth = 16;
+        return -1;
     }
-
     return bitDepth;
 }
 
