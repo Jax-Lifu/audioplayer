@@ -116,10 +116,10 @@ void setBasicMediaInfoFields(JNIEnv *env, jobject ffMediaInfoObject, AVFormatCon
 void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_ctx) {
     jclass ffMediaInfoClass = env->GetObjectClass(ffMediaInfoObject);
 
-    jfieldID titleField = env->GetFieldID(ffMediaInfoClass, "title", "Ljava/lang/String;");
-    jfieldID artistField = env->GetFieldID(ffMediaInfoClass, "artist", "Ljava/lang/String;");
-    jfieldID albumField = env->GetFieldID(ffMediaInfoClass, "album", "Ljava/lang/String;");
-    jfieldID genreField = env->GetFieldID(ffMediaInfoClass, "genre", "Ljava/lang/String;");
+    jfieldID titleBytesField = env->GetFieldID(ffMediaInfoClass, "titleBytes", "[B");
+    jfieldID artistBytesField = env->GetFieldID(ffMediaInfoClass, "artistBytes", "[B");
+    jfieldID albumBytesField = env->GetFieldID(ffMediaInfoClass, "albumBytes", "[B");
+    jfieldID genreBytesField = env->GetFieldID(ffMediaInfoClass, "genreBytes", "[B");
     jfieldID dateField = env->GetFieldID(ffMediaInfoClass, "date", "Ljava/lang/String;");
     jfieldID commentField = env->GetFieldID(ffMediaInfoClass, "comment", "Ljava/lang/String;");
 
@@ -127,24 +127,29 @@ void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_c
     // LOGD("metadata size %p", fmt_ctx->metadata);
     while ((tag = av_dict_get(fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
         // LOGD("metadata key:%s,value: %s", tag->key, tag->value);
+        size_t len = tag->value ? strlen(tag->value) : 0;
+        jbyteArray byteArray = env->NewByteArray((jsize) len);
+        if (byteArray && tag->value) {
+            env->SetByteArrayRegion(byteArray, 0, (jsize) len, (const jbyte *) tag->value);
+        }
         if (strcmp(tag->key, "title") == 0) {
-            env->SetObjectField(ffMediaInfoObject, titleField,
-                                Utils::charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, titleBytesField, byteArray);
         } else if (strcmp(tag->key, "artist") == 0) {
-            env->SetObjectField(ffMediaInfoObject, artistField,
-                                Utils::charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, artistBytesField, byteArray);
         } else if (strcmp(tag->key, "album") == 0) {
-            env->SetObjectField(ffMediaInfoObject, albumField,
-                                Utils::charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, albumBytesField, byteArray);
         } else if (strcmp(tag->key, "genre") == 0) {
-            env->SetObjectField(ffMediaInfoObject, genreField,
-                                Utils::charToJString(env, tag->value));
+            env->SetObjectField(ffMediaInfoObject, genreBytesField, byteArray);
         } else if (strcmp(tag->key, "date") == 0) {
             env->SetObjectField(ffMediaInfoObject, dateField,
                                 Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "comment") == 0) {
             env->SetObjectField(ffMediaInfoObject, commentField,
                                 Utils::charToJString(env, tag->value));
+        }
+        // 释放本地引用
+        if (byteArray) {
+            env->DeleteLocalRef(byteArray);
         }
     }
 }

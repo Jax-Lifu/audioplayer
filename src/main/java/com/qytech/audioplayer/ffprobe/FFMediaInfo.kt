@@ -3,6 +3,7 @@ package com.qytech.audioplayer.ffprobe
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.core.extensions.getFileName
 import com.qytech.core.extensions.getFolderName
+import timber.log.Timber
 
 class FFMediaInfo {
 
@@ -19,12 +20,22 @@ class FFMediaInfo {
     var codecLongName: String? = null
     var codecType: String? = null
     var image: ByteArray? = null
-    var title: String? = null
-    var artist: String? = null
-    var album: String? = null
-    var genre: String? = null
+    var titleBytes: ByteArray? = null
+    var artistBytes: ByteArray? = null
+    var albumBytes: ByteArray? = null
+    var genreBytes: ByteArray? = null
     var date: String? = null
     var comment: String? = null
+
+    val title: String?
+        get() = titleBytes?.toAudioTagString()
+    val artist: String?
+        get() = artistBytes?.toAudioTagString()
+    val album: String?
+        get() = albumBytes?.toAudioTagString()
+    val genre: String?
+        get() = genreBytes?.toAudioTagString()
+
 
     fun toLocalAudioFileInfo(
         path: String,
@@ -105,3 +116,36 @@ class FFMediaInfo {
     }
 
 }
+
+
+fun ByteArray.toAudioTagString(): String {
+    // 按优先级排列常用编码
+    val charsets = listOf("GBK", "UTF-8", "ISO-8859-1", "Windows-1252")
+
+    for (cs in charsets) {
+        try {
+            val str = String(this, charset(cs))
+
+            // 如果没有非法字符，直接返回
+            if (!str.contains('\uFFFD') && str.isNotBlank()) {
+                return str
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Charset $cs decode failed")
+        }
+    }
+
+    // 如果所有编码都失败，尝试剔除不可打印字符再返回
+    val cleaned = this.map { it.toInt().toChar() }
+        .filter {
+            it.isLetterOrDigit() ||
+                    it.isWhitespace() ||
+                    it in listOf('-', '_', '.', ',', '!', '?')
+        }
+        .joinToString("")
+    if (cleaned.isNotEmpty()) return cleaned
+
+    // fallback 输出 hex
+    return this.joinToString("") { "%02X".format(it) }
+}
+

@@ -40,6 +40,7 @@
 ###############################
 # 保留整个 com.qytech 包（类名 + 成员）
 -keep class com.qytech.** { *; }
+-keep class com.qytech.**$$ExternalSyntheticOutline* { *; }
 
 # 如果只想保留类名（方法/字段允许优化）
 # -keepnames class com.qytech.**
