@@ -127,6 +127,8 @@ private:
 
     DSDMode dsdMode = DSDMode::NATIVE;
 
+    bool isI2sAudio = false;
+
     int result = -1;
 
     void processDSDNative(const uint8_t *src, size_t size);

@@ -9,6 +9,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import com.qytech.audioplayer.model.AudioInfo
+import com.qytech.audioplayer.utils.SystemPropUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -224,9 +225,18 @@ class FFAudioPlayer(
             }
         }
         Timber.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding")
-        val channelMask = when (native_getChannels()) {
-            1 -> AudioFormat.CHANNEL_OUT_MONO
-            4 -> AudioFormat.CHANNEL_OUT_QUAD
+        val isI2s = SystemPropUtil.getBoolean("persist.sys.audio.i2s", false)
+        val channels = native_getChannels()
+
+        val channelMask = when {
+            // DSD + I2S 强制四声道
+            isDsd() && isI2s -> AudioFormat.CHANNEL_OUT_QUAD
+
+            // 根据声道数匹配
+            channels == 1 -> AudioFormat.CHANNEL_OUT_MONO
+            channels == 4 -> AudioFormat.CHANNEL_OUT_QUAD
+
+            // 其他默认立体声
             else -> AudioFormat.CHANNEL_OUT_STEREO
         }
         val audioAttributes = AudioAttributes.Builder()
@@ -247,31 +257,32 @@ class FFAudioPlayer(
             .setBufferSizeInBytes(bufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        native_setCallback(object : FFAudioPlayerCallback {
-            override fun onAudioDataReceived(data: ByteArray) {
-                if (audioTrack?.state != AudioTrack.STATE_UNINITIALIZED &&
-                    audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
-                ) {
-                    audioTrack?.write(data, 0, data.size)
-                    /*if (isDsd()) {
-                        when (dsdPlayMode) {
-                            DSDMode.NATIVE -> {
-                                dsdLoopbackDataCallback?.onDataReceived(data)
-                            }
+        native_setCallback(
+            object : FFAudioPlayerCallback {
+                override fun onAudioDataReceived(data: ByteArray) {
+                    if (audioTrack?.state != AudioTrack.STATE_UNINITIALIZED &&
+                        audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
+                    ) {
+                        audioTrack?.write(data, 0, data.size)
+                        /*if (isDsd()) {
+                            when (dsdPlayMode) {
+                                DSDMode.NATIVE -> {
+                                    dsdLoopbackDataCallback?.onDataReceived(data)
+                                }
 
-                            DSDMode.D2P -> {
-                                dsdLoopbackDataCallback?.onDataReceived(data)
-                            }
+                                DSDMode.D2P -> {
+                                    dsdLoopbackDataCallback?.onDataReceived(data)
+                                }
 
-                            DSDMode.DOP -> {
-                                val pcmData = DopToPcm.convert(data.copyOf(), sampleRate)
-                                dsdLoopbackDataCallback?.onDataReceived(pcmData)
+                                DSDMode.DOP -> {
+                                    val pcmData = DopToPcm.convert(data.copyOf(), sampleRate)
+                                    dsdLoopbackDataCallback?.onDataReceived(pcmData)
+                                }
                             }
-                        }
-                    }*/
+                        }*/
+                    }
                 }
-            }
-        })
+            })
         native_setOnCompletionListener(
             object : OnCompletionListener {
                 override fun onCompletion() {

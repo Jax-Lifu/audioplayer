@@ -1,8 +1,25 @@
 #include "FFAudioPlayer.h"
 #include "Utils.h"
+#include <sys/system_properties.h>
 
+#define  PROPERTY_VALUE_MAX 128
 // MSBF → LSBF lookup table（提前生成）
 static uint8_t bit_reverse_table[256];
+
+// 读取系统属性
+static std::string getSystemProperty(const char *key, const char *def = "") {
+    char value[PROP_VALUE_MAX] = {0};
+    if (__system_property_get(key, value) > 0) {
+        return {value};
+    }
+    return {def};
+}
+
+// 判断 persist.sys.audio.i2s 是否开启
+static bool isI2sEnabled() {
+    std::string prop = getSystemProperty("persist.sys.audio.i2s", "false");
+    return (prop == "1" || prop == "true" || prop == "True");
+}
 
 static void init_bit_reverse_table() {
     for (int i = 0; i < 256; ++i) {
@@ -32,7 +49,7 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
         LOGE("Failed to open audio file: %s", filePath);
         return false;
     }
-
+    isI2sAudio = isI2sEnabled();
     switch (dsd_mode) {
         case 0:
             this->dsdMode = NATIVE;
@@ -374,33 +391,84 @@ void FFAudioPlayer::processDSDNative(const uint8_t *src, size_t size) {
     std::vector<uint8_t> destData(size);
     if (isMSBF) {
         // 直接复制左右声道，交错 8 字节，但不 bit reverse
-        for (int i = 0; i < size; i += 8) {
-            // 左声道
-            destData[i] = src[i];
-            destData[i + 1] = src[i + 2];
-            destData[i + 2] = src[i + 4];
-            destData[i + 3] = src[i + 6];
-            // 右声道
-            destData[i + 4] = src[i + 1];
-            destData[i + 5] = src[i + 3];
-            destData[i + 6] = src[i + 5];
-            destData[i + 7] = src[i + 7];
+        if (!isI2sAudio) {
+            for (int i = 0; i < size; i += 8) {
+                // 左声道
+                destData[i] = src[i];
+                destData[i + 1] = src[i + 2];
+                destData[i + 2] = src[i + 4];
+                destData[i + 3] = src[i + 6];
+                // 右声道
+                destData[i + 4] = src[i + 1];
+                destData[i + 5] = src[i + 3];
+                destData[i + 6] = src[i + 5];
+                destData[i + 7] = src[i + 7];
+            }
+        } else {
+            for (int i = 0; i < size; i += 16) {
+                destData[i + 0x00] = src[i + 6];
+                destData[i + 0x01] = src[i + 4];
+                destData[i + 0x02] = src[i + 2];
+                destData[i + 0x03] = src[i + 0];
+
+                destData[i + 0x04] = src[i + 14];
+                destData[i + 0x05] = src[i + 12];
+                destData[i + 0x06] = src[i + 10];
+                destData[i + 0x07] = src[i + 8];
+
+                destData[i + 0x08] = src[i + 7];
+                destData[i + 0x09] = src[i + 5];
+                destData[i + 0x0a] = src[i + 3];
+                destData[i + 0x0b] = src[i + 1];
+
+                destData[i + 0x0c] = src[i + 15];
+                destData[i + 0x0d] = src[i + 13];
+                destData[i + 0x0e] = src[i + 11];
+                destData[i + 0x0f] = src[i + 9];
+            }
         }
     } else {
         // 带 bit reverse 的交错处理
         // 每声道大小（用 packet->size / channels ）
-        const int channelSize = size / channels;
-        for (int j = 0, k = 0; j < channelSize; j += 4, k += 8) {
-            // 左声道
-            destData[k] = bit_reverse_table[src[j] & 0xFF];
-            destData[k + 1] = bit_reverse_table[src[j + 1] & 0xFF];
-            destData[k + 2] = bit_reverse_table[src[j + 2] & 0xFF];
-            destData[k + 3] = bit_reverse_table[src[j + 3] & 0xFF];
-            // 右声道
-            destData[k + 4] = bit_reverse_table[src[j + channelSize] & 0xFF];
-            destData[k + 5] = bit_reverse_table[src[j + channelSize + 1] & 0xFF];
-            destData[k + 6] = bit_reverse_table[src[j + channelSize + 2] & 0xFF];
-            destData[k + 7] = bit_reverse_table[src[j + channelSize + 3] & 0xFF];
+        if (!isI2sAudio) {
+            const int channelSize = size / channels;
+            for (int j = 0, k = 0; j < channelSize; j += 4, k += 8) {
+                // 左声道
+                destData[k] = bit_reverse_table[src[j] & 0xFF];
+                destData[k + 1] = bit_reverse_table[src[j + 1] & 0xFF];
+                destData[k + 2] = bit_reverse_table[src[j + 2] & 0xFF];
+                destData[k + 3] = bit_reverse_table[src[j + 3] & 0xFF];
+                // 右声道
+                destData[k + 4] = bit_reverse_table[src[j + channelSize] & 0xFF];
+                destData[k + 5] = bit_reverse_table[src[j + channelSize + 1] & 0xFF];
+                destData[k + 6] = bit_reverse_table[src[j + channelSize + 2] & 0xFF];
+                destData[k + 7] = bit_reverse_table[src[j + channelSize + 3] & 0xFF];
+            }
+        } else {
+            int j = 0;
+            for (int i = 0; i < size; i += 16) {
+                destData[i + 0x00] = bit_reverse_table[src[j + 0x03]];
+                destData[i + 0x01] = bit_reverse_table[src[j + 0x02]];
+                destData[i + 0x02] = bit_reverse_table[src[j + 0x01]];
+                destData[i + 0x03] = bit_reverse_table[src[j + 0x00]];
+                destData[i + 0x04] = bit_reverse_table[src[j + 0x07]];
+                destData[i + 0x05] = bit_reverse_table[src[j + 0x06]];
+                destData[i + 0x06] = bit_reverse_table[src[j + 0x05]];
+                destData[i + 0x07] = bit_reverse_table[src[j + 0x04]];
+                j += 8;
+            }
+            j = 0;
+            for (int i = 0; i < size; i += 16) {
+                destData[i + 0x08] = bit_reverse_table[src[j + 4096 + 0x03]];
+                destData[i + 0x09] = bit_reverse_table[src[j + 4096 + 0x02]];
+                destData[i + 0x0a] = bit_reverse_table[src[j + 4096 + 0x01]];
+                destData[i + 0x0b] = bit_reverse_table[src[j + 4096 + 0x00]];
+                destData[i + 0x0c] = bit_reverse_table[src[j + 4096 + 0x07]];
+                destData[i + 0x0d] = bit_reverse_table[src[j + 4096 + 0x06]];
+                destData[i + 0x0e] = bit_reverse_table[src[j + 4096 + 0x05]];
+                destData[i + 0x0f] = bit_reverse_table[src[j + 4096 + 0x04]];
+                j += 8;
+            }
         }
     }
     playAudio(reinterpret_cast<const char *>(destData.data()), destData.size());
