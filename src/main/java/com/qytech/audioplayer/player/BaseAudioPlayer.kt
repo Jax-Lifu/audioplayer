@@ -92,12 +92,9 @@ abstract class BaseAudioPlayer(
      * */
     override fun setDsdMode(dsdMode: DSDMode) {
         this.dsdPlayMode = dsdMode
-        if (dsdMode == DSDMode.DOP && audioInfo.sampleRate == 22579200) {
+        if (dsdMode == DSDMode.DOP && audioInfo.sampleRate >= 22579200) {
             // 如果是DSD512，采样率为 22579200，只能使用NATIVE模式或者D2P
             this.dsdPlayMode = DSDMode.NATIVE
-        } else if (audioInfo.sampleRate > 22579200) {
-            // 如果采样率大于22579200，只能使用D2P
-            this.dsdPlayMode = DSDMode.D2P
         }
     }
 

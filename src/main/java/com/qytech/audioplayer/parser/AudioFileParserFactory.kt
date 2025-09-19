@@ -46,7 +46,7 @@ object AudioFileParserFactory {
         val basename = file.nameWithoutExtension
         val cueFiles = parentDir.listFiles { _, name ->
             // 判断当前音频目录下是否存在与音频文件同名的 .cue 文件
-            name.equals("$basename.cue", ignoreCase = true)
+            name.lowercase().equals("$basename.cue", ignoreCase = true)
         }
         return cueFiles?.firstOrNull()
     }

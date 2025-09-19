@@ -1,9 +1,9 @@
 package com.qytech.audioplayer.ffprobe
 
 import com.qytech.audioplayer.model.AudioInfo
+import com.qytech.audioplayer.utils.StringEncodingUtil
 import com.qytech.core.extensions.getFileName
 import com.qytech.core.extensions.getFolderName
-import timber.log.Timber
 
 class FFMediaInfo {
 
@@ -27,15 +27,15 @@ class FFMediaInfo {
     var date: String? = null
     var comment: String? = null
 
-    val title: String?
-        get() = titleBytes?.toAudioTagString()
-    val artist: String?
-        get() = artistBytes?.toAudioTagString()
-    val album: String?
-        get() = albumBytes?.toAudioTagString()
-    val genre: String?
-        get() = genreBytes?.toAudioTagString()
 
+    val title: String?
+        get() = StringEncodingUtil.fixEncoding(titleBytes)
+    val artist: String?
+        get() = StringEncodingUtil.fixEncoding(artistBytes)
+    val album: String?
+        get() = StringEncodingUtil.fixEncoding(albumBytes)
+    val genre: String?
+        get() = StringEncodingUtil.fixEncoding(genreBytes)
 
     fun toLocalAudioFileInfo(
         path: String,
@@ -45,7 +45,7 @@ class FFMediaInfo {
         fingerprint: String? = null,
     ): AudioInfo {
         return AudioInfo.Local(
-            filepath = filename ?: path,
+            filepath = path,
             folder = folder,
             codecName = codecName ?: "",
             formatName = formatName ?: "",
@@ -116,36 +116,3 @@ class FFMediaInfo {
     }
 
 }
-
-
-fun ByteArray.toAudioTagString(): String {
-    // 按优先级排列常用编码
-    val charsets = listOf("GBK", "UTF-8", "ISO-8859-1", "Windows-1252")
-
-    for (cs in charsets) {
-        try {
-            val str = String(this, charset(cs))
-
-            // 如果没有非法字符，直接返回
-            if (!str.contains('\uFFFD') && str.isNotBlank()) {
-                return str
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Charset $cs decode failed")
-        }
-    }
-
-    // 如果所有编码都失败，尝试剔除不可打印字符再返回
-    val cleaned = this.map { it.toInt().toChar() }
-        .filter {
-            it.isLetterOrDigit() ||
-                    it.isWhitespace() ||
-                    it in listOf('-', '_', '.', ',', '!', '?')
-        }
-        .joinToString("")
-    if (cleaned.isNotEmpty()) return cleaned
-
-    // fallback 输出 hex
-    return this.joinToString("") { "%02X".format(it) }
-}
-

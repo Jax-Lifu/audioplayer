@@ -1,6 +1,7 @@
 
 #include "QYFFprobe.h"
 #include "Utils.h"
+#include "libavutil/avstring.h"
 
 #include <unicode/urename.h>
 #include <iconv.h>
@@ -112,6 +113,7 @@ void setBasicMediaInfoFields(JNIEnv *env, jobject ffMediaInfoObject, AVFormatCon
                         Utils::charToJString(env, fmt_ctx->iformat->name));
 }
 
+
 // 设置媒体标签信息
 void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_ctx) {
     jclass ffMediaInfoClass = env->GetObjectClass(ffMediaInfoObject);
@@ -130,6 +132,13 @@ void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_c
         size_t len = tag->value ? strlen(tag->value) : 0;
         jbyteArray byteArray = env->NewByteArray((jsize) len);
         if (byteArray && tag->value) {
+            //            char hexbuf[ len * 3 + 1 ]; // 每个字节两位 + 空格 + 结束符
+            //            char *p = hexbuf;
+            //            for (int i = 0; i < len; i++) {
+            //                p += sprintf(p, "%02X ", (unsigned char)tag->value[i]);
+            //            }
+            //            *(p-1) = 0; // 去掉最后一个空格
+            //            LOGD("metadata key: %s, value hex: %s", tag->key, hexbuf);
             env->SetByteArrayRegion(byteArray, 0, (jsize) len, (const jbyte *) tag->value);
         }
         if (strcmp(tag->key, "title") == 0) {
