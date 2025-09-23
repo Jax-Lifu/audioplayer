@@ -1528,7 +1528,7 @@ public class DSTDecoder {
         return j;
     }
 
-    public void frameDSTDecode(byte[] DSTdata, byte[] MuxedDSDdata, int FrameSizeInBytes, int FrameCnt) throws DSTException {
+    public void frameDSTDecode(byte[] DSTdata, byte[] MuxedDSDdata, int FrameSizeInBytes) throws DSTException {
         int BitNr;
         int ChNr;
         int ACError;
@@ -1537,7 +1537,7 @@ public class DSTDecoder {
         int PtableIndex;
         int Stop;
 
-        FrameHdr.FrameNr = FrameCnt;
+        // FrameHdr.FrameNr = FrameCnt;
         FrameHdr.CalcNrOfBytes = FrameSizeInBytes;
         FrameHdr.CalcNrOfBits = FrameHdr.CalcNrOfBytes * 8L;
         /* unpack DST frame: segmentation, mapping, arithmetic data */

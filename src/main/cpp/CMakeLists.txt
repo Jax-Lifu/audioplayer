@@ -50,6 +50,13 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         jni_ffaudioplayer.cpp
         Utils.cpp
         fpcalc_jni.cpp
+        jni_sacd_test.cpp
+        libdstdec/ac_data.cpp
+        libdstdec/coded_table.cpp
+        libdstdec/dst_decoder.cpp
+        libdstdec/dst_decoder_mt.cpp
+        libdstdec/frame_reader.cpp
+        libdstdec/str_data.cpp
 )
 
 

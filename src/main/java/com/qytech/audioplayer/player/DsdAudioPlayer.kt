@@ -53,6 +53,7 @@ class DsdAudioPlayer(
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
             return
         }
+        FFmpegDstDecoder.initDstDecoder()
         stopped = false
         runCatching {
             audioTrack?.let {
@@ -111,6 +112,7 @@ class DsdAudioPlayer(
 
     override fun release() {
         runCatching {
+            FFmpegDstDecoder.releaseDstDecoder()
             shouldCancelDstDecode.set(true)
             lock.withLock {
                 seeking = false
@@ -199,30 +201,39 @@ class DsdAudioPlayer(
         if (!isDsdCodec() && !isDstCodec()) {
             throw IllegalStateException("Codec is not DSD")
         }
-        val sampleRate = when (dsdPlayMode) {
-            DSDMode.NATIVE -> {
-                audioInfo.sampleRate / 32
-            }
 
-            DSDMode.D2P -> {
-                44100
-            }
+        val sampleRate = if (isDstCodec()) {
+            192000
+        } else {
+            when (dsdPlayMode) {
+                DSDMode.NATIVE -> {
+                    audioInfo.sampleRate / 32
+                }
 
-            DSDMode.DOP -> {
-                audioInfo.sampleRate / 16
+                DSDMode.D2P -> {
+                    44100
+                }
+
+                DSDMode.DOP -> {
+                    audioInfo.sampleRate / 16
+                }
             }
         }
-        val encoding = when (dsdPlayMode) {
-            DSDMode.NATIVE -> {
-                AudioFormat.ENCODING_DSD
-            }
+        val encoding = if (isDstCodec()) {
+            AudioFormat.ENCODING_PCM_16BIT
+        } else {
+            when (dsdPlayMode) {
+                DSDMode.NATIVE -> {
+                    AudioFormat.ENCODING_DSD
+                }
 
-            DSDMode.D2P -> {
-                AudioFormat.ENCODING_PCM_16BIT
-            }
+                DSDMode.D2P -> {
+                    AudioFormat.ENCODING_PCM_16BIT
+                }
 
-            DSDMode.DOP -> {
-                AudioFormat.ENCODING_PCM_32BIT
+                DSDMode.DOP -> {
+                    AudioFormat.ENCODING_PCM_32BIT
+                }
             }
         }
 
@@ -266,7 +277,6 @@ class DsdAudioPlayer(
         val compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
         var position: Long
         currentOffset = startOffset
-        SacdAudioFrame.frameIndex = 0
         coroutineScope.launch {
             val stream = SeekableInputStreamFactory.create(sourceId, headers) ?: return@launch
             /*testFile.delete()

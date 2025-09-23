@@ -1,7 +1,10 @@
 package com.qytech.audioplayer.audioframe
 
 import com.qytech.audioplayer.model.ScarletBook
+import com.qytech.audioplayer.player.FFmpegDstDecoder
 import com.qytech.audioplayer.sacd.DSTDecoder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -25,7 +28,7 @@ data class AudioFrameHeader(
     val dstEncoded: Int,       // 表示 DST 编码标志
     //    val reserved: Int,   // 保留位，用于未来扩展
     val frameInfoCount: Int,   // 表示帧信息的数量
-    val packetInfoCount: Int   // 表示数据包信息的数量
+    val packetInfoCount: Int,   // 表示数据包信息的数量
 ) {
 
     companion object {
@@ -72,7 +75,7 @@ data class AudioPacketInfo(
     val frameStart: Int,    // 1
     // val reserved: Int,      // 1
     val dataType: Int,      // 3
-    val packetLength: Int   // 11
+    val packetLength: Int,   // 11
 ) {
     companion object {
         // bigEndian
@@ -134,7 +137,6 @@ object SacdAudioFrame {
         init(2, 64)
     }
     private var frameSize = 0
-    var frameIndex = 0
     private var frameDstBuffer: MutableList<Byte>? = null
     private var frameDsdBuffer = ByteArray(9408)
     private var dffBuffer = ByteArray(9408)
@@ -143,7 +145,7 @@ object SacdAudioFrame {
         srcData: ByteArray,
         length: Int,
         shouldCancelDstDecode: AtomicBoolean,
-        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null
+        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
     ) {
         index = 0
         while (index < length) {
@@ -182,7 +184,8 @@ object SacdAudioFrame {
                     }
 
                     ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
-                    ScarletBook.AudioPacketDataType.PADDING -> {
+                    ScarletBook.AudioPacketDataType.PADDING,
+                        -> {
                         index += packetInfo.packetLength
                     }
                 }
@@ -229,7 +232,8 @@ object SacdAudioFrame {
                         }
 
                         ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
-                        ScarletBook.AudioPacketDataType.PADDING -> {
+                        ScarletBook.AudioPacketDataType.PADDING,
+                            -> {
                             index += packetInfo.packetLength
                         }
                     }
@@ -242,22 +246,27 @@ object SacdAudioFrame {
         return DffAudioFrame.read(tempData, destData, currentDataSize, isDopEnable)
     }
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+
+    @OptIn(ExperimentalStdlibApi::class)
     private fun handleDstAudioPacket(
         srcData: ByteArray,
         packetInfo: AudioPacketInfo,
         index: Int,
-        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null
+        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
     ) {
         runCatching {
             if (packetInfo.frameStart == 1) {
                 if (frameSize != 0) {
-                    frameIndex++
                     frameDstBuffer?.toByteArray()?.let { dstData ->
                         // DST 解码为 DSD 流
-                        dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize, frameIndex)
-                        // DSD 流转 DFF 流
-                        DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
-                        onFrameDecoded?.invoke(dffBuffer, frameDsdBuffer.size)
+//                        dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize)
+//                        DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
+//                        onFrameDecoded?.invoke(dffBuffer, dffBuffer.size)
+                        val result = FFmpegDstDecoder.decodeDstFrame(dstData)
+                        result?.let { dsdData ->
+                            onFrameDecoded?.invoke(dsdData, dsdData.size)
+                        }
                     }
                 }
 

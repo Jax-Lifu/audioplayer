@@ -128,28 +128,21 @@ void setMediaTags(JNIEnv *env, jobject ffMediaInfoObject, AVFormatContext *fmt_c
     AVDictionaryEntry *tag = nullptr;
     // LOGD("metadata size %p", fmt_ctx->metadata);
     while ((tag = av_dict_get(fmt_ctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-        // LOGD("metadata key:%s,value: %s", tag->key, tag->value);
+        LOGD("metadata key:%s,value: %s", tag->key, tag->value);
         size_t len = tag->value ? strlen(tag->value) : 0;
         jbyteArray byteArray = env->NewByteArray((jsize) len);
         if (byteArray && tag->value) {
-            //            char hexbuf[ len * 3 + 1 ]; // 每个字节两位 + 空格 + 结束符
-            //            char *p = hexbuf;
-            //            for (int i = 0; i < len; i++) {
-            //                p += sprintf(p, "%02X ", (unsigned char)tag->value[i]);
-            //            }
-            //            *(p-1) = 0; // 去掉最后一个空格
-            //            LOGD("metadata key: %s, value hex: %s", tag->key, hexbuf);
             env->SetByteArrayRegion(byteArray, 0, (jsize) len, (const jbyte *) tag->value);
         }
-        if (strcmp(tag->key, "title") == 0) {
+        if (strcasecmp(tag->key, "title") == 0) {
             env->SetObjectField(ffMediaInfoObject, titleBytesField, byteArray);
-        } else if (strcmp(tag->key, "artist") == 0) {
+        } else if (strcasecmp(tag->key, "artist") == 0) {
             env->SetObjectField(ffMediaInfoObject, artistBytesField, byteArray);
-        } else if (strcmp(tag->key, "album") == 0) {
+        } else if (strcasecmp(tag->key, "album") == 0) {
             env->SetObjectField(ffMediaInfoObject, albumBytesField, byteArray);
-        } else if (strcmp(tag->key, "genre") == 0) {
+        } else if (strcasecmp(tag->key, "genre") == 0) {
             env->SetObjectField(ffMediaInfoObject, genreBytesField, byteArray);
-        } else if (strcmp(tag->key, "date") == 0) {
+        } else if (strcasecmp(tag->key, "date") == 0) {
             env->SetObjectField(ffMediaInfoObject, dateField,
                                 Utils::charToJString(env, tag->value));
         } else if (strcmp(tag->key, "comment") == 0) {
