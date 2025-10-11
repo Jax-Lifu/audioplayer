@@ -73,4 +73,30 @@ sealed class AudioInfo {
         override val endOffset: Long? = 0,
         override val dataLength: Long? = 0,
     ) : AudioInfo()
+
+    data class Tidal(
+        val productId: String,
+        val clientId: String,
+        val clientSecret: String,
+        val credentialsKey: String = "",
+        override val trackId: Int = 0,
+        override val codecName: String = "",
+        override val formatName: String = "",
+        override val duration: Long = 0,
+        override val channels: Int = 0,
+        override val sampleRate: Int = 0,
+        override val bitRate: Int = 0,
+        override val bitPreSample: Int = 0,
+        override val title: String = "",
+        override val album: String = "",
+        override val artist: String = "",
+        override val genre: String = "",
+        override val date: String? = null,
+        override val albumImageUrl: String? = null,
+        override val artistImageUrl: String? = null,
+        override val sourceId: String = productId,
+        override val startOffset: Long? = 0,
+        override val endOffset: Long? = 0,
+        override val dataLength: Long? = 0,
+    ) : AudioInfo()
 }

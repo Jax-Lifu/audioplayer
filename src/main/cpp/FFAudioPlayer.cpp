@@ -475,47 +475,79 @@ void FFAudioPlayer::processDSDNative(const uint8_t *src, size_t size) {
 }
 
 void FFAudioPlayer::processDSDOp(const uint8_t *src, size_t size) {
-    constexpr size_t CHUNK_SIZE = 8192; // 每块读取大小
+    // LOGD("processDSDOp: size = %zu", size);
+    constexpr size_t CHUNK_SIZE = 8192; // 每块读取大小（字节）
     size_t offset = 0;
 
     while (offset < size) {
         size_t chunkSize = (size - offset) > CHUNK_SIZE ? CHUNK_SIZE : (size - offset);
 
+        // 输出缓冲区：一个 DoP 帧用 int32_t 表示（4字节）
         int32_t destData[4096] = {0};
         uint8_t marker = 0x05;
 
         if (isMSBF) {
-            // DFF 处理
+            // -------- DFF 格式（交错声道）--------
+            // src: L0 R0 L1 R1 ...
+            // DoP: [Marker][L0][L1], [Marker][R0][R1]
             for (size_t i = 0, j = 0; j + 3 < chunkSize; i += 2, j += 4) {
+                // 左声道
                 destData[i] =
-                        (marker << 24) | (src[offset + j + 0] << 16) | (src[offset + j + 2] << 8) |
-                        0x0;
+                        (marker << 24) |
+                        (src[offset + j + 0] << 16) |  // bit0
+                        (src[offset + j + 2] << 8);    // bit1
+
+                // 右声道
                 destData[i + 1] =
-                        (marker << 24) | (src[offset + j + 1] << 16) | (src[offset + j + 3] << 8) |
-                        0x0;
-                marker ^= 0xFF;
+                        (marker << 24) |
+                        (src[offset + j + 1] << 16) |  // bit0
+                        (src[offset + j + 3] << 8);    // bit1
+
+                marker ^= 0xFF; // 翻转 DoP marker
             }
         } else {
-            // DSF 处理（带 bit-reversal，左右声道平面交错 4096）
-            for (size_t i = 0; 4096 + i + 3 < chunkSize; i += 4) {
-                destData[i] = (marker << 24) | (bit_reverse_table[src[offset + i + 0]] << 16) |
-                              (bit_reverse_table[src[offset + i + 1]] << 8) | 0x0;
+            // -------- DSF 格式（分离声道 + bit reversal）--------
+            // src: [左声道 4096字节][右声道 4096字节]
+            // DoP: [Marker][L0][L1], [Marker][R0][R1]
+            size_t half = chunkSize / 2;
+            for (size_t i = 0; i + 3 < half; i += 4) {
+                // 左声道前两个字节
+                destData[i] =
+                        (marker << 24) |
+                        (bit_reverse_table[src[offset + i + 0]] << 16) |
+                        (bit_reverse_table[src[offset + i + 1]] << 8);
+
+                // 右声道前两个字节
                 destData[i + 1] =
-                        (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 0]] << 16) |
-                        (bit_reverse_table[src[offset + 4096 + i + 1]] << 8) | 0x0;
+                        (marker << 24) |
+                        (bit_reverse_table[src[offset + half + i + 0]] << 16) |
+                        (bit_reverse_table[src[offset + half + i + 1]] << 8);
+
                 marker ^= 0xFF;
-                destData[i + 2] = (marker << 24) | (bit_reverse_table[src[offset + i + 2]] << 16) |
-                                  (bit_reverse_table[src[offset + i + 3]] << 8) | 0x0;
+
+                // 左声道后两个字节
+                destData[i + 2] =
+                        (marker << 24) |
+                        (bit_reverse_table[src[offset + i + 2]] << 16) |
+                        (bit_reverse_table[src[offset + i + 3]] << 8);
+
+                // 右声道后两个字节
                 destData[i + 3] =
-                        (marker << 24) | (bit_reverse_table[src[offset + 4096 + i + 2]] << 16) |
-                        (bit_reverse_table[src[offset + 4096 + i + 3]] << 8) | 0x0;
+                        (marker << 24) |
+                        (bit_reverse_table[src[offset + half + i + 2]] << 16) |
+                        (bit_reverse_table[src[offset + half + i + 3]] << 8);
+
                 marker ^= 0xFF;
             }
         }
 
-        playAudio(reinterpret_cast<const char *>(destData), 4096 * sizeof(int32_t));
+        // 播放时一定要传正确的字节数
+        playAudio(reinterpret_cast<const char *>(destData),
+                  sizeof(destData)); // 4096 * 4 = 16384 字节
+
         offset += chunkSize;
     }
 }
+
 
 

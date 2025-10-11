@@ -42,18 +42,34 @@ object AudioPlayerFactory {
         context: Context,
         source: String,
         trackId: Int = 0,
+        clientId: String? = null,
+        clientSecret: String? = null,
+        credentialsKey: String? = null,
         headers: Map<String, String> = emptyMap(),
         playerExtras: PlayerExtras? = null,
     ): AudioPlayer? {
         Timber.d("createAudioPlayer: $source")
-        val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
-        val index = if (trackId == 0) 0 else trackId - 1
-        var audioInfo = parser.parse()?.getOrNull(index) ?: return null
-        if (audioInfo is AudioInfo.Remote && playerExtras != null) {
-            audioInfo = audioInfo.copy(
-                encryptedSecurityKey = playerExtras.encryptedSecurityKey,
-                encryptedInitVector = playerExtras.encryptedInitVector,
+        var audioInfo: AudioInfo
+        if (source.isNotEmpty() &&
+            clientId?.isNotEmpty() == true &&
+            clientSecret?.isNotEmpty() == true
+        ) {
+            audioInfo = AudioInfo.Tidal(
+                productId = source,
+                clientId = clientId,
+                clientSecret = clientSecret,
+                credentialsKey = credentialsKey ?: "storage",
             )
+        } else {
+            val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
+            val index = if (trackId == 0) 0 else trackId - 1
+            audioInfo = parser.parse()?.getOrNull(index) ?: return null
+            if (audioInfo is AudioInfo.Remote && playerExtras != null) {
+                audioInfo = audioInfo.copy(
+                    encryptedSecurityKey = playerExtras.encryptedSecurityKey,
+                    encryptedInitVector = playerExtras.encryptedInitVector,
+                )
+            }
         }
         Timber.d("createAudioPlayer: $audioInfo")
         return createInternal(context, audioInfo, headers)
@@ -88,6 +104,7 @@ object AudioPlayerFactory {
         return when (audioInfo) {
             is AudioInfo.Local -> buildLocalPlayer(context, audioInfo)
             is AudioInfo.Remote -> buildRemotePlayer(context, audioInfo, headers)
+            is AudioInfo.Tidal -> TidalPlayer(context, audioInfo)
         }
     }
 

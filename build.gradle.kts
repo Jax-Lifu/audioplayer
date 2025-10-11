@@ -60,20 +60,16 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
-    implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.commons.codec)
     implementation(libs.hilt.android)
 
     implementation(libs.okhttp3)
     ksp(libs.hilt.compiler)
-    // exoplayer
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.exoplayer.dash)
-    implementation(libs.androidx.media3.exoplayer.hls)
-    implementation(libs.androidx.media3.exoplayer.smoothstreaming)
-    implementation(libs.androidx.media3.exoplayer.rtsp)
-    implementation(libs.androidx.media3.exoplayer.ima)
+    implementation(libs.tidal.player)
+    implementation(libs.tidal.media3.datasource.okhttp)
+    implementation(libs.tidal.media3.exoplayer.hls)
+    implementation(libs.tidal.media3.effect)
+    implementation(libs.tidal.media3.extractor)
     implementation(libs.juniversalchardet)
 
     testImplementation(libs.junit)
@@ -88,7 +84,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.2.9"
+                version = "0.3.2"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])

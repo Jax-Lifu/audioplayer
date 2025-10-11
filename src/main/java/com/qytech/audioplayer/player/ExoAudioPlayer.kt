@@ -89,7 +89,7 @@ class ExoAudioPlayer(
     override fun prepare() {
         val media = MediaItem.fromUri(audioInfo.sourceId)
         val mediaSource = when (audioInfo) {
-            is AudioInfo.Local -> {
+            is AudioInfo.Local, is AudioInfo.Tidal -> {
                 DefaultMediaSourceFactory(cacheDataSourceFactory)
                     .createMediaSource(media)
             }
