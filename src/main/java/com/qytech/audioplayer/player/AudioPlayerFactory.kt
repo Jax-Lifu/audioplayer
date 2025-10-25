@@ -8,6 +8,7 @@ import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.AudioFileParserFactory
+import com.qytech.audioplayer.utils.SystemPropUtil
 import timber.log.Timber
 import java.io.File
 
@@ -15,7 +16,11 @@ import java.io.File
 enum class DSDMode(val value: Int) {
     NATIVE(0),
     D2P(1),
-    DOP(2)
+    DOP(2);
+
+    companion object {
+        fun fromValue(value: Int) = DSDMode.entries.firstOrNull { it.value == value } ?: NATIVE
+    }
 }
 
 data class PlayerExtras(
@@ -101,6 +106,7 @@ object AudioPlayerFactory {
         headers: Map<String, String> = emptyMap(),
     ): AudioPlayer {
         initCache(context)
+        SystemPropUtil.set("persist.vendor.dsd_mode", "NULL")
         return when (audioInfo) {
             is AudioInfo.Local -> buildLocalPlayer(context, audioInfo)
             is AudioInfo.Remote -> buildRemotePlayer(context, audioInfo, headers)

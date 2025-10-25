@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.commons.codec)
     implementation(libs.hilt.android)
+    implementation(libs.icu4j)
 
     implementation(libs.okhttp3)
     ksp(libs.hilt.compiler)
@@ -84,7 +85,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.3.2"
+                version = "0.3.5"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])

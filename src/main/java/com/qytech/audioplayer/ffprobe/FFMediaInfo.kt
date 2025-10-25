@@ -1,7 +1,6 @@
 package com.qytech.audioplayer.ffprobe
 
 import com.qytech.audioplayer.model.AudioInfo
-import com.qytech.audioplayer.utils.StringEncodingUtil
 import com.qytech.core.extensions.getFileName
 import com.qytech.core.extensions.getFolderName
 
@@ -20,22 +19,13 @@ class FFMediaInfo {
     var codecLongName: String? = null
     var codecType: String? = null
     var image: ByteArray? = null
-    var titleBytes: ByteArray? = null
-    var artistBytes: ByteArray? = null
-    var albumBytes: ByteArray? = null
-    var genreBytes: ByteArray? = null
+    var title: String? = null
+    var artist: String? = null
+    var album: String? = null
+    var genre: String? = null
     var date: String? = null
     var comment: String? = null
 
-
-    val title: String?
-        get() = StringEncodingUtil.fixEncoding(titleBytes)
-    val artist: String?
-        get() = StringEncodingUtil.fixEncoding(artistBytes)
-    val album: String?
-        get() = StringEncodingUtil.fixEncoding(albumBytes)
-    val genre: String?
-        get() = StringEncodingUtil.fixEncoding(genreBytes)
 
     fun toLocalAudioFileInfo(
         path: String,

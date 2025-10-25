@@ -1,6 +1,6 @@
 package com.qytech.audioplayer.cue
 
-import org.mozilla.universalchardet.UniversalDetector
+import com.ibm.icu.text.CharsetDetector
 import java.io.File
 import java.io.FileInputStream
 
@@ -117,16 +117,15 @@ object CueParser {
         return Timestamp(parts[0], parts[1], parts[2])
     }
 
-    fun File.detectedCharset(): String {
-        val detector = UniversalDetector(null)
+    fun File.detectedCharset(): String = runCatching {
+        val detector = CharsetDetector()
         val buffer = ByteArray(4096)
+        var byteRead = -1
         FileInputStream(this).use { fis ->
-            var byteRead: Int
-            while (fis.read(buffer).also { byteRead = it } > 0 && !detector.isDone) {
-                detector.handleData(buffer, 0, byteRead)
-            }
+            byteRead = fis.read(buffer)
         }
-        detector.dataEnd()
-        return detector.detectedCharset ?: "GBK"
-    }
+        detector.setText(buffer.copyOfRange(0, byteRead))
+        val match = detector.detect()
+        return match?.name ?: "GBK"
+    }.getOrDefault("UTF-8")
 }
