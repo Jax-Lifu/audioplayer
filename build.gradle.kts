@@ -52,8 +52,9 @@ android {
 
 dependencies {
 
-    implementation(project(":core"))
+//    implementation(project(":core"))
     compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
+    implementation(libs.qytech.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.timber)
@@ -71,7 +72,6 @@ dependencies {
     implementation(libs.tidal.media3.exoplayer.hls)
     implementation(libs.tidal.media3.effect)
     implementation(libs.tidal.media3.extractor)
-    implementation(libs.juniversalchardet)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
@@ -85,7 +85,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.3.5"
+                version = "0.3.8"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])
@@ -116,6 +116,20 @@ afterEvaluate {
                         connection.set("scm:git:https://github.com/qytech/audioplayer.git")
                         developerConnection.set("scm:git:ssh://github.com/qytech/audioplayer.git")
                         url.set("http://github.com/qytech/audioplayer")
+                    }
+
+
+                    withXml {
+                        val dependenciesNode = asNode().appendNode("dependencies")
+                        configurations.implementation.get().allDependencies.forEach {
+                            if (it.group != null && it.version != null) {
+                                val dependencyNode = dependenciesNode.appendNode("dependency")
+                                dependencyNode.appendNode("groupId", it.group)
+                                dependencyNode.appendNode("artifactId", it.name)
+                                dependencyNode.appendNode("version", it.version)
+                                dependencyNode.appendNode("scope", "runtime")
+                            }
+                        }
                     }
                 }
             }
