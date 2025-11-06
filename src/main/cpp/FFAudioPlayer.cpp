@@ -111,7 +111,9 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
     duration = formatContext->duration / AV_TIME_BASE * 1000;
     channels = codecContext->ch_layout.nb_channels;
     timeBase = &formatContext->streams[audioStreamIndex]->time_base;
-
+    AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
+    outputFormat = (in_sample_fmt == AV_SAMPLE_FMT_S32 || in_sample_fmt == AV_SAMPLE_FMT_S32P)
+                   ? AV_SAMPLE_FMT_S32 : AV_SAMPLE_FMT_S16;
     // 如果是 PCM 或 D2P DSD，创建 swrContext
     if (!isDsdAudio() || (isDsdAudio() && dsdMode == D2P)) {
         if (!swrContext) {
@@ -119,15 +121,13 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
             if (!swrContext) return false;
 
             AVChannelLayout in_ch_layout = codecContext->ch_layout;
-            AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
             int in_sample_rate = codecContext->sample_rate;
 
             AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-            AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
             int out_sample_rate = isDsdAudio() ? d2pSampleRate : sampleRate;
 
             swr_alloc_set_opts2(&swrContext,
-                                &out_ch_layout, out_sample_fmt, out_sample_rate,
+                                &out_ch_layout, outputFormat, out_sample_rate,
                                 &in_ch_layout, in_sample_fmt, in_sample_rate,
                                 0, nullptr);
             if (swr_init(swrContext) < 0) return false;
@@ -289,7 +289,7 @@ bool FFAudioPlayer::decodePacket(AVPacket *packet, AVFrame *frame) {
 
     while (avcodec_receive_frame(codecContext, frame) == 0) {
         int outSamples = swr_get_out_samples(swrContext, frame->nb_samples);
-        int outSampleSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+        int outSampleSize = av_get_bytes_per_sample(outputFormat);
         int bufferOutSize = outSamples * outSampleSize * channels;
 
         uint8_t *outputBuffer = (uint8_t *) av_malloc(bufferOutSize);

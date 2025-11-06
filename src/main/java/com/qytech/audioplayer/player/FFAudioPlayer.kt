@@ -207,10 +207,14 @@ class FFAudioPlayer(
 
     @SuppressLint("InlinedApi")
     private fun initAudioTrack() = runCatching {
-//        SystemPropUtil.set("persist.vendor.bypass_sw_lpbk", if (isDsd()) "1" else "0")
+        //        SystemPropUtil.set("persist.vendor.bypass_sw_lpbk", if (isDsd()) "1" else "0")
         SystemPropUtil.set("persist.vendor.dsd_mode", if (isDsd()) dsdPlayMode.name else "NULL")
         val encoding = if (!isDsd()) {
-            AudioFormat.ENCODING_PCM_16BIT
+            if (audioInfo.bitPreSample == 32) {
+                AudioFormat.ENCODING_PCM_32BIT
+            } else {
+                AudioFormat.ENCODING_PCM_16BIT
+            }
         } else {
             when (dsdPlayMode) {
                 DSDMode.NATIVE -> AudioFormat.ENCODING_DSD

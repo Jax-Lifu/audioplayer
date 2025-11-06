@@ -129,6 +129,8 @@ private:
 
     bool isI2sAudio = false;
 
+    AVSampleFormat outputFormat = AV_SAMPLE_FMT_S16;
+
     int result = -1;
 
     void processDSDNative(const uint8_t *src, size_t size);

@@ -41,10 +41,7 @@ open class StandardAudioFileParser(
             Timber.e("File not found or not an audio file: $sourceId")
             return null
         }
-        val ffMediaInfo = FFprobe.probeFile(sourceId)
-        if (ffMediaInfo == null) {
-            return emptyList()
-        }
+        val ffMediaInfo = FFprobe.probeFile(sourceId) ?: return emptyList()
         val fingerprint = FFprobe.getFingerprint(sourceId, 30)
         val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
             ?: findLocalCoverImage(file.parentFile)?.absolutePath

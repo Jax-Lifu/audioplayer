@@ -8,7 +8,11 @@ import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.AudioFileParserFactory
+import com.qytech.audioplayer.parser.SacdAudioFileParser
+import com.qytech.audioplayer.parser.netstream.NetStreamFormat
+import com.qytech.audioplayer.parser.netstream.StreamFormatDetector
 import com.qytech.audioplayer.utils.SystemPropUtil
+import com.qytech.core.extensions.isRemoteUrl
 import timber.log.Timber
 import java.io.File
 
@@ -40,7 +44,7 @@ object AudioPlayerFactory {
     )
     val exoPlayerCodecs = setOf(
         "opus", "pcm_mulaw", "pcm_alaw", "amrnb",
-        "amrwb", "ac3", "dca"
+        "amrwb", "ac3", "dca", "sonyselect"
     )
 
     suspend fun createAudioPlayer(
@@ -54,29 +58,89 @@ object AudioPlayerFactory {
         playerExtras: PlayerExtras? = null,
     ): AudioPlayer? {
         Timber.d("createAudioPlayer: $source")
-        var audioInfo: AudioInfo
-        if (source.isNotEmpty() &&
-            clientId?.isNotEmpty() == true &&
-            clientSecret?.isNotEmpty() == true
-        ) {
-            audioInfo = AudioInfo.Tidal(
+        // ====== 1️⃣ 特殊来源（Tidal） ======
+        if (clientId?.isNotEmpty() == true && clientSecret?.isNotEmpty() == true) {
+            val tidal = AudioInfo.Tidal(
                 productId = source,
                 clientId = clientId,
                 clientSecret = clientSecret,
                 credentialsKey = credentialsKey ?: "storage",
             )
-        } else {
-            val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
-            val index = if (trackId == 0) 0 else trackId - 1
-            audioInfo = parser.parse()?.getOrNull(index) ?: return null
-            if (audioInfo is AudioInfo.Remote && playerExtras != null) {
-                audioInfo = audioInfo.copy(
-                    encryptedSecurityKey = playerExtras.encryptedSecurityKey,
-                    encryptedInitVector = playerExtras.encryptedInitVector,
-                )
-            }
+            return createInternal(context, tidal, headers)
         }
-        Timber.d("createAudioPlayer: $audioInfo")
+        // ====== 2️⃣ 网络流处理 ======
+        if (source.isRemoteUrl()) {
+            val format = StreamFormatDetector.detect(source, headers)
+            Timber.d("Detected NetStream format = $format")
+            val audioInfo = when (format) {
+                NetStreamFormat.SACD -> {
+                    SacdAudioFileParser(source, headers).parse()?.getOrNull(trackId) ?: return null
+                }
+
+                NetStreamFormat.DSD -> {
+                    AudioInfo.Remote(
+                        url = "",
+                        codecName = "",
+                        formatName = "",
+                        duration = 0,
+                        channels = 2,
+                        sampleRate = 44100 * 64,
+                        bitRate = 0,
+                        bitPreSample = -1,
+                        title = "",
+                        album = "",
+                        artist = "",
+                        genre = "",
+                        date = ""
+                    )
+                }
+
+                else -> {
+                    if (playerExtras != null) {
+                        AudioInfo.Remote(
+                            url = source,
+                            sourceId = source,
+                            codecName = "",
+                            formatName = "",
+                            duration = 0,
+                            channels = 2,
+                            sampleRate = 44100,
+                            bitRate = 0,
+                            bitPreSample = -1,
+                            title = "",
+                            album = "",
+                            artist = "",
+                            genre = "",
+                            date = "",
+                            encryptedSecurityKey = playerExtras.encryptedSecurityKey,
+                            encryptedInitVector = playerExtras.encryptedInitVector,
+                        )
+                    } else {
+                        AudioInfo.Remote(
+                            url = source,
+                            sourceId = source,
+                            codecName = "",
+                            formatName = "",
+                            duration = 0,
+                            channels = 2,
+                            sampleRate = 44100,
+                            bitRate = 0,
+                            bitPreSample = -1,
+                            title = "",
+                            album = "",
+                            artist = "",
+                            genre = "",
+                            date = ""
+                        )
+                    }
+                }
+            }
+            return createInternal(context, audioInfo, headers)
+        }
+
+        val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
+        val index = if (trackId == 0) 0 else trackId - 1
+        val audioInfo = parser.parse()?.getOrNull(index) ?: return null
         return createInternal(context, audioInfo, headers)
     }
 
@@ -119,7 +183,6 @@ object AudioPlayerFactory {
         val formatName = info.formatName.lowercase()
         return when {
             formatName == "sacd" -> DsdAudioPlayer(context, info)
-            codec in mediaPlayerCodecs -> RockitPlayer(context, info)
             codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
             else -> FFAudioPlayer(context, info)
         }
@@ -136,10 +199,10 @@ object AudioPlayerFactory {
         if (formatName == "sacd") {
             return DsdAudioPlayer(context, info, headers)
         }
-        if (codec in exoPlayerCodecs || formatName == "hls") {
-            return ExoAudioPlayer(context, simpleCache, info, headers)
+        if (formatName == "dsf" || formatName == "dff" || formatName == "dsd") {
+            FFAudioPlayer(context, info, headers)
         }
-        return FFAudioPlayer(context, info, headers)
+        return ExoAudioPlayer(context, simpleCache, info, headers)
     }
 
     private fun initCache(context: Context) {
