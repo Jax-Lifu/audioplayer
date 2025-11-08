@@ -36,7 +36,7 @@ enum AVContainerFifoFlags {
      * @note you must handle this flag manually in your own fifo_transfer()
      *       callback
      */
-    AV_CONTAINER_FIFO_FLAG_REF  = (1 << 0),
+    AV_CONTAINER_FIFO_FLAG_REF = (1 << 0),
 
     /**
      * This and all higher bits in flags may be set to any value by the caller
@@ -61,12 +61,12 @@ enum AVContainerFifoFlags {
  *
  * @return newly allocated AVContainerFifo, or NULL on failure
  */
-AVContainerFifo*
+AVContainerFifo *
 av_container_fifo_alloc(void *opaque,
-                        void* (*container_alloc)(void *opaque),
+                        void *(*container_alloc)(void *opaque),
                         void  (*container_reset)(void *opaque, void *obj),
-                        void  (*container_free) (void *opaque, void *obj),
-                        int   (*fifo_transfer)  (void *opaque, void *dst, void *src, unsigned flags),
+                        void  (*container_free)(void *opaque, void *obj),
+                        int   (*fifo_transfer)(void *opaque, void *dst, void *src, unsigned flags),
                         unsigned flags);
 
 /**

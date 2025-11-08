@@ -39,6 +39,7 @@ typedef struct ossl_core_bio_st OSSL_CORE_BIO;
  */
 struct ossl_dispatch_st {
     int function_id;
+
     void (*function)(void);
 };
 
@@ -198,7 +199,8 @@ typedef int (OSSL_provider_init_fn)(const OSSL_CORE_HANDLE *handle,
 #  pragma names save
 #  pragma names uppercase,truncated
 # endif
-OPENSSL_EXPORT OSSL_provider_init_fn OSSL_provider_init;
+OPENSSL_EXPORT OSSL_provider_init_fn
+OSSL_provider_init;
 # ifdef __VMS
 #  pragma names restore
 # endif

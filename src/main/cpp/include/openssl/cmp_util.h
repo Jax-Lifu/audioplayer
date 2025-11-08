@@ -14,6 +14,7 @@
 # pragma once
 
 # include <openssl/opensslconf.h>
+
 # ifndef OPENSSL_NO_CMP
 
 #  include <openssl/macros.h>
@@ -23,7 +24,7 @@
 extern "C" {
 #  endif
 
-int  OSSL_CMP_log_open(void);
+int OSSL_CMP_log_open(void);
 void OSSL_CMP_log_close(void);
 #  define OSSL_CMP_LOG_PREFIX "CMP "
 

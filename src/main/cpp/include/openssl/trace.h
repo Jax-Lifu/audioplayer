@@ -78,7 +78,7 @@ const char *OSSL_trace_get_category_name(int num);
  *
  * Returns 1 on success and 0 on failure
  */
-int OSSL_trace_set_channel(int category, BIO* channel);
+int OSSL_trace_set_channel(int category, BIO *channel);
 
 /*
  * Attach a prefix and a suffix to the given |category|, to be printed at the

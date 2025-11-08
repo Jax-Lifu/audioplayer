@@ -35,11 +35,13 @@
  */
 
 #include "libpostproc/version_major.h"
+
 #ifndef HAVE_AV_CONFIG_H
 /* When included as part of the ffmpeg build, only include the major version
  * to avoid unnecessary rebuilds. When included externally, keep including
  * the full version information. */
 #include "libpostproc/version.h"
+
 #endif
 
 /**
@@ -66,11 +68,11 @@ typedef void pp_mode;
 
 extern const char pp_help[]; ///< a simple help text
 
-void  pp_postprocess(const uint8_t * src[3], const int srcStride[3],
-                     uint8_t * dst[3], const int dstStride[3],
-                     int horizontalSize, int verticalSize,
-                     const int8_t *QP_store,  int QP_stride,
-                     pp_mode *mode, pp_context *ppContext, int pict_type);
+void pp_postprocess(const uint8_t *src[3], const int srcStride[3],
+                    uint8_t *dst[3], const int dstStride[3],
+                    int horizontalSize, int verticalSize,
+                    const int8_t *QP_store, int QP_stride,
+                    pp_mode *mode, pp_context *ppContext, int pict_type);
 
 
 /**
@@ -80,9 +82,11 @@ void  pp_postprocess(const uint8_t * src[3], const int srcStride[3],
  * @param quality a number from 0 to PP_QUALITY_MAX
  */
 pp_mode *pp_get_mode_by_name_and_quality(const char *name, int quality);
+
 void pp_free_mode(pp_mode *mode);
 
 pp_context *pp_get_context(int width, int height, int flags);
+
 void pp_free_context(pp_context *ppContext);
 
 #define PP_CPU_CAPS_MMX   0x80000000

@@ -7,7 +7,9 @@
 #ifdef NDEBUG
 #include <ostream>
 #else
+
 #include <iostream>
+
 #endif
 
 namespace chromaprint {

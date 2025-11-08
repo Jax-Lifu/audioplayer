@@ -1,5 +1,6 @@
 package com.qytech.audioplayer.parser.netstream
 
+import com.qytech.audioplayer.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Headers.Companion.toHeaders
@@ -114,7 +115,7 @@ object StreamFormatDetector {
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.d(e, "StreamFormatDetector: SACD probe failed")
+                    Logger.e(e, "StreamFormatDetector: SACD probe failed")
                 }
 
                 // fallback

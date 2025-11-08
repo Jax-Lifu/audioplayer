@@ -14,6 +14,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_ERR_H
 # endif
@@ -21,8 +22,10 @@
 # include <openssl/e_os2.h>
 
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
 #  include <stdlib.h>
+
 # endif
 
 # include <openssl/types.h>
@@ -36,7 +39,7 @@ extern "C" {
 
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  ifndef OPENSSL_NO_FILENAMES
-#   define ERR_PUT_error(l,f,r,fn,ln)      ERR_put_error(l,f,r,fn,ln)
+#   define ERR_PUT_error(l, f, r, fn, ln)      ERR_put_error(l,f,r,fn,ln)
 #  else
 #   define ERR_PUT_error(l,f,r,fn,ln)      ERR_put_error(l,f,r,NULL,0)
 #  endif
@@ -238,34 +241,34 @@ struct err_state_st {
 
 # define ERR_SYSTEM_ERROR(errcode)      (((errcode) & ERR_SYSTEM_FLAG) != 0)
 
-static ossl_unused ossl_inline int ERR_GET_LIB(unsigned long errcode)
-{
+static ossl_unused ossl_inline
+int ERR_GET_LIB(unsigned long errcode) {
     if (ERR_SYSTEM_ERROR(errcode))
         return ERR_LIB_SYS;
     return (errcode >> ERR_LIB_OFFSET) & ERR_LIB_MASK;
 }
 
-static ossl_unused ossl_inline int ERR_GET_RFLAGS(unsigned long errcode)
-{
+static ossl_unused ossl_inline
+int ERR_GET_RFLAGS(unsigned long errcode) {
     if (ERR_SYSTEM_ERROR(errcode))
         return 0;
     return errcode & (ERR_RFLAGS_MASK << ERR_RFLAGS_OFFSET);
 }
 
-static ossl_unused ossl_inline int ERR_GET_REASON(unsigned long errcode)
-{
+static ossl_unused ossl_inline
+int ERR_GET_REASON(unsigned long errcode) {
     if (ERR_SYSTEM_ERROR(errcode))
         return errcode & ERR_SYSTEM_MASK;
     return errcode & ERR_REASON_MASK;
 }
 
-static ossl_unused ossl_inline int ERR_FATAL_ERROR(unsigned long errcode)
-{
+static ossl_unused ossl_inline
+int ERR_FATAL_ERROR(unsigned long errcode) {
     return (ERR_GET_RFLAGS(errcode) & ERR_RFLAG_FATAL) != 0;
 }
 
-static ossl_unused ossl_inline int ERR_COMMON_ERROR(unsigned long errcode)
-{
+static ossl_unused ossl_inline
+int ERR_COMMON_ERROR(unsigned long errcode) {
     return (ERR_GET_RFLAGS(errcode) & ERR_RFLAG_COMMON) != 0;
 }
 
@@ -275,7 +278,7 @@ static ossl_unused ossl_inline int ERR_COMMON_ERROR(unsigned long errcode)
  * ERR_PACK takes reason flags and reason code combined in |reason|.
  * ERR_PACK ignores |func|, that parameter is just legacy from pre-3.0 OpenSSL.
  */
-# define ERR_PACK(lib,func,reason)                                      \
+# define ERR_PACK(lib, func, reason)                                      \
     ( (((unsigned long)(lib)    & ERR_LIB_MASK   ) << ERR_LIB_OFFSET) | \
       (((unsigned long)(reason) & ERR_REASON_MASK)) )
 
@@ -460,7 +463,7 @@ OSSL_DEPRECATEDIN_3_0 const char *ERR_func_error_string(unsigned long e);
 # endif
 const char *ERR_reason_error_string(unsigned long e);
 
-void ERR_print_errors_cb(int (*cb) (const char *str, size_t len, void *u),
+void ERR_print_errors_cb(int (*cb)(const char *str, size_t len, void *u),
                          void *u);
 # ifndef OPENSSL_NO_STDIO
 void ERR_print_errors_fp(FILE *fp);
@@ -488,7 +491,7 @@ OSSL_DEPRECATEDIN_1_1_0 void ERR_remove_thread_state(void *);
 OSSL_DEPRECATEDIN_1_0_0 void ERR_remove_state(unsigned long pid);
 #endif
 #ifndef OPENSSL_NO_DEPRECATED_3_0
-OSSL_DEPRECATEDIN_3_0 ERR_STATE *ERR_get_state(void);
+OSSL_DEPRECATEDIN_3_0 ERR_STATE * ERR_get_state(void);
 #endif
 
 int ERR_get_next_error_library(void);
@@ -500,10 +503,10 @@ int ERR_count_to_mark(void);
 int ERR_pop(void);
 
 ERR_STATE *OSSL_ERR_STATE_new(void);
-void OSSL_ERR_STATE_save(ERR_STATE *es);
-void OSSL_ERR_STATE_save_to_mark(ERR_STATE *es);
+void OSSL_ERR_STATE_save(ERR_STATE * es);
+void OSSL_ERR_STATE_save_to_mark(ERR_STATE * es);
 void OSSL_ERR_STATE_restore(const ERR_STATE *es);
-void OSSL_ERR_STATE_free(ERR_STATE *es);
+void OSSL_ERR_STATE_free(ERR_STATE * es);
 
 #ifdef  __cplusplus
 }

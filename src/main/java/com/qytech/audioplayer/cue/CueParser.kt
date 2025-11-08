@@ -1,7 +1,7 @@
 package com.qytech.audioplayer.cue
 
 import com.ibm.icu.text.CharsetDetector
-import timber.log.Timber
+import com.qytech.audioplayer.utils.Logger
 import java.io.File
 import java.io.FileInputStream
 
@@ -10,7 +10,7 @@ object CueParser {
     fun parse(filePath: String, charset: String? = null): CueSheet {
         val file = File(filePath)
         val actualCharset = charset ?: file.detectedCharset()
-        Timber.d("actualCharset $actualCharset")
+        Logger.d("actualCharset $actualCharset")
         val lines = file.readLines(charset(actualCharset))
         val rem = mutableMapOf<String, String>()
         var performer: String? = null

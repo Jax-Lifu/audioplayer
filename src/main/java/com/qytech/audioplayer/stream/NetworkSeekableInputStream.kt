@@ -22,7 +22,7 @@ class NetworkSeekableInputStream(
     }
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
-//        Timber.d("current offset $currentOffset")
+//        Logger.d("current offset $currentOffset")
         val read = stream.read(b, off, len)
         if (read > 0) currentOffset += read
         return read

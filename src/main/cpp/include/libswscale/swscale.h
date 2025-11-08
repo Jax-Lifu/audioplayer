@@ -35,11 +35,13 @@
 #include "libavutil/log.h"
 #include "libavutil/pixfmt.h"
 #include "version_major.h"
+
 #ifndef HAVE_AV_CONFIG_H
 /* When included as part of the ffmpeg build, only include the major version
  * to avoid unnecessary rebuilds. When included externally, keep including
  * the full version information. */
 #include "version.h"
+
 #endif
 
 /**
@@ -95,28 +97,28 @@ typedef enum SwsFlags {
     /**
      * Scaler selection options. Only one may be active at a time.
      */
-    SWS_FAST_BILINEAR = 1 <<  0, ///< fast bilinear filtering
-    SWS_BILINEAR      = 1 <<  1, ///< bilinear filtering
-    SWS_BICUBIC       = 1 <<  2, ///< 2-tap cubic B-spline
-    SWS_X             = 1 <<  3, ///< experimental
-    SWS_POINT         = 1 <<  4, ///< nearest neighbor
-    SWS_AREA          = 1 <<  5, ///< area averaging
-    SWS_BICUBLIN      = 1 <<  6, ///< bicubic luma, bilinear chroma
-    SWS_GAUSS         = 1 <<  7, ///< gaussian approximation
-    SWS_SINC          = 1 <<  8, ///< unwindowed sinc
-    SWS_LANCZOS       = 1 <<  9, ///< 3-tap sinc/sinc
-    SWS_SPLINE        = 1 << 10, ///< cubic Keys spline
+    SWS_FAST_BILINEAR = 1 << 0, ///< fast bilinear filtering
+    SWS_BILINEAR = 1 << 1, ///< bilinear filtering
+    SWS_BICUBIC = 1 << 2, ///< 2-tap cubic B-spline
+    SWS_X = 1 << 3, ///< experimental
+    SWS_POINT = 1 << 4, ///< nearest neighbor
+    SWS_AREA = 1 << 5, ///< area averaging
+    SWS_BICUBLIN = 1 << 6, ///< bicubic luma, bilinear chroma
+    SWS_GAUSS = 1 << 7, ///< gaussian approximation
+    SWS_SINC = 1 << 8, ///< unwindowed sinc
+    SWS_LANCZOS = 1 << 9, ///< 3-tap sinc/sinc
+    SWS_SPLINE = 1 << 10, ///< cubic Keys spline
 
     /**
      * Return an error on underspecified conversions. Without this flag,
      * unspecified fields are defaulted to sensible values.
      */
-    SWS_STRICT        = 1 << 11,
+    SWS_STRICT = 1 << 11,
 
     /**
      * Emit verbose log of scaling parameters.
      */
-    SWS_PRINT_INFO    = 1 << 12,
+    SWS_PRINT_INFO = 1 << 12,
 
     /**
      * Perform full chroma upsampling when upscaling to RGB.
@@ -152,13 +154,13 @@ typedef enum SwsFlags {
      *
      * Note: It is recommended to set both of these flags simultaneously.
      */
-    SWS_ACCURATE_RND   = 1 << 18,
-    SWS_BITEXACT       = 1 << 19,
+    SWS_ACCURATE_RND = 1 << 18,
+    SWS_BITEXACT = 1 << 19,
 
     /**
      * Deprecated flags.
      */
-    SWS_DIRECT_BGR      = 1 << 15, ///< This flag has no effect
+    SWS_DIRECT_BGR = 1 << 15, ///< This flag has no effect
     SWS_ERROR_DIFFUSION = 1 << 23, ///< Set `SwsContext.dither` instead
 } SwsFlags;
 
@@ -619,6 +621,7 @@ SwsFilter *sws_getDefaultFilter(float lumaGBlur, float chromaGBlur,
                                 float lumaSharpen, float chromaSharpen,
                                 float chromaHShift, float chromaVShift,
                                 int verbose);
+
 void sws_freeFilter(SwsFilter *filter);
 
 /**
@@ -649,7 +652,8 @@ SwsContext *sws_getCachedContext(SwsContext *context, int srcW, int srcH,
  * @param num_pixels number of pixels to convert
  * @param palette    array with [256] entries, which must match color arrangement (RGB or BGR) of src
  */
-void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, int num_pixels, const uint8_t *palette);
+void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, int num_pixels,
+                                   const uint8_t *palette);
 
 /**
  * Convert an 8-bit paletted frame into a frame with a color depth of 24 bits.
@@ -661,7 +665,8 @@ void sws_convertPalette8ToPacked32(const uint8_t *src, uint8_t *dst, int num_pix
  * @param num_pixels number of pixels to convert
  * @param palette    array with [256] entries, which must match color arrangement (RGB or BGR) of src
  */
-void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, int num_pixels, const uint8_t *palette);
+void sws_convertPalette8ToPacked24(const uint8_t *src, uint8_t *dst, int num_pixels,
+                                   const uint8_t *palette);
 
 /**
  * @}

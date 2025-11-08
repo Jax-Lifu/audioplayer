@@ -75,7 +75,7 @@ object DffAudioFrame {
     private fun convertToDopStream(
         srcData: ByteArray,
         destData: ByteArray,
-        length: Int
+        length: Int,
     ) {
         var dataChannel1: Int
         var dataChannel2: Int

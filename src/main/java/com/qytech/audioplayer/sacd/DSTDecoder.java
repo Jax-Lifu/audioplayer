@@ -59,536 +59,25 @@ public class DSTDecoder {
     static final int MAXNROF_SEGS = 8; /* max nr of segments per channel for filters or Ptables */
 
     static final int PBITS = AC_BITS; /* number of bits for Probabilities             */
-    static final int NBITS = 4; /* number of overhead bits: must be at least 2! */
     /* maximum "variable shift length" is (NBITS-1) */
     static final int PSUM = (1 << (PBITS));
+    static final int NBITS = 4; /* number of overhead bits: must be at least 2! */
     static final int ABITS = (PBITS + NBITS); /* must be at least PBITS+2     */
-    static final int MB = 0; /* if (MB) print max buffer use */
     static final int ONE = (1 << ABITS);
     static final int HALF = (1 << (ABITS - 1));
-
+    static final int MB = 0; /* if (MB) print max buffer use */
     static final int FILTER = 0;
     static final int PTABLE = 1;
 
-    ///// error
+    /// // error
     static final int DSTErr_InvalidStuffingPattern = -2;
-
-    static class DSTException extends Exception {
-        int error;
-
-        DSTException(int e) {
-            error = e;
-        }
-
-        public DSTException(String s, int e) {
-            super(s);
-            error = e;
-        }
-    }
-
-    static class Segment {
-        int Resolution; /* Resolution for segments        */
-        int[][] SegmentLen = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* SegmentLen[ChNr][SegmentNr]    */
-        int[] NrOfSegments = new int[MAX_CHANNELS]; /* NrOfSegments[ChNr]             */
-        int[][] Table4Segment = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* Table4Segment[ChNr][SegmentNr] */
-    }
-
-    static class FrameHeader {
-        int FrameNr; /* Nr of frame that is currently processed    */
-        int NrOfChannels; /* Number of channels in the recording        */
-        int NrOfFilters; /* Number of filters used for this frame      */
-        int NrOfPtables; /* Number of Ptables used for this frame      */
-        int Fsample44; /* Sample frequency 64, 128, 256              */
-        int[] PredOrder = new int[2 * MAX_CHANNELS]; /* Prediction order used for this frame       */
-        int[] PtableLen = new int[2 * MAX_CHANNELS]; /* Nr of Ptable entries used for this frame   */
-        int[][] ICoefA; /* Integer coefs for actual coding            */
-        int DSTCoded; /* 1=DST coded is put in DST stream,          */
-        /* 0=DSD is put in DST stream                 */
-        int CalcNrOfBytes; /* Contains number of bytes of the complete   */
-        long CalcNrOfBits; /* Contains number of bits of the complete    */
-        /* channel stream after arithmetic encoding   */
-        /* (also containing bytestuff-,               */
-        /* ICoefA-bits, etc.)                         */
-        int[] HalfProb = new int[MAX_CHANNELS]; /* Defines per channel which probability is   */
-        /* applied for the first PredOrder[] bits of  */
-        /* a frame (0 = use Ptable entry, 1 = 128)    */
-        int[] NrOfHalfBits = new int[MAX_CHANNELS]; /* Defines per channel how many bits at the   */
-        /* start of each frame are optionally coded   */
-        /* with p=0.5                                 */
-        Segment FSeg; /* Contains segmentation data for filters     */
-        byte[][] Filter4Bit = new byte[MAX_CHANNELS][MAX_DSDBITS_INFRAME]; /* Filter4Bit[ChNr][BitNr]                    */
-        Segment PSeg; /* Contains segmentation data for Ptables     */
-        byte[][] Ptable4Bit = new byte[MAX_CHANNELS][MAX_DSDBITS_INFRAME]; /* Ptable4Bit[ChNr][BitNr]                    */
-        int PSameSegAsF; /* 1 if segmentation is equal for F and P     */
-        int PSameMapAsF; /* 1 if mapping is equal for F and P          */
-        int FSameSegAllCh; /* 1 if all channels have same Filtersegm.    */
-        int FSameMapAllCh; /* 1 if all channels have same Filtermap      */
-        int PSameSegAllCh; /* 1 if all channels have same Ptablesegm.    */
-        int PSameMapAllCh; /* 1 if all channels have same Ptablemap      */
-        int SegAndMapBits; /* Number of bits in the stream for Seg&Map   */
-        int MaxNrOfFilters; /* Max. nr. of filters allowed per frame      */
-        int MaxNrOfPtables; /* Max. nr. of Ptables allowed per frame      */
-        int MaxFrameLen; /* Max frame length of this file              */
-        long ByteStreamLen; /* MaxFrameLen * NrOfChannels                 */
-        long BitStreamLen; /* ByteStreamLen * RESOL                      */
-        long NrOfBitsPerCh; /* MaxFrameLen * RESOL                        */
-
-        FrameHeader() {
-            FSeg = new Segment();
-            PSeg = new Segment();
-        }
-    }
-
-    static class CodedTable {
-        int[] CPredOrder; /* Code_PredOrder[Method]                     */
-        int[][] CPredCoef; /* Code_PredCoef[Method][CoefNr]              */
-        int[] Coded; /* DST encode coefs/entries of Fir/PtabNr     */
-        int[] BestMethod; /* BestMethod[Fir/PtabNr]                     */
-        int[][] m; /* m[Fir/PtabNr][Method]                      */
-        int[] DataLen; /* Fir/PtabDataLength[Fir/PtabNr]             */
-        int StreamBits; /* nr of bits all filters use in the stream   */
-        int TableType; /* FILTER or PTABLE: indicates contents       */
-
-        CodedTable(FrameHeader fh) {
-            CPredOrder = new int[NROFFRICEMETHODS];
-            CPredCoef = new int[NROFFRICEMETHODS][MAXCPREDORDER];
-            Coded = new int[fh.MaxNrOfFilters];
-            BestMethod = new int[fh.MaxNrOfFilters];
-            m = new int[fh.MaxNrOfPtables][NROFPRICEMETHODS];
-            DataLen = new int[fh.MaxNrOfPtables];
-        }
-    }
-
-    static final class StrData {
-        byte[] pDSTdata;
-        int TotalBytes;
-        int ByteCounter;
-        int BitPosition;
-        byte DataByte;
-
-        /***********************************************************************
-         * ResetReadingIndex
-         ***********************************************************************/
-
-        void ResetReadingIndex() {
-            BitPosition = 0;
-            ByteCounter = 0;
-            DataByte = 0;
-        }
-
-        /***********************************************************************
-         * CreateBuffer
-         *
-         * @throws DSTException
-         ***********************************************************************/
-
-        void CreateBuffer(int Size) throws DSTException {
-            TotalBytes = Size;
-        }
-
-        /***********************************************************************
-         * DeleteBuffer
-         ***********************************************************************/
-
-        void DeleteBuffer() {
-            TotalBytes = 0;
-            pDSTdata = null;
-            ResetReadingIndex();
-        }
-
-        /***********************************************************************
-         * FillBuffer
-         ***********************************************************************/
-
-        void FillBuffer(byte[] pBuf, int Size) throws DSTException {
-            CreateBuffer(Size);
-            pDSTdata = pBuf;
-            ResetReadingIndex();
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : FIO_BitGetChrUnsigned                                        */
-        /*                                                                         */
-        /* function : Read a character as an unsigned number from file with a      */
-        /*            given number of bits.                                        */
-        /*                                                                         */
-        /* pre      : Len, x, output file must be open by having used getbits_init */
-        /*                                                                         */
-        /* post     : The second variable in function call is filled with the      */
-        /*            unsigned character read                                      */
-        /*                                                                         */
-        /* uses     : stdio.h, stdlib.h                                            */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        byte FIO_BitGetChrUnsigned(int Len) throws DSTException {
-            if (Len > 0) {
-                //System.out.printf("CharU %d - %d%n", tmp[0], (byte) tmp[0]);
-                return (byte) getbits(Len);
-            } else if (Len == 0) {
-                return 0;
-            } else
-                throw new DSTException("EOD", -1);
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : FIO_BitGetIntUnsigned                                        */
-        /*                                                                         */
-        /* function : Read an integer as an unsigned number from file with a       */
-        /*            given number of bits.                                        */
-        /*                                                                         */
-        /* pre      : Len, x, output file must be open by having used getbits_init */
-        /*                                                                         */
-        /* post     : The second variable in function call is filled with the      */
-        /*            unsigned integer read                                        */
-        /*                                                                         */
-        /* uses     : stdio.h, stdlib.h                                            */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        int FIO_BitGetIntUnsigned(int Len) throws DSTException {
-            if (Len > 0) {
-                //System.out.printf("IntU %d - %d%n", tmp[0], (int) tmp[0]);
-                return (int) getbits(Len);
-            } else if (Len == 0) {
-                return 0;
-            } else
-                throw new DSTException("EOD", -1);
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : FIO_BitGetIntSigned                                          */
-        /*                                                                         */
-        /* function : Read an integer as a signed number from file with a          */
-        /*            given number of bits.                                        */
-        /*                                                                         */
-        /* pre      : Len, x, output file must be open by having used getbits_init */
-        /*                                                                         */
-        /* post     : The second variable in function call is filled with the      */
-        /*            signed integer read                                          */
-        /*                                                                         */
-        /* uses     : stdio.h, stdlib.h                                            */
-        /*                                                                         */
-        /***************************************************************************/
-
-		/*int FIO_BitGetIntSigned(int Len) throws DSTException {
-			if (Len > 0) {
-				int x = (int) getbits(Len);
-
-				if (x >= (1 << (Len - 1))) {
-					x -= (1 << Len);
-				}
-				//System.out.printf("Int %d = %d%n", tmp[0], x);
-				return x;
-			} else if (Len == 0) {
-				return 0;
-			} else
-				throw new DSTException("EOD", -1);
-		}*/
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : FIO_BitGetShortSigned                                        */
-        /*                                                                         */
-        /* function : Read a short integer as a signed number from file with a     */
-        /*            given number of bits.                                        */
-        /*                                                                         */
-        /* pre      : Len, x, output file must be open by having used getbits_init */
-        /*                                                                         */
-        /* post     : The second variable in function call is filled with the      */
-        /*            signed short integer read                                    */
-        /*                                                                         */
-        /* uses     : stdio.h, stdlib.h                                            */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        short FIO_BitGetShortSigned(int Len) throws DSTException {
-            if (Len > 0) {
-                short x = (short) getbits(Len);
-
-                if (x >= (1 << (Len - 1))) {
-                    x -= (1 << Len);
-                }
-                //System.out.printf("Short %x = %d / %d%n", tmp[0], x, Len);
-                return x;
-            } else if (Len == 0) {
-                return 0;
-            } else
-                throw new DSTException("EOD", -1);
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : getbits                                                      */
-        /*                                                                         */
-        /* function : Read bits from the bitstream and decrement the counter.      */
-        /*                                                                         */
-        /* pre      : out_bitptr                                                   */
-        /*                                                                         */
-        /* post     : m_ByteCounter, outword, returns EOF on EOF or 0 otherwise.   */
-        /*                                                                         */
-        /* uses     : stdio.h                                                      */
-        /*                                                                         */
-        /***************************************************************************/
-
-        static int masks[] = {0, 1, 3, 7, 0xf, 0x1f, 0x3f, 0x7f, 0xff};
-
-        long getbits(int out_bitptr) throws DSTException {
-            long outword;
-            if (out_bitptr == 1) {
-                if (BitPosition == 0) {
-                    DataByte = pDSTdata[ByteCounter++];
-                    //System.out.printf("0x%x ", DataByte);
-                    if (ByteCounter > TotalBytes) {
-                        throw new DSTException("EOF", -1); /* EOF */
-                    }
-                    BitPosition = 8;
-                }
-                BitPosition--;
-                //System.out.printf("Byte:0x%x, res 0x%x, for %d%n", DataByte, outword[0], out_bitptr);
-                return (DataByte >> BitPosition) & 1;
-            }
-
-            outword = 0;
-            while (out_bitptr > 0) {
-                int thisbits, mask, shift;
-
-                if (BitPosition == 0) {
-                    DataByte = pDSTdata[ByteCounter++];
-                    //System.out.printf("0x%x ", DataByte);
-                    if (ByteCounter > TotalBytes) {
-                        throw new DSTException("EOF", -1); /* EOF *//* EOF */
-                    }
-                    BitPosition = 8;
-                }
-
-                if (BitPosition < out_bitptr)
-                    thisbits = BitPosition;
-                else
-                    thisbits = out_bitptr;
-                //thisbits = Math.min(BitPosition, out_bitptr);
-                shift = (BitPosition - thisbits);
-                mask = masks[thisbits] << shift;
-
-                shift = (out_bitptr - thisbits) - shift;
-                if (shift <= 0)
-                    outword |= ((DataByte & mask) >> -shift);
-                else
-                    outword |= ((DataByte & mask) << shift);
-                out_bitptr -= thisbits;
-                BitPosition -= thisbits;
-            }
-            //System.out.printf("Byte:0x%x, res 0x%x, for %d%n", DataByte, outword[0], out_bitptr);
-            return outword;
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : get_bitcount                                                 */
-        /*                                                                         */
-        /* function : Reset the bits-written counter.                              */
-        /*                                                                         */
-        /* pre      : None                                                         */
-        /*                                                                         */
-        /* post     : Returns the number of bits written after an init_bitcount.   */
-        /*                                                                         */
-        /* uses     : -                                                            */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        long get_in_bitcount() {
-            return (long) ByteCounter * 8 - BitPosition;
-        }
-
-    }
-
-    static final class DSTXBITSData {
-        int PBit;
-        byte Bit;
-    }
-
-    static final class FirPtrData {
-        int[] Pnt;
-        int[][] Status;
-    }
-
-    static final class ACData {
-        int Init = 1;
-        int C;
-        int A;
-        int cbptr;
-
-        /*============================================================================*/
-        /*       CONSTANTS                                                            */
-        /*============================================================================*/
-
-        static final int PBITS = AC_BITS; /* number of bits for Probabilities             */
-        static final int NBITS = 4; /* number of overhead bits: must be at least 2! */
-        /* maximum "variable shift length" is (NBITS-1) */
-        static final int PSUM = (1 << (PBITS));
-        static final int ABITS = (PBITS + NBITS); /* must be at least PBITS+2     */
-        static final int MB = 0; /* if (MB) print max buffer use */
-        static final int ONE = (1 << ABITS);
-        static final int HALF = (1 << (ABITS - 1));
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : DST_ACDecodeBit                                              */
-        /*                                                                         */
-        /* function : Arithmetic decode one bit.                                   */
-        /*                                                                         */
-        /* pre      : p       : probability for next bit being a "one"             */
-        /*            cb[]    : filled with arithmetic code bit(s)                 */
-        /*            fs      : Current length of the arithm. code                 */
-        /*            Flush   : 0 = Normal operation,                              */
-        /*                      1 = flush remaider of the decoder                  */
-        /*                                                                         */
-        /* post     : *b      : output bit of arithmetic decoder                   */
-        /*            *MonC   : status of C-register (optionally)                  */
-        /*            *MonA   : status of A-register (optionally)                  */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        byte DST_ACDecodeBit(int p, byte[] cb, int fs, int Flush) {
-            int ap;
-            int h;
-            byte b;
-
-            if (Init == 1) {
-                Init = 0;
-                A = ONE - 1;
-                C = 0;
-                for (cbptr = 1; cbptr <= ABITS; cbptr++) {
-                    C <<= 1;
-                    if (cbptr < fs) {
-                        C |= cb[cbptr];
-                    }
-                }
-            }
-
-            if (Flush == 0) {
-                /* approximate (A * p) with "partial rounding". */
-                ap = ((A >> PBITS) | ((A >> (PBITS - 1)) & 1)) * p;
-
-                h = A - ap;
-                if (C >= h) {
-                    b = 1;
-                    C -= h;
-                    A = ap;
-                } else {
-                    b = 0;
-                    A = h;
-                }
-                while (A < HALF) {
-                    A <<= 1;
-
-					/* Use new flushing technique; insert zero in LSB of C if reading past
-					   the end of the arithmetic code */
-                    C <<= 1;
-                    if (cbptr < fs) {
-                        C |= cb[cbptr];
-                    }
-                    cbptr++;
-                }
-            } else {
-                Init = 1;
-                b = 0;
-                if (cbptr < fs - 7) {
-                    b = 1;
-                } else {
-                    while ((b == 0) && (cbptr < fs)) {
-                        if (cb[cbptr] != 0) {
-                            b = 1;
-                        }
-                        cbptr++;
-                    }
-                }
-            }
-            return b;
-        }
-
-        /***************************************************************************/
-        /*                                                                         */
-        /* name     : DST_ACGetPtableIndex                                         */
-        /*                                                                         */
-        /* function : Determine the Ptable index belonging to the current value    */
-        /*            of PredicVal.                                                */
-        /*                                                                         */
-        /* pre      : PredicVal and PtableLen                                      */
-        /*                                                                         */
-        /* post     : Returns the index of the Ptable belonging to the PredicVal.  */
-        /*                                                                         */
-
-        /***************************************************************************/
-
-        int DST_ACGetPtableIndex(long PredicVal, int PtableLen) {
-            int j;
-            if (PredicVal < 0)
-                PredicVal = -PredicVal;
-            j = (int) (/*labs*/(PredicVal) >> AC_QSTEP);
-            if (j >= PtableLen) {
-                j = PtableLen - 1;
-            }
-            return j;
-        }
-
-        /////////////////// LT methods  //////////////////////////////
-        void LT_ACDecodeBit_Init(byte[] cb, int fs) {
-            A = ONE - 1;
-            C = 0;
-            for (cbptr = 1; cbptr <= ABITS; cbptr++) {
-                C <<= 1;
-                if (cbptr < fs) {
-                    C |= cb[cbptr]; // cb is only 1 or 0
-                }
-            }
-        }
-
-        int LT_ACDecodeBit_Decode(int p, byte[] cb, int fs) {
-            int ap;
-            int h;
-            int b;
-
-            /* approximate (A * p) with "partial rounding". */
-            ap = ((A >> PBITS) | ((A >> (PBITS - 1)) & 1)) * p;
-
-            h = A - ap;
-            if (C >= h) {
-                b = 0;
-                C -= h;
-                A = ap;
-            } else {
-                b = 1;
-                A = h;
-            }
-            while (A < HALF) {
-                A <<= 1;
-				/* Use new flushing technique; insert zero in LSB of C if reading past
-				    the end of the arithmetic code */
-                C <<= 1;
-                if (cbptr < fs) {
-                    C |= cb[cbptr]; // cb is only 1 or 0
-                }
-                //System.out.println(cbptr+" is "+cb[cbptr]);
-                cbptr++;
-
-            }
-            return b;
-        }
-
-        int LT_ACDecodeBit_Flush(byte[] cb, int fs) {
-            return cbptr < fs - 7 ? 0 : 1;
-        }
-    }
-
+    /***************************************************************************/
+    static short[] reverse = { // size = 128
+            1, 65, 33, 97, 17, 81, 49, 113, 9, 73, 41, 105, 25, 89, 57, 121, 5, 69, 37, 101, 21, 85, 53, 117, 13, 77, 45, 109,
+            29, 93, 61, 125, 3, 67, 35, 99, 19, 83, 51, 115, 11, 75, 43, 107, 27, 91, 59, 123, 7, 71, 39, 103, 23, 87,
+            55, 119, 15, 79, 47, 111, 31, 95, 63, 127, 2, 66, 34, 98, 18, 82, 50, 114, 10, 74, 42, 106, 26, 90, 58,
+            122, 6, 70, 38, 102, 22, 86, 54, 118, 14, 78, 46, 110, 30, 94, 62, 126, 4, 68, 36, 100, 20, 84, 52, 116,
+            12, 76, 44, 108, 28, 92, 60, 124, 8, 72, 40, 104, 24, 88, 56, 120, 16, 80, 48, 112, 32, 96, 64, 128};
     FrameHeader FrameHdr; /* Contains frame based header information     */
     CodedTable StrFilter; /* Contains FIR-coef. compression data         */
     CodedTable StrPtable; /* Contains Ptable-entry compression data      */
@@ -602,28 +91,15 @@ public class DSTDecoder {
     FirPtrData FirPtrs;
     //short[][] BitStream11; /* Contains the bitstream of a complete        */
     //byte[][] BitStream11;
-    byte BitMask[] = new byte[RESOL];
+    byte[] BitMask = new byte[RESOL];
     ACData AC;
     // precalculated coeff for optimization
     short[][][] LT_ICoefI = new short[2 * MAX_CHANNELS][16][256];
     int[][] LT_Status = new int[MAX_CHANNELS][16];
 
     /***************************************************************************/
-    /*                                                                         */
-    /* name     : FillTable4Bit                                                */
-    /*                                                                         */
-    /* function : Fill an array that indicates for each bit of each channel    */
-    /*            which table number must be used.                             */
-    /*                                                                         */
-    /* pre      : NrOfChannels, NrOfBitsPerCh, S->NrOfSegments[],              */
-    /*            S->SegmentLen[][], S->Resolution, S->Table4Segment[][]       */
-    /*                                                                         */
-    /* post     : Table4Bit[MAX_CHANNELS][MAX_DSDBITS_INFRAME]                                                */
-    /*                                                                         */
 
-    /***************************************************************************/
-
-    static void FillTable4Bit(int NrOfChannels, int NrOfBitsPerCh, Segment S, byte Table4Bit[][]) {
+    static void FillTable4Bit(int NrOfChannels, int NrOfBitsPerCh, Segment S, byte[][] Table4Bit) {
         int BitNr;
         int ChNr;
         int SegNr;
@@ -658,54 +134,9 @@ public class DSTDecoder {
     }
 
     /***************************************************************************/
-    /*                                                                         */
-    /* name     : Reverse7LSBs                                                 */
-    /*                                                                         */
-    /* function : Take the 7 LSBs of a number consisting of SIZE_PREDCOEF bits */
-    /*            (2's complement), reverse the bit order and add 1 to it.     */
-    /*                                                                         */
-    /* pre      : c                                                            */
-    /*                                                                         */
-    /* post     : Returns the translated number                                */
-    /*                                                                         */
-    /***************************************************************************/
-    static short reverse[] = { // size = 128
-            1, 65, 33, 97, 17, 81, 49, 113, 9, 73, 41, 105, 25, 89, 57, 121, 5, 69, 37, 101, 21, 85, 53, 117, 13, 77, 45, 109,
-            29, 93, 61, 125, 3, 67, 35, 99, 19, 83, 51, 115, 11, 75, 43, 107, 27, 91, 59, 123, 7, 71, 39, 103, 23, 87,
-            55, 119, 15, 79, 47, 111, 31, 95, 63, 127, 2, 66, 34, 98, 18, 82, 50, 114, 10, 74, 42, 106, 26, 90, 58,
-            122, 6, 70, 38, 102, 22, 86, 54, 118, 14, 78, 46, 110, 30, 94, 62, 126, 4, 68, 36, 100, 20, 84, 52, 116,
-            12, 76, 44, 108, 28, 92, 60, 124, 8, 72, 40, 104, 24, 88, 56, 120, 16, 80, 48, 112, 32, 96, 64, 128};
-
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : Reverse7LSBs                                                 */
-    /*                                                                         */
-    /* function : Take the 7 LSBs of a number consisting of SIZE_PREDCOEF bits */
-    /*            (2's complement), reverse the bit order and add 1 to it.     */
-    /*                                                                         */
-    /* pre      : c                                                            */
-    /*                                                                         */
-    /* post     : Returns the translated number                                */
-    /*                                                                         */
-
-    /***************************************************************************/
     static short Reverse7LSBs(short c) {
         return reverse[(c + (1 << SIZE_PREDCOEF)) & 127];
     }
-
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : ReadDSDframe                                                 */
-    /*                                                                         */
-    /* function : Read DSD signal of this frame from the DST input file.       */
-    /*                                                                         */
-    /* pre      : a file must be opened by using getbits_init(),               */
-    /*            MaxFrameLen, NrOfChannels                                    */
-    /*                                                                         */
-    /* post     : BS11[][]                                                     */
-    /*                                                                         */
-    /* uses     : fio_bit.h                                                    */
-    /*                                                                         */
 
     /***************************************************************************/
     void ReadDSDframe(StrData S, long MaxFrameLen, int NrOfChannels, byte[] DSDFrame) throws DSTException {
@@ -719,7 +150,7 @@ public class DSTDecoder {
     int Log2RoundUp(long x) {
         int y = 0;
 
-        while (x >= (1 << y)) {
+        while (x >= (1L << y)) {
             y++;
         }
 
@@ -839,21 +270,6 @@ public class DSTDecoder {
             FH.PSameSegAllCh = SameSegAllCh;
     }
 
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : CopySegmentData                                              */
-    /*                                                                         */
-    /* function : Read segmentation data for filters and Ptables.              */
-    /*                                                                         */
-    /* pre      : FH->NrOfChannels, FH->FSeg.Resolution,                       */
-    /*            FH->FSeg.NrOfSegments[], FH->FSeg.SegmentLen[][]             */
-    /*                                                                         */
-    /* post     : FH-> : PSeg : .Resolution, .NrOfSegments[], .SegmentLen[][], */
-    /*                   PSameSegAllCh                                         */
-    /*                                                                         */
-    /* uses     : types.h, conststr.h                                          */
-    /*                                                                         */
-
     /**
      * @throws DSTException
      *************************************************************************/
@@ -862,7 +278,7 @@ public class DSTDecoder {
         int ChNr;
         int SegNr;
 
-        int dst[] = FH.PSeg.NrOfSegments, src[] = FH.FSeg.NrOfSegments;
+        int[] dst = FH.PSeg.NrOfSegments, src = FH.FSeg.NrOfSegments;
 
         FH.PSeg.Resolution = FH.FSeg.Resolution;
         FH.PSameSegAllCh = 1;
@@ -875,7 +291,7 @@ public class DSTDecoder {
                 FH.PSameSegAllCh = 0;
             }
             for (SegNr = 0; SegNr < dst[ChNr]; SegNr++) {
-                int lendst[] = FH.PSeg.SegmentLen[ChNr], lensrc[] = FH.FSeg.SegmentLen[ChNr];
+                int[] lendst = FH.PSeg.SegmentLen[ChNr], lensrc = FH.FSeg.SegmentLen[ChNr];
 
                 lendst[SegNr] = lensrc[SegNr];
                 if ((lendst[SegNr] != 0) && (FH.PSeg.Resolution * 8 * lendst[SegNr] < MIN_PSEG_LEN)) {
@@ -887,21 +303,6 @@ public class DSTDecoder {
             }
         }
     }
-
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : ReadSegmentData                                              */
-    /*                                                                         */
-    /* function : Read segmentation data for filters and Ptables.              */
-    /*                                                                         */
-    /* pre      : FH->NrOfChannels, CO->MaxFrameLen                            */
-    /*                                                                         */
-    /* post     : FH-> : FSeg : .Resolution, .SegmentLen[][], .NrOfSegments[], */
-    /*                   PSeg : .Resolution, .SegmentLen[][], .NrOfSegments[], */
-    /*                   PSameSegAsF, FSameSegAllCh, PSameSegAllCh             */
-    /*                                                                         */
-    /* uses     : types.h, conststr.h, fio_bit.h                               */
-    /*                                                                         */
 
     /***************************************************************************/
 
@@ -919,15 +320,15 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : ReadTableMappingData                                         */
+    /* name     : FillTable4Bit                                                */
     /*                                                                         */
-    /* function : Read mapping data for filters or Ptables.                    */
+    /* function : Fill an array that indicates for each bit of each channel    */
+    /*            which table number must be used.                             */
     /*                                                                         */
-    /* pre      : NrOfChannels, MaxNrOfTables, S->NrOfSegments[]               */
+    /* pre      : NrOfChannels, NrOfBitsPerCh, S->NrOfSegments[],              */
+    /*            S->SegmentLen[][], S->Resolution, S->Table4Segment[][]       */
     /*                                                                         */
-    /* post     : S->Table4Segment[][], NrOfTables, SameMapAllCh               */
-    /*                                                                         */
-    /* uses     : types.h, fio_bit.h, stdio.h, stdlib.h                        */
+    /* post     : Table4Bit[MAX_CHANNELS][MAX_DSDBITS_INFRAME]                                                */
     /*                                                                         */
 
     /**
@@ -996,17 +397,14 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : CopyMappingData                                              */
+    /* name     : Reverse7LSBs                                                 */
     /*                                                                         */
-    /* function : Copy mapping data for Ptables from the filter mapping.       */
+    /* function : Take the 7 LSBs of a number consisting of SIZE_PREDCOEF bits */
+    /*            (2's complement), reverse the bit order and add 1 to it.     */
     /*                                                                         */
-    /* pre      : CO-> : NrOfChannels, MaxNrOfPtables                          */
-    /*            FH-> : FSeg.NrOfSegments[], FSeg.Table4Segment[][],          */
-    /*                   NrOfFilters, PSeg.NrOfSegments[]                      */
+    /* pre      : c                                                            */
     /*                                                                         */
-    /* post     : FH-> : PSeg.Table4Segment[][], NrOfPtables, PSameMapAllCh    */
-    /*                                                                         */
-    /* uses     : types.h, stdio.h, stdlib.h, conststr.h                       */
+    /* post     : Returns the translated number                                */
     /*                                                                         */
 
     /**
@@ -1038,18 +436,14 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : ReadMappingData                                              */
+    /* name     : Reverse7LSBs                                                 */
     /*                                                                         */
-    /* function : Read mapping data (which channel uses which filter/Ptable).  */
+    /* function : Take the 7 LSBs of a number consisting of SIZE_PREDCOEF bits */
+    /*            (2's complement), reverse the bit order and add 1 to it.     */
     /*                                                                         */
-    /* pre      : CO-> : NrOfChannels, MaxNrOfFilters, MaxNrOfPtables          */
-    /*            FH-> : FSeg.NrOfSegments[], PSeg.NrOfSegments[]              */
+    /* pre      : c                                                            */
     /*                                                                         */
-    /* post     : FH-> : FSeg.Table4Segment[][], .NrOfFilters,                 */
-    /*                   PSeg.Table4Segment[][], .NrOfPtables,                 */
-    /*                   PSameMapAsF, FSameMapAllCh, PSameMapAllCh, HalfProb[] */
-    /*                                                                         */
-    /* uses     : types.h, conststr.h, fio_bit.h                               */
+    /* post     : Returns the translated number                                */
     /*                                                                         */
 
     /**
@@ -1075,13 +469,14 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : RiceDecode                                                   */
+    /* name     : ReadDSDframe                                                 */
     /*                                                                         */
-    /* function : Read a Rice code from the DST file                           */
+    /* function : Read DSD signal of this frame from the DST input file.       */
     /*                                                                         */
-    /* pre      : a file must be opened by using putbits_init(), m             */
+    /* pre      : a file must be opened by using getbits_init(),               */
+    /*            MaxFrameLen, NrOfChannels                                    */
     /*                                                                         */
-    /* post     : Returns the Rice decoded number                              */
+    /* post     : BS11[][]                                                     */
     /*                                                                         */
     /* uses     : fio_bit.h                                                    */
     /*                                                                         */
@@ -1120,26 +515,6 @@ public class DSTDecoder {
 
         return Nr;
     }
-
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : ReadFilterCoefSets                                           */
-    /*                                                                         */
-    /* function : Read all filter data from the DST file, which contains:      */
-    /*            - which channel uses which filter                            */
-    /*            - for each filter:                                           */
-    /*              ~ prediction order                                         */
-    /*              ~ all coefficients                                         */
-    /*                                                                         */
-    /* pre      : a file must be opened by using getbits_init(), NrOfChannels  */
-    /*            FH->NrOfFilters, CF->CPredOrder[], CF->CPredCoef[][],        */
-    /*            FH->FSeg.Table4Segment[][0]                                  */
-    /*                                                                         */
-    /* post     : FH->PredOrder[], FH->ICoefA[][], FH->NrOfHalfBits[],         */
-    /*            CF->Coded[], CF->BestMethod[], CF->m[][],                    */
-    /*                                                                         */
-    /* uses     : types.h, fio_bit.h, conststr.h, stdio.h, stdlib.h, dst_ac.h  */
-    /*                                                                         */
 
     /**
      * @throws DSTException
@@ -1211,23 +586,6 @@ public class DSTDecoder {
         }
     }
 
-    /***************************************************************************/
-    /*                                                                         */
-    /* name     : ReadProbabilityTables                                        */
-    /*                                                                         */
-    /* function : Read all Ptable data from the DST file, which contains:      */
-    /*            - which channel uses which Ptable                            */
-    /*            - for each Ptable all entries                                */
-    /*                                                                         */
-    /* pre      : a file must be opened by using getbits_init(),               */
-    /*            FH->NrOfPtables, CP->CPredOrder[], CP->CPredCoef[][]         */
-    /*                                                                         */
-    /* post     : FH->PtableLen[], CP->Coded[], CP->BestMethod[], CP->m[][],   */
-    /*            P_one[][]                                                    */
-    /*                                                                         */
-    /* uses     : types.h, fio_bit.h, conststr.h, stdio.h, stdlib.h            */
-    /*                                                                         */
-
     /**
      * @throws DSTException
      *************************************************************************/
@@ -1293,17 +651,17 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : ReadArithmeticCodeData                                       */
+    /* name     : CopySegmentData                                              */
     /*                                                                         */
-    /* function : Read arithmetic coded data from the DST file, which contains:*/
-    /*            - length of the arithmetic code                              */
-    /*            - all bits of the arithmetic code                            */
+    /* function : Read segmentation data for filters and Ptables.              */
     /*                                                                         */
-    /* pre      : a file must be opened by using getbits_init(), ADataLen      */
+    /* pre      : FH->NrOfChannels, FH->FSeg.Resolution,                       */
+    /*            FH->FSeg.NrOfSegments[], FH->FSeg.SegmentLen[][]             */
     /*                                                                         */
-    /* post     : AData[]                                                      */
+    /* post     : FH-> : PSeg : .Resolution, .NrOfSegments[], .SegmentLen[][], */
+    /*                   PSameSegAllCh                                         */
     /*                                                                         */
-    /* uses     : fio_bit.h                                                    */
+    /* uses     : types.h, conststr.h                                          */
     /*                                                                         */
 
     /***************************************************************************/
@@ -1320,17 +678,19 @@ public class DSTDecoder {
         }
     }
 
-    /* CCP = Coding of Coefficients and Ptables */
     /***************************************************************************/
     /*                                                                         */
-    /* name     : CCP_CalcInit                                                 */
+    /* name     : ReadSegmentData                                              */
     /*                                                                         */
-    /* function : Initialise the prediction order and coefficients for         */
-    /*            prediction filter used to predict the filter coefficients.   */
+    /* function : Read segmentation data for filters and Ptables.              */
     /*                                                                         */
-    /* pre      : CT->TableType                                                */
+    /* pre      : FH->NrOfChannels, CO->MaxFrameLen                            */
     /*                                                                         */
-    /* post     : CT->CPredOrder[], CT->CPredCoef[][]                          */
+    /* post     : FH-> : FSeg : .Resolution, .SegmentLen[][], .NrOfSegments[], */
+    /*                   PSeg : .Resolution, .SegmentLen[][], .NrOfSegments[], */
+    /*                   PSameSegAsF, FSameSegAllCh, PSameSegAllCh             */
+    /*                                                                         */
+    /* uses     : types.h, conststr.h, fio_bit.h                               */
     /*                                                                         */
 
     /***************************************************************************/
@@ -1388,6 +748,18 @@ public class DSTDecoder {
         }
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : ReadTableMappingData                                         */
+    /*                                                                         */
+    /* function : Read mapping data for filters or Ptables.                    */
+    /*                                                                         */
+    /* pre      : NrOfChannels, MaxNrOfTables, S->NrOfSegments[]               */
+    /*                                                                         */
+    /* post     : S->Table4Segment[][], NrOfTables, SameMapAllCh               */
+    /*                                                                         */
+    /* uses     : types.h, fio_bit.h, stdio.h, stdlib.h                        */
+    /*                                                                         */
     public void init(int NrChannels, int Fs44) throws DSTException {
         //System.out.printf("DST init %d at %d%n", NrChannels, Fs44);
         S = new StrData();
@@ -1400,7 +772,7 @@ public class DSTDecoder {
         /* 256FS => 18816 */
         FrameHdr.MaxFrameLen = (588 * Fs44 / 8);
 
-        FrameHdr.ByteStreamLen = FrameHdr.MaxFrameLen * FrameHdr.NrOfChannels;
+        FrameHdr.ByteStreamLen = (long) FrameHdr.MaxFrameLen * FrameHdr.NrOfChannels;
         FrameHdr.BitStreamLen = FrameHdr.ByteStreamLen * RESOL;
         FrameHdr.NrOfBitsPerCh = FrameHdr.MaxFrameLen * RESOL;
 
@@ -1430,15 +802,17 @@ public class DSTDecoder {
 
     /***************************************************************************/
     /*                                                                         */
-    /* name     : UnpackDSTframe                                               */
+    /* name     : CopyMappingData                                              */
     /*                                                                         */
-    /* function : Read a complete frame from the DST input file                */
+    /* function : Copy mapping data for Ptables from the filter mapping.       */
     /*                                                                         */
-    /* pre      : a file must be opened by using getbits_init()                */
+    /* pre      : CO-> : NrOfChannels, MaxNrOfPtables                          */
+    /*            FH-> : FSeg.NrOfSegments[], FSeg.Table4Segment[][],          */
+    /*                   NrOfFilters, PSeg.NrOfSegments[]                      */
     /*                                                                         */
-    /* post     : Complete D-structure                                         */
+    /* post     : FH-> : PSeg.Table4Segment[][], NrOfPtables, PSameMapAllCh    */
     /*                                                                         */
-    /* uses     : types.h, fio_bit.h, stdio.h, stdlib.h, constopt.h,           */
+    /* uses     : types.h, stdio.h, stdlib.h, conststr.h                       */
     /*                                                                         */
 
     /***************************************************************************/
@@ -1477,6 +851,21 @@ public class DSTDecoder {
         }
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : ReadMappingData                                              */
+    /*                                                                         */
+    /* function : Read mapping data (which channel uses which filter/Ptable).  */
+    /*                                                                         */
+    /* pre      : CO-> : NrOfChannels, MaxNrOfFilters, MaxNrOfPtables          */
+    /*            FH-> : FSeg.NrOfSegments[], PSeg.NrOfSegments[]              */
+    /*                                                                         */
+    /* post     : FH-> : FSeg.Table4Segment[][], .NrOfFilters,                 */
+    /*                   PSeg.Table4Segment[][], .NrOfPtables,                 */
+    /*                   PSameMapAsF, FSameMapAllCh, PSameMapAllCh, HalfProb[] */
+    /*                                                                         */
+    /* uses     : types.h, conststr.h, fio_bit.h                               */
+    /*                                                                         */
     final void LT_InitCoefTablesI(short[][][] ICoefI) {
         int FilterNr, FilterLength, TableNr, k, i, j;
 
@@ -1500,6 +889,18 @@ public class DSTDecoder {
         }
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : RiceDecode                                                   */
+    /*                                                                         */
+    /* function : Read a Rice code from the DST file                           */
+    /*                                                                         */
+    /* pre      : a file must be opened by using putbits_init(), m             */
+    /*                                                                         */
+    /* post     : Returns the Rice decoded number                              */
+    /*                                                                         */
+    /* uses     : fio_bit.h                                                    */
+    /*                                                                         */
     final void LT_InitStatus(int[][] Status) {
         int ChNr, TableNr;
 
@@ -1510,6 +911,25 @@ public class DSTDecoder {
         }
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : ReadFilterCoefSets                                           */
+    /*                                                                         */
+    /* function : Read all filter data from the DST file, which contains:      */
+    /*            - which channel uses which filter                            */
+    /*            - for each filter:                                           */
+    /*              ~ prediction order                                         */
+    /*              ~ all coefficients                                         */
+    /*                                                                         */
+    /* pre      : a file must be opened by using getbits_init(), NrOfChannels  */
+    /*            FH->NrOfFilters, CF->CPredOrder[], CF->CPredCoef[][],        */
+    /*            FH->FSeg.Table4Segment[][0]                                  */
+    /*                                                                         */
+    /* post     : FH->PredOrder[], FH->ICoefA[][], FH->NrOfHalfBits[],         */
+    /*            CF->Coded[], CF->BestMethod[], CF->m[][],                    */
+    /*                                                                         */
+    /* uses     : types.h, fio_bit.h, conststr.h, stdio.h, stdlib.h, dst_ac.h  */
+    /*                                                                         */
     final int LT_RUN_FILTER_I(short[][] FilterTable, int[] ChannelStatus) {
         int Predict = FilterTable[0][ChannelStatus[0]];
         for (int i = 1; i < 16; i++)
@@ -1517,6 +937,22 @@ public class DSTDecoder {
         return Predict;
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : ReadProbabilityTables                                        */
+    /*                                                                         */
+    /* function : Read all Ptable data from the DST file, which contains:      */
+    /*            - which channel uses which Ptable                            */
+    /*            - for each Ptable all entries                                */
+    /*                                                                         */
+    /* pre      : a file must be opened by using getbits_init(),               */
+    /*            FH->NrOfPtables, CP->CPredOrder[], CP->CPredCoef[][]         */
+    /*                                                                         */
+    /* post     : FH->PtableLen[], CP->Coded[], CP->BestMethod[], CP->m[][],   */
+    /*            P_one[][]                                                    */
+    /*                                                                         */
+    /* uses     : types.h, fio_bit.h, conststr.h, stdio.h, stdlib.h            */
+    /*                                                                         */
     final int LT_ACGetPtableIndex(short PredicVal, int PtableLen) {
         int j;
 
@@ -1528,6 +964,20 @@ public class DSTDecoder {
         return j;
     }
 
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : ReadArithmeticCodeData                                       */
+    /*                                                                         */
+    /* function : Read arithmetic coded data from the DST file, which contains:*/
+    /*            - length of the arithmetic code                              */
+    /*            - all bits of the arithmetic code                            */
+    /*                                                                         */
+    /* pre      : a file must be opened by using getbits_init(), ADataLen      */
+    /*                                                                         */
+    /* post     : AData[]                                                      */
+    /*                                                                         */
+    /* uses     : fio_bit.h                                                    */
+    /*                                                                         */
     public void frameDSTDecode(byte[] DSTdata, byte[] MuxedDSDdata, int FrameSizeInBytes) throws DSTException {
         int BitNr;
         int ChNr;
@@ -1597,7 +1047,7 @@ public class DSTDecoder {
                     }
 
                     /* Channel bit depends on the predicted bit and BitResidual[][] */
-                    BitVal = (short) (((((short) Predict) >> 15) ^ Residual) & 1);
+                    BitVal = (short) (((Predict >> 15) ^ Residual) & 1);
                     //if (ByteNr * NrOfChannels + ChNr < 33)
                     //System.out.printf(" %x", MuxedDSDdata[ByteNr * NrOfChannels + ChNr]);
                     /* Shift the result into the correct bit position */
@@ -1627,6 +1077,19 @@ public class DSTDecoder {
         }
     }
 
+    /* CCP = Coding of Coefficients and Ptables */
+
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : CCP_CalcInit                                                 */
+    /*                                                                         */
+    /* function : Initialise the prediction order and coefficients for         */
+    /*            prediction filter used to predict the filter coefficients.   */
+    /*                                                                         */
+    /* pre      : CT->TableType                                                */
+    /*                                                                         */
+    /* post     : CT->CPredOrder[], CT->CPredCoef[][]                          */
+    /*                                                                         */
     public void frameDSTDecode(byte[] DSTdata, byte[][] DSDdata, int FrameSizeInBytes, int FrameCnt, byte[] MuxedDSDdataPre) throws DSTException {
         int BitNr;
         int ChNr;
@@ -1638,7 +1101,7 @@ public class DSTDecoder {
 
         FrameHdr.FrameNr = FrameCnt;
         FrameHdr.CalcNrOfBytes = FrameSizeInBytes;
-        FrameHdr.CalcNrOfBits = FrameHdr.CalcNrOfBytes * 8;
+        FrameHdr.CalcNrOfBits = FrameHdr.CalcNrOfBytes * 8L;
         /* unpack DST frame: segmentation, mapping, arithmetic data */
         byte[] MuxedDSDdata = MuxedDSDdataPre == null ? new byte[1024 * 64] : MuxedDSDdataPre;
         UnpackDSTframe(DSTdata, MuxedDSDdata);
@@ -1678,11 +1141,11 @@ public class DSTDecoder {
                     }
                     int j;
                     for (i = FirPtrs.Pnt[ChNr], j = 0; i < Stop; i++, j++) {
-                        PredicVal += FirPtrs.Status[ChNr][i] * FrameHdr.ICoefA[FrameHdr.Filter4Bit[ChNr][BitNr]][j];
+                        PredicVal += (long) FirPtrs.Status[ChNr][i] * FrameHdr.ICoefA[FrameHdr.Filter4Bit[ChNr][BitNr]][j];
                     }
                     for (i = 0; i < FirPtrs.Pnt[ChNr] + FrameHdr.PredOrder[FrameHdr.Filter4Bit[ChNr][BitNr]]
                             - (1 << SIZE_CODEDPREDORDER); i++, j++) {
-                        PredicVal += FirPtrs.Status[ChNr][i] * FrameHdr.ICoefA[FrameHdr.Filter4Bit[ChNr][BitNr]][j];
+                        PredicVal += (long) FirPtrs.Status[ChNr][i] * FrameHdr.ICoefA[FrameHdr.Filter4Bit[ChNr][BitNr]][j];
                     }
                     byte BitResidual;
                     /* Arithmetic decode the incoming bit */
@@ -1724,6 +1187,534 @@ public class DSTDecoder {
             if (ACError != 0) {
                 throw new DSTException(String.format("Arithmetic decoding error at frame %d!", FrameHdr.FrameNr), -1);
             }
+        }
+    }
+
+    static class DSTException extends Exception {
+        int error;
+
+        DSTException(int e) {
+            error = e;
+        }
+
+        public DSTException(String s, int e) {
+            super(s);
+            error = e;
+        }
+    }
+
+    /***************************************************************************/
+    /*                                                                         */
+    /* name     : UnpackDSTframe                                               */
+    /*                                                                         */
+    /* function : Read a complete frame from the DST input file                */
+    /*                                                                         */
+    /* pre      : a file must be opened by using getbits_init()                */
+    /*                                                                         */
+    /* post     : Complete D-structure                                         */
+    /*                                                                         */
+    /* uses     : types.h, fio_bit.h, stdio.h, stdlib.h, constopt.h,           */
+    /*                                                                         */
+
+    static class Segment {
+        int Resolution; /* Resolution for segments        */
+        int[][] SegmentLen = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* SegmentLen[ChNr][SegmentNr]    */
+        int[] NrOfSegments = new int[MAX_CHANNELS]; /* NrOfSegments[ChNr]             */
+        int[][] Table4Segment = new int[MAX_CHANNELS][MAXNROF_SEGS]; /* Table4Segment[ChNr][SegmentNr] */
+    }
+
+    static class FrameHeader {
+        int FrameNr; /* Nr of frame that is currently processed    */
+        int NrOfChannels; /* Number of channels in the recording        */
+        int NrOfFilters; /* Number of filters used for this frame      */
+        int NrOfPtables; /* Number of Ptables used for this frame      */
+        int Fsample44; /* Sample frequency 64, 128, 256              */
+        int[] PredOrder = new int[2 * MAX_CHANNELS]; /* Prediction order used for this frame       */
+        int[] PtableLen = new int[2 * MAX_CHANNELS]; /* Nr of Ptable entries used for this frame   */
+        int[][] ICoefA; /* Integer coefs for actual coding            */
+        int DSTCoded; /* 1=DST coded is put in DST stream,          */
+        /* 0=DSD is put in DST stream                 */
+        int CalcNrOfBytes; /* Contains number of bytes of the complete   */
+        long CalcNrOfBits; /* Contains number of bits of the complete    */
+        /* channel stream after arithmetic encoding   */
+        /* (also containing bytestuff-,               */
+        /* ICoefA-bits, etc.)                         */
+        int[] HalfProb = new int[MAX_CHANNELS]; /* Defines per channel which probability is   */
+        /* applied for the first PredOrder[] bits of  */
+        /* a frame (0 = use Ptable entry, 1 = 128)    */
+        int[] NrOfHalfBits = new int[MAX_CHANNELS]; /* Defines per channel how many bits at the   */
+        /* start of each frame are optionally coded   */
+        /* with p=0.5                                 */
+        Segment FSeg; /* Contains segmentation data for filters     */
+        byte[][] Filter4Bit = new byte[MAX_CHANNELS][MAX_DSDBITS_INFRAME]; /* Filter4Bit[ChNr][BitNr]                    */
+        Segment PSeg; /* Contains segmentation data for Ptables     */
+        byte[][] Ptable4Bit = new byte[MAX_CHANNELS][MAX_DSDBITS_INFRAME]; /* Ptable4Bit[ChNr][BitNr]                    */
+        int PSameSegAsF; /* 1 if segmentation is equal for F and P     */
+        int PSameMapAsF; /* 1 if mapping is equal for F and P          */
+        int FSameSegAllCh; /* 1 if all channels have same Filtersegm.    */
+        int FSameMapAllCh; /* 1 if all channels have same Filtermap      */
+        int PSameSegAllCh; /* 1 if all channels have same Ptablesegm.    */
+        int PSameMapAllCh; /* 1 if all channels have same Ptablemap      */
+        int SegAndMapBits; /* Number of bits in the stream for Seg&Map   */
+        int MaxNrOfFilters; /* Max. nr. of filters allowed per frame      */
+        int MaxNrOfPtables; /* Max. nr. of Ptables allowed per frame      */
+        int MaxFrameLen; /* Max frame length of this file              */
+        long ByteStreamLen; /* MaxFrameLen * NrOfChannels                 */
+        long BitStreamLen; /* ByteStreamLen * RESOL                      */
+        long NrOfBitsPerCh; /* MaxFrameLen * RESOL                        */
+
+        FrameHeader() {
+            FSeg = new Segment();
+            PSeg = new Segment();
+        }
+    }
+
+    static class CodedTable {
+        int[] CPredOrder; /* Code_PredOrder[Method]                     */
+        int[][] CPredCoef; /* Code_PredCoef[Method][CoefNr]              */
+        int[] Coded; /* DST encode coefs/entries of Fir/PtabNr     */
+        int[] BestMethod; /* BestMethod[Fir/PtabNr]                     */
+        int[][] m; /* m[Fir/PtabNr][Method]                      */
+        int[] DataLen; /* Fir/PtabDataLength[Fir/PtabNr]             */
+        int StreamBits; /* nr of bits all filters use in the stream   */
+        int TableType; /* FILTER or PTABLE: indicates contents       */
+
+        CodedTable(FrameHeader fh) {
+            CPredOrder = new int[NROFFRICEMETHODS];
+            CPredCoef = new int[NROFFRICEMETHODS][MAXCPREDORDER];
+            Coded = new int[fh.MaxNrOfFilters];
+            BestMethod = new int[fh.MaxNrOfFilters];
+            m = new int[fh.MaxNrOfPtables][NROFPRICEMETHODS];
+            DataLen = new int[fh.MaxNrOfPtables];
+        }
+    }
+
+    static final class StrData {
+        /***************************************************************************/
+
+        static int[] masks = {0, 1, 3, 7, 0xf, 0x1f, 0x3f, 0x7f, 0xff};
+        byte[] pDSTdata;
+        int TotalBytes;
+        int ByteCounter;
+        int BitPosition;
+        byte DataByte;
+
+        /***********************************************************************
+         * ResetReadingIndex
+         ***********************************************************************/
+
+        void ResetReadingIndex() {
+            BitPosition = 0;
+            ByteCounter = 0;
+            DataByte = 0;
+        }
+
+        /***********************************************************************
+         * CreateBuffer
+         *
+         * @throws DSTException
+         ***********************************************************************/
+
+        void CreateBuffer(int Size) throws DSTException {
+            TotalBytes = Size;
+        }
+
+        /***********************************************************************
+         * DeleteBuffer
+         ***********************************************************************/
+
+        void DeleteBuffer() {
+            TotalBytes = 0;
+            pDSTdata = null;
+            ResetReadingIndex();
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : FIO_BitGetChrUnsigned                                        */
+        /*                                                                         */
+        /* function : Read a character as an unsigned number from file with a      */
+        /*            given number of bits.                                        */
+        /*                                                                         */
+        /* pre      : Len, x, output file must be open by having used getbits_init */
+        /*                                                                         */
+        /* post     : The second variable in function call is filled with the      */
+        /*            unsigned character read                                      */
+        /*                                                                         */
+        /* uses     : stdio.h, stdlib.h                                            */
+        /*                                                                         */
+
+        /***********************************************************************
+         * FillBuffer
+         ***********************************************************************/
+
+        void FillBuffer(byte[] pBuf, int Size) throws DSTException {
+            CreateBuffer(Size);
+            pDSTdata = pBuf;
+            ResetReadingIndex();
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : FIO_BitGetIntUnsigned                                        */
+        /*                                                                         */
+        /* function : Read an integer as an unsigned number from file with a       */
+        /*            given number of bits.                                        */
+        /*                                                                         */
+        /* pre      : Len, x, output file must be open by having used getbits_init */
+        /*                                                                         */
+        /* post     : The second variable in function call is filled with the      */
+        /*            unsigned integer read                                        */
+        /*                                                                         */
+        /* uses     : stdio.h, stdlib.h                                            */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        byte FIO_BitGetChrUnsigned(int Len) throws DSTException {
+            if (Len > 0) {
+                //System.out.printf("CharU %d - %d%n", tmp[0], (byte) tmp[0]);
+                return (byte) getbits(Len);
+            } else if (Len == 0) {
+                return 0;
+            } else
+                throw new DSTException("EOD", -1);
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : FIO_BitGetIntSigned                                          */
+        /*                                                                         */
+        /* function : Read an integer as a signed number from file with a          */
+        /*            given number of bits.                                        */
+        /*                                                                         */
+        /* pre      : Len, x, output file must be open by having used getbits_init */
+        /*                                                                         */
+        /* post     : The second variable in function call is filled with the      */
+        /*            signed integer read                                          */
+        /*                                                                         */
+        /* uses     : stdio.h, stdlib.h                                            */
+        /*                                                                         */
+        /***************************************************************************/
+
+		/*int FIO_BitGetIntSigned(int Len) throws DSTException {
+			if (Len > 0) {
+				int x = (int) getbits(Len);
+
+				if (x >= (1 << (Len - 1))) {
+					x -= (1 << Len);
+				}
+				//System.out.printf("Int %d = %d%n", tmp[0], x);
+				return x;
+			} else if (Len == 0) {
+				return 0;
+			} else
+				throw new DSTException("EOD", -1);
+		}*/
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : FIO_BitGetShortSigned                                        */
+        /*                                                                         */
+        /* function : Read a short integer as a signed number from file with a     */
+        /*            given number of bits.                                        */
+        /*                                                                         */
+        /* pre      : Len, x, output file must be open by having used getbits_init */
+        /*                                                                         */
+        /* post     : The second variable in function call is filled with the      */
+        /*            signed short integer read                                    */
+        /*                                                                         */
+        /* uses     : stdio.h, stdlib.h                                            */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        int FIO_BitGetIntUnsigned(int Len) throws DSTException {
+            if (Len > 0) {
+                //System.out.printf("IntU %d - %d%n", tmp[0], (int) tmp[0]);
+                return (int) getbits(Len);
+            } else if (Len == 0) {
+                return 0;
+            } else
+                throw new DSTException("EOD", -1);
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : getbits                                                      */
+        /*                                                                         */
+        /* function : Read bits from the bitstream and decrement the counter.      */
+        /*                                                                         */
+        /* pre      : out_bitptr                                                   */
+        /*                                                                         */
+        /* post     : m_ByteCounter, outword, returns EOF on EOF or 0 otherwise.   */
+        /*                                                                         */
+        /* uses     : stdio.h                                                      */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        short FIO_BitGetShortSigned(int Len) throws DSTException {
+            if (Len > 0) {
+                short x = (short) getbits(Len);
+
+                if (x >= (1 << (Len - 1))) {
+                    x -= (1 << Len);
+                }
+                //System.out.printf("Short %x = %d / %d%n", tmp[0], x, Len);
+                return x;
+            } else if (Len == 0) {
+                return 0;
+            } else
+                throw new DSTException("EOD", -1);
+        }
+
+        long getbits(int out_bitptr) throws DSTException {
+            long outword;
+            if (out_bitptr == 1) {
+                if (BitPosition == 0) {
+                    DataByte = pDSTdata[ByteCounter++];
+                    //System.out.printf("0x%x ", DataByte);
+                    if (ByteCounter > TotalBytes) {
+                        throw new DSTException("EOF", -1); /* EOF */
+                    }
+                    BitPosition = 8;
+                }
+                BitPosition--;
+                //System.out.printf("Byte:0x%x, res 0x%x, for %d%n", DataByte, outword[0], out_bitptr);
+                return (DataByte >> BitPosition) & 1;
+            }
+
+            outword = 0;
+            while (out_bitptr > 0) {
+                int thisbits, mask, shift;
+
+                if (BitPosition == 0) {
+                    DataByte = pDSTdata[ByteCounter++];
+                    //System.out.printf("0x%x ", DataByte);
+                    if (ByteCounter > TotalBytes) {
+                        throw new DSTException("EOF", -1); /* EOF *//* EOF */
+                    }
+                    BitPosition = 8;
+                }
+
+                if (BitPosition < out_bitptr)
+                    thisbits = BitPosition;
+                else
+                    thisbits = out_bitptr;
+                //thisbits = Math.min(BitPosition, out_bitptr);
+                shift = (BitPosition - thisbits);
+                mask = masks[thisbits] << shift;
+
+                shift = (out_bitptr - thisbits) - shift;
+                if (shift <= 0)
+                    outword |= ((DataByte & mask) >> -shift);
+                else
+                    outword |= ((long) (DataByte & mask) << shift);
+                out_bitptr -= thisbits;
+                BitPosition -= thisbits;
+            }
+            //System.out.printf("Byte:0x%x, res 0x%x, for %d%n", DataByte, outword[0], out_bitptr);
+            return outword;
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : get_bitcount                                                 */
+        /*                                                                         */
+        /* function : Reset the bits-written counter.                              */
+        /*                                                                         */
+        /* pre      : None                                                         */
+        /*                                                                         */
+        /* post     : Returns the number of bits written after an init_bitcount.   */
+        /*                                                                         */
+        /* uses     : -                                                            */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        long get_in_bitcount() {
+            return (long) ByteCounter * 8 - BitPosition;
+        }
+
+    }
+
+    static final class DSTXBITSData {
+        int PBit;
+        byte Bit;
+    }
+
+    static final class FirPtrData {
+        int[] Pnt;
+        int[][] Status;
+    }
+
+    static final class ACData {
+        static final int PBITS = AC_BITS; /* number of bits for Probabilities             */
+        static final int NBITS = 4; /* number of overhead bits: must be at least 2! */
+        /* maximum "variable shift length" is (NBITS-1) */
+        static final int PSUM = (1 << (PBITS));
+        static final int ABITS = (PBITS + NBITS); /* must be at least PBITS+2     */
+
+        /*============================================================================*/
+        /*       CONSTANTS                                                            */
+        /*============================================================================*/
+        static final int ONE = (1 << ABITS);
+        static final int HALF = (1 << (ABITS - 1));
+        static final int MB = 0; /* if (MB) print max buffer use */
+        int Init = 1;
+        int C;
+        int A;
+        int cbptr;
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : DST_ACDecodeBit                                              */
+        /*                                                                         */
+        /* function : Arithmetic decode one bit.                                   */
+        /*                                                                         */
+        /* pre      : p       : probability for next bit being a "one"             */
+        /*            cb[]    : filled with arithmetic code bit(s)                 */
+        /*            fs      : Current length of the arithm. code                 */
+        /*            Flush   : 0 = Normal operation,                              */
+        /*                      1 = flush remaider of the decoder                  */
+        /*                                                                         */
+        /* post     : *b      : output bit of arithmetic decoder                   */
+        /*            *MonC   : status of C-register (optionally)                  */
+        /*            *MonA   : status of A-register (optionally)                  */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        byte DST_ACDecodeBit(int p, byte[] cb, int fs, int Flush) {
+            int ap;
+            int h;
+            byte b;
+
+            if (Init == 1) {
+                Init = 0;
+                A = ONE - 1;
+                C = 0;
+                for (cbptr = 1; cbptr <= ABITS; cbptr++) {
+                    C <<= 1;
+                    if (cbptr < fs) {
+                        C |= cb[cbptr];
+                    }
+                }
+            }
+
+            if (Flush == 0) {
+                /* approximate (A * p) with "partial rounding". */
+                ap = ((A >> PBITS) | ((A >> (PBITS - 1)) & 1)) * p;
+
+                h = A - ap;
+                if (C >= h) {
+                    b = 1;
+                    C -= h;
+                    A = ap;
+                } else {
+                    b = 0;
+                    A = h;
+                }
+                while (A < HALF) {
+                    A <<= 1;
+
+					/* Use new flushing technique; insert zero in LSB of C if reading past
+					   the end of the arithmetic code */
+                    C <<= 1;
+                    if (cbptr < fs) {
+                        C |= cb[cbptr];
+                    }
+                    cbptr++;
+                }
+            } else {
+                Init = 1;
+                b = 0;
+                if (cbptr < fs - 7) {
+                    b = 1;
+                } else {
+                    while ((b == 0) && (cbptr < fs)) {
+                        if (cb[cbptr] != 0) {
+                            b = 1;
+                        }
+                        cbptr++;
+                    }
+                }
+            }
+            return b;
+        }
+
+        /***************************************************************************/
+        /*                                                                         */
+        /* name     : DST_ACGetPtableIndex                                         */
+        /*                                                                         */
+        /* function : Determine the Ptable index belonging to the current value    */
+        /*            of PredicVal.                                                */
+        /*                                                                         */
+        /* pre      : PredicVal and PtableLen                                      */
+        /*                                                                         */
+        /* post     : Returns the index of the Ptable belonging to the PredicVal.  */
+        /*                                                                         */
+
+        /***************************************************************************/
+
+        int DST_ACGetPtableIndex(long PredicVal, int PtableLen) {
+            int j;
+            if (PredicVal < 0)
+                PredicVal = -PredicVal;
+            j = (int) (/*labs*/(PredicVal) >> AC_QSTEP);
+            if (j >= PtableLen) {
+                j = PtableLen - 1;
+            }
+            return j;
+        }
+
+        /// //////////////// LT methods  //////////////////////////////
+        void LT_ACDecodeBit_Init(byte[] cb, int fs) {
+            A = ONE - 1;
+            C = 0;
+            for (cbptr = 1; cbptr <= ABITS; cbptr++) {
+                C <<= 1;
+                if (cbptr < fs) {
+                    C |= cb[cbptr]; // cb is only 1 or 0
+                }
+            }
+        }
+
+        int LT_ACDecodeBit_Decode(int p, byte[] cb, int fs) {
+            int ap;
+            int h;
+            int b;
+
+            /* approximate (A * p) with "partial rounding". */
+            ap = ((A >> PBITS) | ((A >> (PBITS - 1)) & 1)) * p;
+
+            h = A - ap;
+            if (C >= h) {
+                b = 0;
+                C -= h;
+                A = ap;
+            } else {
+                b = 1;
+                A = h;
+            }
+            while (A < HALF) {
+                A <<= 1;
+				/* Use new flushing technique; insert zero in LSB of C if reading past
+				    the end of the arithmetic code */
+                C <<= 1;
+                if (cbptr < fs) {
+                    C |= cb[cbptr]; // cb is only 1 or 0
+                }
+                //System.out.println(cbptr+" is "+cb[cbptr]);
+                cbptr++;
+
+            }
+            return b;
+        }
+
+        int LT_ACDecodeBit_Flush(byte[] cb, int fs) {
+            return cbptr < fs - 7 ? 0 : 1;
         }
     }
 }

@@ -175,12 +175,12 @@ object ScarletBook {
 
     data class Version(
         val major: Byte,
-        val minor: Byte
+        val minor: Byte,
     )
 
     data class GenreTable(
         val category: Category,
-        val genre: Genre
+        val genre: Genre,
     ) {
         companion object {
             fun read(buffer: ByteBuffer): GenreTable {
@@ -226,7 +226,7 @@ object ScarletBook {
         val discPublisher: String? = null,
         val discPublisherPhonetic: String? = null,
         val discCopyright: String? = null,
-        val discCopyrightPhonetic: String? = null
+        val discCopyrightPhonetic: String? = null,
     )
 
 

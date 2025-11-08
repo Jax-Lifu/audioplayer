@@ -17,6 +17,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_UI_H
 # endif
@@ -24,8 +25,11 @@
 # include <openssl/opensslconf.h>
 
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0
+
 #  include <openssl/crypto.h>
+
 # endif
+
 # include <openssl/safestack.h>
 # include <openssl/pem.h>
 # include <openssl/types.h>
@@ -197,7 +201,7 @@ int UI_process(UI *ui);
  * send down an integer, a data pointer or a function pointer, as well as be
  * used to get information from a UI.
  */
-int UI_ctrl(UI *ui, int cmd, long i, void *p, void (*f) (void));
+int UI_ctrl(UI *ui, int cmd, long i, void *p, void (*f)(void));
 
 /* The commands */
 /*
@@ -214,7 +218,7 @@ int UI_ctrl(UI *ui, int cmd, long i, void *p, void (*f) (void));
 # define UI_CTRL_IS_REDOABLE             2
 
 /* Some methods may use extra data */
-# define UI_set_app_data(s,arg)         UI_set_ex_data(s,0,arg)
+# define UI_set_app_data(s, arg)         UI_set_ex_data(s,0,arg)
 # define UI_get_app_data(s)             UI_get_ex_data(s,0)
 
 # define UI_get_ex_new_index(l, p, newf, dupf, freef) \
@@ -290,7 +294,7 @@ const UI_METHOD *UI_null(void);
  */
 typedef struct ui_string_st UI_STRING;
 
-SKM_DEFINE_STACK_OF_INTERNAL(UI_STRING, UI_STRING, UI_STRING)
+SKM_DEFINE_STACK_OF_INTERNAL(UI_STRING, UI_STRING, UI_STRING )
 #define sk_UI_STRING_num(sk) OPENSSL_sk_num(ossl_check_const_UI_STRING_sk_type(sk))
 #define sk_UI_STRING_value(sk, idx) ((UI_STRING *)OPENSSL_sk_value(ossl_check_const_UI_STRING_sk_type(sk), (idx)))
 #define sk_UI_STRING_new(cmp) ((STACK_OF(UI_STRING) *)OPENSSL_sk_new(ossl_check_UI_STRING_compfunc_type(cmp)))
@@ -334,32 +338,32 @@ enum UI_string_types {
 /* Create and manipulate methods */
 UI_METHOD *UI_create_method(const char *name);
 void UI_destroy_method(UI_METHOD *ui_method);
-int UI_method_set_opener(UI_METHOD *method, int (*opener) (UI *ui));
+int UI_method_set_opener(UI_METHOD *method, int (*opener)(UI *ui));
 int UI_method_set_writer(UI_METHOD *method,
-                         int (*writer) (UI *ui, UI_STRING *uis));
-int UI_method_set_flusher(UI_METHOD *method, int (*flusher) (UI *ui));
+                         int (*writer)(UI *ui, UI_STRING *uis));
+int UI_method_set_flusher(UI_METHOD *method, int (*flusher)(UI *ui));
 int UI_method_set_reader(UI_METHOD *method,
-                         int (*reader) (UI *ui, UI_STRING *uis));
-int UI_method_set_closer(UI_METHOD *method, int (*closer) (UI *ui));
+                         int (*reader)(UI *ui, UI_STRING *uis));
+int UI_method_set_closer(UI_METHOD *method, int (*closer)(UI *ui));
 int UI_method_set_data_duplicator(UI_METHOD *method,
-                                  void *(*duplicator) (UI *ui, void *ui_data),
+                                  void *(*duplicator)(UI *ui, void *ui_data),
                                   void (*destructor)(UI *ui, void *ui_data));
 int UI_method_set_prompt_constructor(UI_METHOD *method,
-                                     char *(*prompt_constructor) (UI *ui,
-                                                                  const char
-                                                                  *phrase_desc,
-                                                                  const char
-                                                                  *object_name));
+                                     char *(*prompt_constructor)(UI *ui,
+                                                                 const char
+                                                                 *phrase_desc,
+                                                                 const char
+                                                                 *object_name));
 int UI_method_set_ex_data(UI_METHOD *method, int idx, void *data);
-int (*UI_method_get_opener(const UI_METHOD *method)) (UI *);
-int (*UI_method_get_writer(const UI_METHOD *method)) (UI *, UI_STRING *);
-int (*UI_method_get_flusher(const UI_METHOD *method)) (UI *);
-int (*UI_method_get_reader(const UI_METHOD *method)) (UI *, UI_STRING *);
-int (*UI_method_get_closer(const UI_METHOD *method)) (UI *);
+int (*UI_method_get_opener(const UI_METHOD *method))(UI *);
+int (*UI_method_get_writer(const UI_METHOD *method))(UI *, UI_STRING *);
+int (*UI_method_get_flusher(const UI_METHOD *method))(UI *);
+int (*UI_method_get_reader(const UI_METHOD *method))(UI *, UI_STRING *);
+int (*UI_method_get_closer(const UI_METHOD *method))(UI *);
 char *(*UI_method_get_prompt_constructor(const UI_METHOD *method))
-    (UI *, const char *, const char *);
-void *(*UI_method_get_data_duplicator(const UI_METHOD *method)) (UI *, void *);
-void (*UI_method_get_data_destructor(const UI_METHOD *method)) (UI *, void *);
+        (UI *, const char *, const char *);
+void *(*UI_method_get_data_duplicator(const UI_METHOD *method))(UI *, void *);
+void (*UI_method_get_data_destructor(const UI_METHOD *method))(UI *, void *);
 const void *UI_method_get_ex_data(const UI_METHOD *method, int idx);
 
 /*
@@ -368,27 +372,27 @@ const void *UI_method_get_ex_data(const UI_METHOD *method, int idx);
  */
 
 /* Return type of the UI_STRING */
-enum UI_string_types UI_get_string_type(UI_STRING *uis);
+enum UI_string_types UI_get_string_type(UI_STRING * uis);
 /* Return input flags of the UI_STRING */
-int UI_get_input_flags(UI_STRING *uis);
+int UI_get_input_flags(UI_STRING * uis);
 /* Return the actual string to output (the prompt, info or error) */
-const char *UI_get0_output_string(UI_STRING *uis);
+const char *UI_get0_output_string(UI_STRING * uis);
 /*
  * Return the optional action string to output (the boolean prompt
  * instruction)
  */
-const char *UI_get0_action_string(UI_STRING *uis);
+const char *UI_get0_action_string(UI_STRING * uis);
 /* Return the result of a prompt */
-const char *UI_get0_result_string(UI_STRING *uis);
-int UI_get_result_string_length(UI_STRING *uis);
+const char *UI_get0_result_string(UI_STRING * uis);
+int UI_get_result_string_length(UI_STRING * uis);
 /*
  * Return the string to test the result against.  Only useful with verifies.
  */
-const char *UI_get0_test_string(UI_STRING *uis);
+const char *UI_get0_test_string(UI_STRING * uis);
 /* Return the required minimum size of the result */
-int UI_get_result_minsize(UI_STRING *uis);
+int UI_get_result_minsize(UI_STRING * uis);
 /* Return the required maximum size of the result */
-int UI_get_result_maxsize(UI_STRING *uis);
+int UI_get_result_maxsize(UI_STRING * uis);
 /* Set the result of a UI_STRING. */
 int UI_set_result(UI *ui, UI_STRING *uis, const char *result);
 int UI_set_result_ex(UI *ui, UI_STRING *uis, const char *result, int len);

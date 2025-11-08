@@ -17,6 +17,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_PKCS12_H
 # endif
@@ -25,8 +26,11 @@
 # include <openssl/core.h>
 # include <openssl/x509.h>
 # include <openssl/pkcs12err.h>
+
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
 
 #ifdef __cplusplus
@@ -62,7 +66,7 @@ typedef struct PKCS12_st PKCS12;
 
 typedef struct PKCS12_SAFEBAG_st PKCS12_SAFEBAG;
 
-SKM_DEFINE_STACK_OF_INTERNAL(PKCS12_SAFEBAG, PKCS12_SAFEBAG, PKCS12_SAFEBAG)
+SKM_DEFINE_STACK_OF_INTERNAL(PKCS12_SAFEBAG, PKCS12_SAFEBAG, PKCS12_SAFEBAG )
 #define sk_PKCS12_SAFEBAG_num(sk) OPENSSL_sk_num(ossl_check_const_PKCS12_SAFEBAG_sk_type(sk))
 #define sk_PKCS12_SAFEBAG_value(sk, idx) ((PKCS12_SAFEBAG *)OPENSSL_sk_value(ossl_check_const_PKCS12_SAFEBAG_sk_type(sk), (idx)))
 #define sk_PKCS12_SAFEBAG_new(cmp) ((STACK_OF(PKCS12_SAFEBAG) *)OPENSSL_sk_new(ossl_check_PKCS12_SAFEBAG_compfunc_type(cmp)))
@@ -114,8 +118,8 @@ typedef struct pkcs12_bag_st PKCS12_BAGS;
 
 #endif
 #ifndef OPENSSL_NO_DEPRECATED_1_1_0
-OSSL_DEPRECATEDIN_1_1_0 ASN1_TYPE *PKCS12_get_attr(const PKCS12_SAFEBAG *bag,
-                                                   int attr_nid);
+OSSL_DEPRECATEDIN_1_1_0 ASN1_TYPE * PKCS12_get_attr(const PKCS12_SAFEBAG *bag,
+                                                    int attr_nid);
 #endif
 
 ASN1_TYPE *PKCS8_get_attr(PKCS8_PRIV_KEY_INFO *p8, int attr_nid);
@@ -134,9 +138,11 @@ int PKCS12_SAFEBAG_get_bag_nid(const PKCS12_SAFEBAG *bag);
 const ASN1_TYPE *PKCS12_SAFEBAG_get0_bag_obj(const PKCS12_SAFEBAG *bag);
 const ASN1_OBJECT *PKCS12_SAFEBAG_get0_bag_type(const PKCS12_SAFEBAG *bag);
 
-X509 *PKCS12_SAFEBAG_get1_cert_ex(const PKCS12_SAFEBAG *bag, OSSL_LIB_CTX *libctx, const char *propq);
+X509 *
+PKCS12_SAFEBAG_get1_cert_ex(const PKCS12_SAFEBAG *bag, OSSL_LIB_CTX *libctx, const char *propq);
 X509 *PKCS12_SAFEBAG_get1_cert(const PKCS12_SAFEBAG *bag);
-X509_CRL *PKCS12_SAFEBAG_get1_crl_ex(const PKCS12_SAFEBAG *bag, OSSL_LIB_CTX *libctx, const char *propq);
+X509_CRL *
+PKCS12_SAFEBAG_get1_crl_ex(const PKCS12_SAFEBAG *bag, OSSL_LIB_CTX *libctx, const char *propq);
 X509_CRL *PKCS12_SAFEBAG_get1_crl(const PKCS12_SAFEBAG *bag);
 const STACK_OF(PKCS12_SAFEBAG) *
 PKCS12_SAFEBAG_get0_safes(const PKCS12_SAFEBAG *bag);
@@ -145,7 +151,8 @@ const X509_SIG *PKCS12_SAFEBAG_get0_pkcs8(const PKCS12_SAFEBAG *bag);
 
 PKCS12_SAFEBAG *PKCS12_SAFEBAG_create_cert(X509 *x509);
 PKCS12_SAFEBAG *PKCS12_SAFEBAG_create_crl(X509_CRL *crl);
-PKCS12_SAFEBAG *PKCS12_SAFEBAG_create_secret(int type, int vtype, const unsigned char *value, int len);
+PKCS12_SAFEBAG *
+PKCS12_SAFEBAG_create_secret(int type, int vtype, const unsigned char *value, int len);
 PKCS12_SAFEBAG *PKCS12_SAFEBAG_create0_p8inf(PKCS8_PRIV_KEY_INFO *p8);
 PKCS12_SAFEBAG *PKCS12_SAFEBAG_create0_pkcs8(X509_SIG *p8);
 PKCS12_SAFEBAG *PKCS12_SAFEBAG_create_pkcs8_encrypt(int pbe_nid,
@@ -184,47 +191,58 @@ X509_SIG *PKCS8_encrypt_ex(int pbe_nid, const EVP_CIPHER *cipher,
                            int saltlen, int iter, PKCS8_PRIV_KEY_INFO *p8,
                            OSSL_LIB_CTX *ctx, const char *propq);
 X509_SIG *PKCS8_set0_pbe(const char *pass, int passlen,
-                        PKCS8_PRIV_KEY_INFO *p8inf, X509_ALGOR *pbe);
+                         PKCS8_PRIV_KEY_INFO *p8inf, X509_ALGOR *pbe);
 X509_SIG *PKCS8_set0_pbe_ex(const char *pass, int passlen,
                             PKCS8_PRIV_KEY_INFO *p8inf, X509_ALGOR *pbe,
                             OSSL_LIB_CTX *ctx, const char *propq);
-PKCS7 *PKCS12_pack_p7data(STACK_OF(PKCS12_SAFEBAG) *sk);
-STACK_OF(PKCS12_SAFEBAG) *PKCS12_unpack_p7data(PKCS7 *p7);
+PKCS7 *PKCS12_pack_p7data(STACK_OF(PKCS12_SAFEBAG) * sk);
+STACK_OF(PKCS12_SAFEBAG) * PKCS12_unpack_p7data(PKCS7 * p7 ) ;
 PKCS7 *PKCS12_pack_p7encdata(int pbe_nid, const char *pass, int passlen,
                              unsigned char *salt, int saltlen, int iter,
-                             STACK_OF(PKCS12_SAFEBAG) *bags);
+                             STACK_OF(PKCS12_SAFEBAG) * bags ) ;
 PKCS7 *PKCS12_pack_p7encdata_ex(int pbe_nid, const char *pass, int passlen,
                                 unsigned char *salt, int saltlen, int iter,
-                                STACK_OF(PKCS12_SAFEBAG) *bags,
-                                OSSL_LIB_CTX *ctx, const char *propq);
+                                STACK_OF(PKCS12_SAFEBAG) * bags ,
+OSSL_LIB_CTX *ctx,
+const char *propq ) ;
 
-STACK_OF(PKCS12_SAFEBAG) *PKCS12_unpack_p7encdata(PKCS7 *p7, const char *pass,
-                                                  int passlen);
+STACK_OF(PKCS12_SAFEBAG) * PKCS12_unpack_p7encdata(PKCS7 * p7 , const char *pass,
+int passlen ) ;
 
-int PKCS12_pack_authsafes(PKCS12 *p12, STACK_OF(PKCS7) *safes);
-STACK_OF(PKCS7) *PKCS12_unpack_authsafes(const PKCS12 *p12);
+int PKCS12_pack_authsafes(PKCS12 *p12, STACK_OF(PKCS7) * safes ) ;
+STACK_OF(PKCS7) * PKCS12_unpack_authsafes(const PKCS12 *p12);
 
-int PKCS12_add_localkeyid(PKCS12_SAFEBAG *bag, unsigned char *name,
-                          int namelen);
-int PKCS12_add_friendlyname_asc(PKCS12_SAFEBAG *bag, const char *name,
-                                int namelen);
-int PKCS12_add_friendlyname_utf8(PKCS12_SAFEBAG *bag, const char *name,
-                                 int namelen);
-int PKCS12_add_CSPName_asc(PKCS12_SAFEBAG *bag, const char *name,
-                           int namelen);
-int PKCS12_add_friendlyname_uni(PKCS12_SAFEBAG *bag,
-                                const unsigned char *name, int namelen);
-int PKCS12_add1_attr_by_NID(PKCS12_SAFEBAG *bag, int nid, int type,
-                            const unsigned char *bytes, int len);
-int PKCS12_add1_attr_by_txt(PKCS12_SAFEBAG *bag, const char *attrname, int type,
-                            const unsigned char *bytes, int len);
+int PKCS12_add_localkeyid(PKCS12_SAFEBAG * bag, unsigned char * name,
+                          int
+namelen ) ;
+int PKCS12_add_friendlyname_asc(PKCS12_SAFEBAG * bag,
+const char *name,
+int namelen ) ;
+int PKCS12_add_friendlyname_utf8(PKCS12_SAFEBAG * bag,
+const char *name,
+int namelen ) ;
+int PKCS12_add_CSPName_asc(PKCS12_SAFEBAG * bag,
+const char *name,
+int namelen ) ;
+int PKCS12_add_friendlyname_uni(PKCS12_SAFEBAG * bag,
+const unsigned char *name,
+int namelen ) ;
+int PKCS12_add1_attr_by_NID(PKCS12_SAFEBAG * bag, int
+nid , int type,
+const unsigned char *bytes,
+int len ) ;
+int PKCS12_add1_attr_by_txt(PKCS12_SAFEBAG * bag,
+const char *attrname,
+int type,
+const unsigned char *bytes,
+int len ) ;
 int PKCS8_add_keyusage(PKCS8_PRIV_KEY_INFO *p8, int usage);
-ASN1_TYPE *PKCS12_get_attr_gen(const STACK_OF(X509_ATTRIBUTE) *attrs,
-                               int attr_nid);
-char *PKCS12_get_friendlyname(PKCS12_SAFEBAG *bag);
+ASN1_TYPE *PKCS12_get_attr_gen(const STACK_OF(X509_ATTRIBUTE) * attrs ,
+int attr_nid ) ;
+char *PKCS12_get_friendlyname(PKCS12_SAFEBAG * bag);
 const STACK_OF(X509_ATTRIBUTE) *
 PKCS12_SAFEBAG_get0_attrs(const PKCS12_SAFEBAG *bag);
-void PKCS12_SAFEBAG_set0_attrs(PKCS12_SAFEBAG *bag, STACK_OF(X509_ATTRIBUTE) *attrs);
+void PKCS12_SAFEBAG_set0_attrs(PKCS12_SAFEBAG * bag, STACK_OF(X509_ATTRIBUTE) * attrs);
 unsigned char *PKCS12_pbe_crypt(const X509_ALGOR *algor,
                                 const char *pass, int passlen,
                                 const unsigned char *in, int inlen,
@@ -242,7 +260,7 @@ void *PKCS12_item_decrypt_d2i(const X509_ALGOR *algor, const ASN1_ITEM *it,
 void *PKCS12_item_decrypt_d2i_ex(const X509_ALGOR *algor, const ASN1_ITEM *it,
                                  const char *pass, int passlen,
                                  const ASN1_OCTET_STRING *oct, int zbuf,
-                                 OSSL_LIB_CTX *libctx, 
+                                 OSSL_LIB_CTX *libctx,
                                  const char *propq);
 ASN1_OCTET_STRING *PKCS12_item_i2d_encrypt(X509_ALGOR *algor,
                                            const ASN1_ITEM *it,
@@ -313,42 +331,65 @@ DECLARE_ASN1_ITEM(PKCS12_SAFEBAGS)
 DECLARE_ASN1_ITEM(PKCS12_AUTHSAFES)
 
 void PKCS12_PBE_add(void);
-int PKCS12_parse(PKCS12 *p12, const char *pass, EVP_PKEY **pkey, X509 **cert,
-                 STACK_OF(X509) **ca);
-typedef int PKCS12_create_cb(PKCS12_SAFEBAG *bag, void *cbarg);
+int PKCS12_parse(PKCS12 * p12,
+const char *pass, EVP_PKEY * * pkey , X509 **cert,
+        STACK_OF(X509) * * ca ) ;
+typedef int PKCS12_create_cb(PKCS12_SAFEBAG * bag, void * cbarg);
 PKCS12 *PKCS12_create(const char *pass, const char *name, EVP_PKEY *pkey,
-                      X509 *cert, STACK_OF(X509) *ca, int nid_key, int nid_cert,
-                      int iter, int mac_iter, int keytype);
+                      X509 *cert, STACK_OF(X509) * ca , int nid_key,
+int nid_cert,
+int iter,
+int mac_iter,
+int keytype ) ;
 PKCS12 *PKCS12_create_ex(const char *pass, const char *name, EVP_PKEY *pkey,
-                         X509 *cert, STACK_OF(X509) *ca, int nid_key, int nid_cert,
-                         int iter, int mac_iter, int keytype,
-                         OSSL_LIB_CTX *ctx, const char *propq);
+                         X509 *cert, STACK_OF(X509) * ca , int nid_key,
+int nid_cert,
+int iter,
+int mac_iter,
+int keytype,
+        OSSL_LIB_CTX * ctx , const char *propq ) ;
 PKCS12 *PKCS12_create_ex2(const char *pass, const char *name, EVP_PKEY *pkey,
-                          X509 *cert, STACK_OF(X509) *ca, int nid_key, int nid_cert,
-                          int iter, int mac_iter, int keytype,
-                          OSSL_LIB_CTX *ctx, const char *propq,
-                          PKCS12_create_cb *cb, void *cbarg);
+                          X509 *cert, STACK_OF(X509) * ca , int nid_key,
+int nid_cert,
+int iter,
+int mac_iter,
+int keytype,
+        OSSL_LIB_CTX * ctx , const char *propq,
+        PKCS12_create_cb * cb , void *cbarg ) ;
 
-PKCS12_SAFEBAG *PKCS12_add_cert(STACK_OF(PKCS12_SAFEBAG) **pbags, X509 *cert);
-PKCS12_SAFEBAG *PKCS12_add_key(STACK_OF(PKCS12_SAFEBAG) **pbags,
-                               EVP_PKEY *key, int key_usage, int iter,
-                               int key_nid, const char *pass);
-PKCS12_SAFEBAG *PKCS12_add_key_ex(STACK_OF(PKCS12_SAFEBAG) **pbags,
-                                  EVP_PKEY *key, int key_usage, int iter,
-                                  int key_nid, const char *pass,
-                                  OSSL_LIB_CTX *ctx, const char *propq);
+PKCS12_SAFEBAG *PKCS12_add_cert(STACK_OF(PKCS12_SAFEBAG) * *pbags, X509 * cert);
+PKCS12_SAFEBAG *PKCS12_add_key(STACK_OF(PKCS12_SAFEBAG) * *pbags,
+                               EVP_PKEY * key, int
+key_usage , int iter,
+int key_nid,
+const char *pass ) ;
+PKCS12_SAFEBAG *PKCS12_add_key_ex(STACK_OF(PKCS12_SAFEBAG) * *pbags,
+                                  EVP_PKEY * key, int
+key_usage , int iter,
+int key_nid,
+const char *pass,
+        OSSL_LIB_CTX * ctx , const char *propq ) ;
 
-PKCS12_SAFEBAG *PKCS12_add_secret(STACK_OF(PKCS12_SAFEBAG) **pbags,
-                                  int nid_type, const unsigned char *value, int len);
-int PKCS12_add_safe(STACK_OF(PKCS7) **psafes, STACK_OF(PKCS12_SAFEBAG) *bags,
-                    int safe_nid, int iter, const char *pass);
-int PKCS12_add_safe_ex(STACK_OF(PKCS7) **psafes, STACK_OF(PKCS12_SAFEBAG) *bags,
-                       int safe_nid, int iter, const char *pass,
-                       OSSL_LIB_CTX *ctx, const char *propq);
+PKCS12_SAFEBAG *PKCS12_add_secret(STACK_OF(PKCS12_SAFEBAG) * *pbags,
+                                  int
+nid_type , const unsigned char *value,
+int len ) ;
+int PKCS12_add_safe(STACK_OF(PKCS7) * *psafes, STACK_OF(PKCS12_SAFEBAG) * bags,
+                    int
+safe_nid , int iter,
+const char *pass ) ;
+int PKCS12_add_safe_ex(STACK_OF(PKCS7) * *psafes, STACK_OF(PKCS12_SAFEBAG) * bags,
+                       int
+safe_nid , int iter,
+const char *pass,
+        OSSL_LIB_CTX * ctx , const char *propq ) ;
 
-PKCS12 *PKCS12_add_safes(STACK_OF(PKCS7) *safes, int p7_nid);
-PKCS12 *PKCS12_add_safes_ex(STACK_OF(PKCS7) *safes, int p7_nid,
-                            OSSL_LIB_CTX *ctx, const char *propq);
+PKCS12 *PKCS12_add_safes(STACK_OF(PKCS7) * safes, int
+p7_nid ) ;
+PKCS12 *PKCS12_add_safes_ex(STACK_OF(PKCS7) * safes, int
+p7_nid ,
+OSSL_LIB_CTX *ctx,
+const char *propq ) ;
 
 int i2d_PKCS12_bio(BIO *bp, const PKCS12 *p12);
 # ifndef OPENSSL_NO_STDIO
@@ -358,7 +399,9 @@ PKCS12 *d2i_PKCS12_bio(BIO *bp, PKCS12 **p12);
 # ifndef OPENSSL_NO_STDIO
 PKCS12 *d2i_PKCS12_fp(FILE *fp, PKCS12 **p12);
 # endif
-int PKCS12_newpass(PKCS12 *p12, const char *oldpass, const char *newpass);
+int PKCS12_newpass(PKCS12 * p12,
+const char *oldpass,
+const char *newpass ) ;
 
 # ifdef  __cplusplus
 }

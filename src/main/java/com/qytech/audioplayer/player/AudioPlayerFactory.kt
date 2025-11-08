@@ -11,9 +11,9 @@ import com.qytech.audioplayer.parser.AudioFileParserFactory
 import com.qytech.audioplayer.parser.SacdAudioFileParser
 import com.qytech.audioplayer.parser.netstream.NetStreamFormat
 import com.qytech.audioplayer.parser.netstream.StreamFormatDetector
+import com.qytech.audioplayer.utils.Logger
 import com.qytech.audioplayer.utils.SystemPropUtil
 import com.qytech.core.extensions.isRemoteUrl
-import timber.log.Timber
 import java.io.File
 
 
@@ -57,21 +57,21 @@ object AudioPlayerFactory {
         headers: Map<String, String> = emptyMap(),
         playerExtras: PlayerExtras? = null,
     ): AudioPlayer? {
-        Timber.d("createAudioPlayer: $source")
-        // ====== 1️⃣ 特殊来源（Tidal） ======
-        if (clientId?.isNotEmpty() == true && clientSecret?.isNotEmpty() == true) {
-            val tidal = AudioInfo.Tidal(
-                productId = source,
-                clientId = clientId,
-                clientSecret = clientSecret,
-                credentialsKey = credentialsKey ?: "storage",
-            )
-            return createInternal(context, tidal, headers)
-        }
+        Logger.d("createAudioPlayer: $source")
+        //        // ====== 1️⃣ 特殊来源（Tidal） ======
+        //        if (clientId?.isNotEmpty() == true && clientSecret?.isNotEmpty() == true) {
+        //            val tidal = AudioInfo.Tidal(
+        //                productId = source,
+        //                clientId = clientId,
+        //                clientSecret = clientSecret,
+        //                credentialsKey = credentialsKey ?: "storage",
+        //            )
+        //            return createInternal(context, tidal, headers)
+        //        }
         // ====== 2️⃣ 网络流处理 ======
         if (source.isRemoteUrl()) {
             val format = StreamFormatDetector.detect(source, headers)
-            Timber.d("Detected NetStream format = $format")
+            Logger.d("Detected NetStream format = $format")
             val audioInfo = when (format) {
                 NetStreamFormat.SACD -> {
                     SacdAudioFileParser(source, headers).parse()?.getOrNull(trackId) ?: return null
@@ -179,11 +179,11 @@ object AudioPlayerFactory {
     }
 
     private fun buildLocalPlayer(context: Context, info: AudioInfo.Local): AudioPlayer {
-        val codec = info.codecName.lowercase()
+        //        val codec = info.codecName.lowercase()
         val formatName = info.formatName.lowercase()
         return when {
             formatName == "sacd" -> DsdAudioPlayer(context, info)
-            codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
+            // codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
             else -> FFAudioPlayer(context, info)
         }
     }
@@ -195,7 +195,7 @@ object AudioPlayerFactory {
     ): AudioPlayer {
         val codec = info.codecName.lowercase()
         val formatName = info.formatName.lowercase()
-        Timber.d("buildRemotePlayer: $codec $formatName")
+        Logger.d("buildRemotePlayer: $codec $formatName")
         if (formatName == "sacd") {
             return DsdAudioPlayer(context, info, headers)
         }

@@ -232,7 +232,7 @@ typedef struct ossl_algorithm_st OSSL_ALGORITHM;
 typedef struct ossl_param_st OSSL_PARAM;
 typedef struct ossl_param_bld_st OSSL_PARAM_BLD;
 
-typedef int pem_password_cb (char *buf, int size, int rwflag, void *userdata);
+typedef int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
 typedef struct ossl_encoder_st OSSL_ENCODER;
 typedef struct ossl_encoder_ctx_st OSSL_ENCODER_CTX;

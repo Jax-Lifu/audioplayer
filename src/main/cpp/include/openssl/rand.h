@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_RAND_H
 # endif
@@ -38,21 +39,26 @@ extern "C" {
 
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 struct rand_meth_st {
-    int (*seed) (const void *buf, int num);
-    int (*bytes) (unsigned char *buf, int num);
-    void (*cleanup) (void);
-    int (*add) (const void *buf, int num, double randomness);
-    int (*pseudorand) (unsigned char *buf, int num);
-    int (*status) (void);
+    int (*seed)(const void *buf, int num);
+
+    int (*bytes)(unsigned char *buf, int num);
+
+    void (*cleanup)(void);
+
+    int (*add)(const void *buf, int num, double randomness);
+
+    int (*pseudorand)(unsigned char *buf, int num);
+
+    int (*status)(void);
 };
 
 OSSL_DEPRECATEDIN_3_0 int RAND_set_rand_method(const RAND_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 const RAND_METHOD *RAND_get_rand_method(void);
+OSSL_DEPRECATEDIN_3_0 const RAND_METHOD * RAND_get_rand_method(void);
 #  ifndef OPENSSL_NO_ENGINE
 OSSL_DEPRECATEDIN_3_0 int RAND_set_rand_engine(ENGINE *engine);
 #  endif
 
-OSSL_DEPRECATEDIN_3_0 RAND_METHOD *RAND_OpenSSL(void);
+OSSL_DEPRECATEDIN_3_0 RAND_METHOD * RAND_OpenSSL(void);
 # endif /* OPENSSL_NO_DEPRECATED_3_0 */
 
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0

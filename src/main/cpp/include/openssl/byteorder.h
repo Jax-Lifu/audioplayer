@@ -20,7 +20,7 @@
  * swapping is required, or a suitable swap instruction is available.
  */
 
-# if defined(_MSC_VER) && _MSC_VER>=1300
+# if defined(_MSC_VER) && _MSC_VER >= 1300
 #  include <stdlib.h>
 #  pragma intrinsic(_byteswap_ushort)
 #  pragma intrinsic(_byteswap_ulong)
@@ -91,9 +91,10 @@
 
 # endif
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u16_le(unsigned char *out, uint16_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u16_le(unsigned char *out, uint16_t val) {
 # ifdef OSSL_HTOLE16
     uint16_t t = OSSL_HTOLE16(val);
 
@@ -106,9 +107,10 @@ OPENSSL_store_u16_le(unsigned char *out, uint16_t val)
 # endif
 }
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u16_be(unsigned char *out, uint16_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u16_be(unsigned char *out, uint16_t val) {
 # ifdef OSSL_HTOBE16
     uint16_t t = OSSL_HTOBE16(val);
 
@@ -121,9 +123,10 @@ OPENSSL_store_u16_be(unsigned char *out, uint16_t val)
 # endif
 }
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u32_le(unsigned char *out, uint32_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u32_le(unsigned char *out, uint32_t val) {
 # ifdef OSSL_HTOLE32
     uint32_t t = OSSL_HTOLE32(val);
 
@@ -138,9 +141,10 @@ OPENSSL_store_u32_le(unsigned char *out, uint32_t val)
 # endif
 }
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u32_be(unsigned char *out, uint32_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u32_be(unsigned char *out, uint32_t val) {
 # ifdef OSSL_HTOBE32
     uint32_t t = OSSL_HTOBE32(val);
 
@@ -155,9 +159,10 @@ OPENSSL_store_u32_be(unsigned char *out, uint32_t val)
 # endif
 }
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u64_le(unsigned char *out, uint64_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u64_le(unsigned char *out, uint64_t val) {
 # ifdef OSSL_HTOLE64
     uint64_t t = OSSL_HTOLE64(val);
 
@@ -176,9 +181,10 @@ OPENSSL_store_u64_le(unsigned char *out, uint64_t val)
 # endif
 }
 
-static ossl_inline ossl_unused unsigned char *
-OPENSSL_store_u64_be(unsigned char *out, uint64_t val)
-{
+static ossl_inline ossl_unused
+
+unsigned char *
+OPENSSL_store_u64_be(unsigned char *out, uint64_t val) {
 # ifdef OSSL_HTOLE64
     uint64_t t = OSSL_HTOBE64(val);
 
@@ -197,9 +203,10 @@ OPENSSL_store_u64_be(unsigned char *out, uint64_t val)
 # endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u16_le(uint16_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u16_le(uint16_t *val, const unsigned char *in) {
 # ifdef OSSL_LE16TOH
     uint16_t t;
 
@@ -215,9 +222,10 @@ OPENSSL_load_u16_le(uint16_t *val, const unsigned char *in)
 #endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u16_be(uint16_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u16_be(uint16_t *val, const unsigned char *in) {
 # ifdef OSSL_LE16TOH
     uint16_t t;
 
@@ -233,9 +241,10 @@ OPENSSL_load_u16_be(uint16_t *val, const unsigned char *in)
 #endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u32_le(uint32_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u32_le(uint32_t *val, const unsigned char *in) {
 # ifdef OSSL_LE32TOH
     uint32_t t;
 
@@ -253,9 +262,10 @@ OPENSSL_load_u32_le(uint32_t *val, const unsigned char *in)
 #endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u32_be(uint32_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u32_be(uint32_t *val, const unsigned char *in) {
 # ifdef OSSL_LE32TOH
     uint32_t t;
 
@@ -273,9 +283,10 @@ OPENSSL_load_u32_be(uint32_t *val, const unsigned char *in)
 #endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u64_le(uint64_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u64_le(uint64_t *val, const unsigned char *in) {
 # ifdef OSSL_LE64TOH
     uint64_t t;
 
@@ -293,14 +304,15 @@ OPENSSL_load_u64_le(uint64_t *val, const unsigned char *in)
     uint64_t b7 = *in++;
 
     *val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
-        | (b4 << 32) | (b5 << 40) | (b6 << 48) | (b7 << 56);
+           | (b4 << 32) | (b5 << 40) | (b6 << 48) | (b7 << 56);
     return in;
 #endif
 }
 
-static ossl_inline ossl_unused const unsigned char *
-OPENSSL_load_u64_be(uint64_t *val, const unsigned char *in)
-{
+static ossl_inline ossl_unused
+
+const unsigned char *
+OPENSSL_load_u64_be(uint64_t *val, const unsigned char *in) {
 # ifdef OSSL_LE64TOH
     uint64_t t;
 
@@ -318,7 +330,7 @@ OPENSSL_load_u64_be(uint64_t *val, const unsigned char *in)
     uint64_t b0 = *in++;
 
     *val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
-        | (b4 << 32) | (b5 << 40) | (b6 << 48) | (b7 << 56);
+           | (b4 << 32) | (b5 << 40) | (b6 << 48) | (b7 << 56);
     return in;
 #endif
 }

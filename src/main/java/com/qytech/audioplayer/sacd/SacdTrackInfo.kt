@@ -4,20 +4,21 @@ import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.getStringUntilNextNonNull
 import com.qytech.audioplayer.extension.skip
 import com.qytech.audioplayer.model.ScarletBook
+import com.qytech.audioplayer.utils.Logger
 import timber.log.Timber
 import java.nio.ByteBuffer
 
 data class SacdTrackOffset(
-    val trackStart: Long, val trackLength: Long, val trackEnd: Long
+    val trackStart: Long, val trackLength: Long, val trackEnd: Long,
 ) {
 
     companion object {
         fun read(
-            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean
+            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean,
         ): List<SacdTrackOffset>? {
             val id = buffer.getString(8)
             if (id != ScarletBook.SACD_TRACK_OFFSET) {
-                Timber.d("ID is not SACDTRL1")
+                Logger.d("ID is not SACDTRL1")
                 return null
             }
 
@@ -61,11 +62,11 @@ data class SacdTrackTime(
 
     companion object {
         fun read(
-            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean
+            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean,
         ): List<SacdTrackTime>? {
             val id = buffer.getString(8)
             if (id != ScarletBook.SACD_TRACK_TIME) {
-                Timber.d("ID is not SACDTRL2")
+                Logger.d("ID is not SACDTRL2")
                 return null
             }
 
@@ -119,11 +120,11 @@ data class SacdTrackText(
     val composerPhonetic: String? = null,
     val arrangerPhonetic: String? = null,
     val messagePhonetic: String? = null,
-    val extraMessagePhonetic: String? = null
+    val extraMessagePhonetic: String? = null,
 ) {
     companion object {
         fun read(
-            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean
+            buffer: ByteBuffer, trackCount: Int, isMultiChannel: Boolean,
         ): List<SacdTrackText>? {
             val id = buffer.getString(ScarletBook.SACD_ID_LENGTH)
             if (id != ScarletBook.SACD_TRACK_TEXT) {
@@ -135,11 +136,11 @@ data class SacdTrackText(
             val sacdTrackTexts = mutableListOf<SacdTrackText>()
 
             textOffsetList.forEach { offset ->
-                //Timber.d("Track text offset = $offset")
+                //Logger.d("Track text offset = $offset")
                 buffer.position(offset + if (isMultiChannel) 44 else 0)
 
                 val typeCount = buffer.get().toInt()
-                //Timber.d("Track type count = $typeCount")
+                //Logger.d("Track type count = $typeCount")
                 buffer.skip(3) // Skip 3 bytes
 
                 // 初始化所有字段

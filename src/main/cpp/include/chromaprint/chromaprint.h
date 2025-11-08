@@ -87,12 +87,12 @@ typedef struct ChromaprintMatcherContextPrivate ChromaprintMatcherContext;
 #define CHROMAPRINT_VERSION_PATCH 1
 
 enum ChromaprintAlgorithm {
-	CHROMAPRINT_ALGORITHM_TEST1 = 0,
-	CHROMAPRINT_ALGORITHM_TEST2,
-	CHROMAPRINT_ALGORITHM_TEST3,
-	CHROMAPRINT_ALGORITHM_TEST4,                   // removes leading silence
-	CHROMAPRINT_ALGORITHM_TEST5,
-	CHROMAPRINT_ALGORITHM_DEFAULT = CHROMAPRINT_ALGORITHM_TEST2,
+    CHROMAPRINT_ALGORITHM_TEST1 = 0,
+    CHROMAPRINT_ALGORITHM_TEST2,
+    CHROMAPRINT_ALGORITHM_TEST3,
+    CHROMAPRINT_ALGORITHM_TEST4,                   // removes leading silence
+    CHROMAPRINT_ALGORITHM_TEST5,
+    CHROMAPRINT_ALGORITHM_DEFAULT = CHROMAPRINT_ALGORITHM_TEST2,
 };
 
 /**
@@ -270,7 +270,8 @@ CHROMAPRINT_API int chromaprint_get_fingerprint(ChromaprintContext *ctx, char **
  *
  * @return 0 on error, 1 on success
  */
-CHROMAPRINT_API int chromaprint_get_raw_fingerprint(ChromaprintContext *ctx, uint32_t **fingerprint, int *size);
+CHROMAPRINT_API int
+chromaprint_get_raw_fingerprint(ChromaprintContext *ctx, uint32_t **fingerprint, int *size);
 
 /**
  * Return the length of the current raw fingerprint.
@@ -328,7 +329,9 @@ CHROMAPRINT_API int chromaprint_clear_fingerprint(ChromaprintContext *ctx);
  *
  * @return 0 on error, 1 on success
  */
-CHROMAPRINT_API int chromaprint_encode_fingerprint(const uint32_t *fp, int size, int algorithm, char **encoded_fp, int *encoded_size, int base64);
+CHROMAPRINT_API int
+chromaprint_encode_fingerprint(const uint32_t *fp, int size, int algorithm, char **encoded_fp,
+                               int *encoded_size, int base64);
 
 /**
  * Uncompress and optionally base64-decode an encoded fingerprint
@@ -349,7 +352,9 @@ CHROMAPRINT_API int chromaprint_encode_fingerprint(const uint32_t *fp, int size,
  *
  * @return 0 on error, 1 on success
  */
-CHROMAPRINT_API int chromaprint_decode_fingerprint(const char *encoded_fp, int encoded_size, uint32_t **fp, int *size, int *algorithm, int base64);
+CHROMAPRINT_API int
+chromaprint_decode_fingerprint(const char *encoded_fp, int encoded_size, uint32_t **fp, int *size,
+                               int *algorithm, int base64);
 
 /**
  * Uncompress and optionally base64-decode an encoded fingerprint
@@ -368,7 +373,9 @@ CHROMAPRINT_API int chromaprint_decode_fingerprint(const char *encoded_fp, int e
  *
  * @return 0 on error, 1 on success
  */
-CHROMAPRINT_API int chromaprint_decode_fingerprint_header(const char *encoded_fp, int encoded_size, int *size, int *algorithm, int base64);
+CHROMAPRINT_API int
+chromaprint_decode_fingerprint_header(const char *encoded_fp, int encoded_size, int *size,
+                                      int *algorithm, int base64);
 
 /**
  * Generate a single 32-bit hash for a raw fingerprint.

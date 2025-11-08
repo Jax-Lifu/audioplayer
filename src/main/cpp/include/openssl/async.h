@@ -14,6 +14,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_ASYNC_H
 # endif
@@ -28,6 +29,7 @@
 #define OSSL_ASYNC_FD       int
 #define OSSL_BAD_ASYNC_FD   -1
 #endif
+
 # include <openssl/asyncerr.h>
 
 
@@ -61,7 +63,7 @@ int ASYNC_WAIT_CTX_set_wait_fd(ASYNC_WAIT_CTX *ctx, const void *key,
                                void (*cleanup)(ASYNC_WAIT_CTX *, const void *,
                                                OSSL_ASYNC_FD, void *));
 int ASYNC_WAIT_CTX_get_fd(ASYNC_WAIT_CTX *ctx, const void *key,
-                        OSSL_ASYNC_FD *fd, void **custom_data);
+                          OSSL_ASYNC_FD *fd, void **custom_data);
 int ASYNC_WAIT_CTX_get_all_fds(ASYNC_WAIT_CTX *ctx, OSSL_ASYNC_FD *fd,
                                size_t *numfds);
 int ASYNC_WAIT_CTX_get_callback(ASYNC_WAIT_CTX *ctx,

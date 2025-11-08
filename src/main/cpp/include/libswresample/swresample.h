@@ -126,11 +126,13 @@
 #include "libavutil/samplefmt.h"
 
 #include "libswresample/version_major.h"
+
 #ifndef HAVE_AV_CONFIG_H
 /* When included as part of the ffmpeg build, only include the major version
  * to avoid unnecessary rebuilds. When included externally, keep including
  * the full version information. */
 #include "libswresample/version.h"
+
 #endif
 
 /**
@@ -257,8 +259,10 @@ int swr_is_initialized(struct SwrContext *s);
  *         On error, the Swr context is freed and *ps set to NULL.
  */
 int swr_alloc_set_opts2(struct SwrContext **ps,
-                        const AVChannelLayout *out_ch_layout, enum AVSampleFormat out_sample_fmt, int out_sample_rate,
-                        const AVChannelLayout *in_ch_layout, enum AVSampleFormat  in_sample_fmt, int  in_sample_rate,
+                        const AVChannelLayout *out_ch_layout, enum AVSampleFormat out_sample_fmt,
+                        int out_sample_rate,
+                        const AVChannelLayout *in_ch_layout, enum AVSampleFormat in_sample_fmt,
+                        int in_sample_rate,
                         int log_offset, void *log_ctx);
 /**
  * @}
@@ -311,8 +315,8 @@ void swr_close(struct SwrContext *s);
  *
  * @return number of samples output per channel, negative value on error
  */
-int swr_convert(struct SwrContext *s, uint8_t * const *out, int out_count,
-                                const uint8_t * const *in , int in_count);
+int swr_convert(struct SwrContext *s, uint8_t *const *out, int out_count,
+                const uint8_t *const *in, int in_count);
 
 /**
  * Convert the next timestamp from input to output

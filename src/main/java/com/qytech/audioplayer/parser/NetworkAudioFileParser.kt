@@ -5,6 +5,7 @@ import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.netstream.NetStreamFormat
 import com.qytech.audioplayer.parser.netstream.StreamFormatDetector
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.audioplayer.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -45,22 +46,22 @@ class NetworkAudioFileParser(
             )
         }
 
-        Timber.d("NetworkAudioFileParser: start detecting format for $url")
+        Logger.d("NetworkAudioFileParser: start detecting format for $url")
 
         // 1️⃣ 使用统一的网络探测器检测格式
         val format = StreamFormatDetector.detect(url, headers)
-        Timber.d("NetworkAudioFileParser: detected format = $format")
+        Logger.d("NetworkAudioFileParser: detected format = $format")
 
         when (format) {
             NetStreamFormat.SACD -> {
                 // SACD → SACD 解析器
-                Timber.d("Detected SACD stream, using SacdAudioFileParser")
+                Logger.d("Detected SACD stream, using SacdAudioFileParser")
                 return@withContext SacdAudioFileParser(url, headers).parse()
             }
 
             NetStreamFormat.HLS -> {
                 // HLS 走 Exo 播放，直接返回 Remote AudioInfo
-                Timber.d("Detected HLS stream, returning Remote AudioInfo")
+                Logger.d("Detected HLS stream, returning Remote AudioInfo")
                 return@withContext listOf(
                     AudioInfo.Remote(
                         sourceId = url,
@@ -84,7 +85,7 @@ class NetworkAudioFileParser(
 
             NetStreamFormat.PCM, NetStreamFormat.DSD -> {
                 // 其他音频格式 → FFprobe 获取详细信息
-                Timber.d("Detected PCM/DSD stream, using FFprobe analysis")
+                Logger.d("Detected PCM/DSD stream, using FFprobe analysis")
                 val ffMediaInfo = FFprobe.probeFile(url, headers) ?: return@withContext emptyList()
                 val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
                 return@withContext listOf(

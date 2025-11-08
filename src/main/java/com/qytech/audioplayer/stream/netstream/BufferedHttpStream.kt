@@ -1,5 +1,6 @@
 package com.qytech.audioplayer.stream.netstream
 
+import com.qytech.audioplayer.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,7 +57,7 @@ class BufferedHttpStream(
             }
 
             if (data.isEmpty()) {
-                Timber.d("HTTP 数据读取完毕")
+                Logger.d("HTTP 数据读取完毕")
                 break
             }
 
@@ -122,7 +123,7 @@ class BufferedHttpStream(
      * 支持 seek 到任意位置，会清空缓存并重新下载
      */
     fun seek(offset: Long) {
-        Timber.d("执行 seek($offset)，清空缓存")
+        Logger.d("执行 seek($offset)，清空缓存")
 
         lock.withLock {
             streamOffset = offset
@@ -135,7 +136,7 @@ class BufferedHttpStream(
     }
 
     override fun close() {
-        Timber.d("关闭 BufferedHttpStream")
+        Logger.d("关闭 BufferedHttpStream")
         closed = true
         fetcher.cancel()
         lock.withLock {
@@ -156,7 +157,7 @@ class BufferedHttpStream(
             .headers(headers.toHeaders())
             .addHeader("Range", "bytes=$start-$end")
             .build()
-        // Timber.d("fetchRange: start=$start, end=$end, size=${size}")
+        // Logger.d("fetchRange: start=$start, end=$end, size=${size}")
 
         return client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
@@ -179,7 +180,7 @@ class BufferedHttpStream(
                 Timber.e("HTTP 请求失败: ${response.code}")
                 return -1
             }
-            // Timber.d("response headers: ${response.headers}")
+            // Logger.d("response headers: ${response.headers}")
             response.header("Content-Length")?.toLongOrNull() ?: -1
         }
     }

@@ -3,7 +3,7 @@ package com.qytech.audioplayer.sacd
 import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
 import com.qytech.audioplayer.model.ScarletBook
-import timber.log.Timber
+import com.qytech.audioplayer.utils.Logger
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 
@@ -25,7 +25,7 @@ data class SacdAlbumInfo(
     val discArtistPhoneticPosition: Short, // 碟片艺术家名称的拼音偏移位置
     val discPublisherPhoneticPosition: Short, // 碟片发行商名称的拼音偏移位置
     val discCopyrightPhoneticPosition: Short, // 碟片版权信息的拼音偏移位置
-    val albumInfo: ScarletBook.AlbumInfo // 包含专辑详细信息的对象，通常包含更多关于专辑的文本信息
+    val albumInfo: ScarletBook.AlbumInfo, // 包含专辑详细信息的对象，通常包含更多关于专辑的文本信息
 ) {
     companion object {
         private const val DEBUG = false
@@ -50,9 +50,9 @@ data class SacdAlbumInfo(
          * */
         fun read(buffer: ByteBuffer, encoding: String = "UTF-8"): SacdAlbumInfo? {
             val id = buffer.getString(ScarletBook.SACD_ID_LENGTH)
-            // Timber.d("read id: $id")
+            // Logger.d("read id: $id")
             if (id != ScarletBook.SACD_ALBUM_INFO) {
-                Timber.d("ID is not SACDText")
+                Logger.d("ID is not SACDText")
                 return null
             }
             buffer.skip(8)
@@ -75,7 +75,7 @@ data class SacdAlbumInfo(
             val discArtistPhoneticPosition = buffer.short
             val discPublisherPhoneticPosition = buffer.short
             val discCopyrightPhoneticPosition = buffer.short
-            //Timber.d("read albumTitlePosition: $albumTitlePosition albumArtistPosition: $albumArtistPosition albumPublisherPosition: $albumPublisherPosition albumCopyrightPosition: $albumCopyrightPosition")
+            //Logger.d("read albumTitlePosition: $albumTitlePosition albumArtistPosition: $albumArtistPosition albumPublisherPosition: $albumPublisherPosition albumCopyrightPosition: $albumCopyrightPosition")
 
             // 校验所有的 Position 是否都为 0
             if (listOf(
@@ -97,7 +97,7 @@ data class SacdAlbumInfo(
                     discCopyrightPhoneticPosition
                 ).all { it == 0.toShort() }
             ) {
-                // Timber.d("All positions are zero, skipping processing.")
+                // Logger.d("All positions are zero, skipping processing.")
                 return null
             }
 
@@ -174,7 +174,7 @@ data class SacdAlbumInfo(
             data: ByteArray,
             offset: Short,
             position: Int,
-            encoding: String
+            encoding: String,
         ): String? {
             if (offset == 0.toShort()) {
                 return null

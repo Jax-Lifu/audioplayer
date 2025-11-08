@@ -9,7 +9,10 @@ object SeekableInputStreamFactory {
         return LocalSeekableInputStream(file)
     }
 
-    private fun fromHttpUrl(url: String, headers: Map<String, String> = emptyMap()): SeekableInputStream {
+    private fun fromHttpUrl(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+    ): SeekableInputStream {
         return NetworkSeekableInputStream(url, headers)
     }
 

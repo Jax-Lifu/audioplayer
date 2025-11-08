@@ -64,7 +64,7 @@ extern "C" {
  */
 
 /* For checking general API compatibility when preprocessing */
-# define OPENSSL_VERSION_PREREQ(maj,min)                                \
+# define OPENSSL_VERSION_PREREQ(maj, min)                                \
     ((OPENSSL_VERSION_MAJOR << 16) + OPENSSL_VERSION_MINOR >= ((maj) << 16) + (min))
 
 /*
@@ -107,6 +107,7 @@ extern "C" {
 # endif
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_OPENSSLV_H
 # endif

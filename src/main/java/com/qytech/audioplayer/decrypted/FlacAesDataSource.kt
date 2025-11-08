@@ -14,7 +14,7 @@ import javax.crypto.spec.SecretKeySpec
 class FlacAesDataSource(
     private val upstream: DataSource,
     private val securityKey: String,
-    private val iv: String
+    private val iv: String,
 ) : DataSource {
 
     companion object {

@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_OBJECTS_H
 # endif
@@ -47,23 +48,23 @@ typedef struct obj_name_st {
     const char *data;
 } OBJ_NAME;
 
-# define         OBJ_create_and_add_object(a,b,c) OBJ_create(a,b,c)
+# define         OBJ_create_and_add_object(a, b, c) OBJ_create(a,b,c)
 
 int OBJ_NAME_init(void);
-int OBJ_NAME_new_index(unsigned long (*hash_func) (const char *),
-                       int (*cmp_func) (const char *, const char *),
-                       void (*free_func) (const char *, int, const char *));
+int OBJ_NAME_new_index(unsigned long (*hash_func)(const char *),
+                       int (*cmp_func)(const char *, const char *),
+                       void (*free_func)(const char *, int, const char *));
 const char *OBJ_NAME_get(const char *name, int type);
 int OBJ_NAME_add(const char *name, int type, const char *data);
 int OBJ_NAME_remove(const char *name, int type);
 void OBJ_NAME_cleanup(int type); /* -1 for everything */
-void OBJ_NAME_do_all(int type, void (*fn) (const OBJ_NAME *, void *arg),
+void OBJ_NAME_do_all(int type, void (*fn)(const OBJ_NAME *, void *arg),
                      void *arg);
 void OBJ_NAME_do_all_sorted(int type,
-                            void (*fn) (const OBJ_NAME *, void *arg),
+                            void (*fn)(const OBJ_NAME *, void *arg),
                             void *arg);
 
-DECLARE_ASN1_DUP_FUNCTION_name(ASN1_OBJECT, OBJ)
+DECLARE_ASN1_DUP_FUNCTION_name(ASN1_OBJECT, OBJ )
 ASN1_OBJECT *OBJ_nid2obj(int n);
 const char *OBJ_nid2ln(int n);
 const char *OBJ_nid2sn(int n);
@@ -75,10 +76,10 @@ int OBJ_ln2nid(const char *s);
 int OBJ_sn2nid(const char *s);
 int OBJ_cmp(const ASN1_OBJECT *a, const ASN1_OBJECT *b);
 const void *OBJ_bsearch_(const void *key, const void *base, int num, int size,
-                         int (*cmp) (const void *, const void *));
+                         int (*cmp)(const void *, const void *));
 const void *OBJ_bsearch_ex_(const void *key, const void *base, int num,
                             int size,
-                            int (*cmp) (const void *, const void *),
+                            int (*cmp)(const void *, const void *),
                             int flags);
 
 # define _DECLARE_OBJ_BSEARCH_CMP_FN(scope, type1, type2, nm)    \
@@ -146,14 +147,14 @@ const void *OBJ_bsearch_ex_(const void *key, const void *base, int num,
       } \
       extern void dummy_prototype(void)
 
-# define OBJ_bsearch(type1,key,type2,base,num,cmp)                              \
+# define OBJ_bsearch(type1, key, type2, base, num, cmp)                              \
   ((type2 *)OBJ_bsearch_(CHECKED_PTR_OF(type1,key),CHECKED_PTR_OF(type2,base), \
                          num,sizeof(type2),                             \
                          ((void)CHECKED_PTR_OF(type1,cmp##_type_1),     \
                           (void)CHECKED_PTR_OF(type2,cmp##_type_2),     \
                           cmp##_BSEARCH_CMP_FN)))
 
-# define OBJ_bsearch_ex(type1,key,type2,base,num,cmp,flags)                      \
+# define OBJ_bsearch_ex(type1, key, type2, base, num, cmp, flags)                      \
   ((type2 *)OBJ_bsearch_ex_(CHECKED_PTR_OF(type1,key),CHECKED_PTR_OF(type2,base), \
                          num,sizeof(type2),                             \
                          ((void)CHECKED_PTR_OF(type1,cmp##_type_1),     \

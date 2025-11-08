@@ -101,18 +101,24 @@ typedef struct AVVDPAUContext {
  * @deprecated use av_vdpau_bind_context() instead
  */
 attribute_deprecated
-AVVDPAUContext *av_alloc_vdpaucontext(void);
+        AVVDPAUContext
+*
+
+av_alloc_vdpaucontext(void);
 
 /**
  * @deprecated render2 is public and can be accessed directly
  */
 attribute_deprecated
-AVVDPAU_Render2 av_vdpau_hwaccel_get_render2(const AVVDPAUContext *);
+        AVVDPAU_Render2
+
+av_vdpau_hwaccel_get_render2(const AVVDPAUContext *);
+
 /**
  * @deprecated render2 is public and can be accessed directly
  */
 attribute_deprecated
-void av_vdpau_hwaccel_set_render2(AVVDPAUContext *, AVVDPAU_Render2);
+void av_vdpau_hwaccel_set_render2(AVVDPAUContext * , AVVDPAU_Render2);
 #endif
 
 /**
@@ -163,7 +169,11 @@ int av_vdpau_get_surface_parameters(AVCodecContext *avctx, VdpChromaType *type,
  * @deprecated use av_vdpau_bind_context() instead
  */
 attribute_deprecated
-AVVDPAUContext *av_vdpau_alloc_context(void);
+        AVVDPAUContext
+*
+
+av_vdpau_alloc_context(void);
+
 #endif
 
 /** @} */

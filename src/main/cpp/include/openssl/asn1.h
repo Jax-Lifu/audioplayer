@@ -17,13 +17,17 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_ASN1_H
 # endif
 
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
+
 # include <time.h>
 # include <openssl/e_os2.h>
 # include <openssl/opensslconf.h>
@@ -129,7 +133,7 @@ extern "C" {
 # define SMIME_STREAM            0x1000
 
 /* Stacks for types not otherwise defined in this header */
-SKM_DEFINE_STACK_OF_INTERNAL(X509_ALGOR, X509_ALGOR, X509_ALGOR)
+SKM_DEFINE_STACK_OF_INTERNAL(X509_ALGOR, X509_ALGOR, X509_ALGOR )
 #define sk_X509_ALGOR_num(sk) OPENSSL_sk_num(ossl_check_const_X509_ALGOR_sk_type(sk))
 #define sk_X509_ALGOR_value(sk, idx) ((X509_ALGOR *)OPENSSL_sk_value(ossl_check_const_X509_ALGOR_sk_type(sk), (idx)))
 #define sk_X509_ALGOR_new(cmp) ((STACK_OF(X509_ALGOR) *)OPENSSL_sk_new(ossl_check_X509_ALGOR_compfunc_type(cmp)))
@@ -155,7 +159,6 @@ SKM_DEFINE_STACK_OF_INTERNAL(X509_ALGOR, X509_ALGOR, X509_ALGOR)
 #define sk_X509_ALGOR_dup(sk) ((STACK_OF(X509_ALGOR) *)OPENSSL_sk_dup(ossl_check_const_X509_ALGOR_sk_type(sk)))
 #define sk_X509_ALGOR_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(X509_ALGOR) *)OPENSSL_sk_deep_copy(ossl_check_const_X509_ALGOR_sk_type(sk), ossl_check_X509_ALGOR_copyfunc_type(copyfunc), ossl_check_X509_ALGOR_freefunc_type(freefunc)))
 #define sk_X509_ALGOR_set_cmp_func(sk, cmp) ((sk_X509_ALGOR_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_X509_ALGOR_sk_type(sk), ossl_check_X509_ALGOR_compfunc_type(cmp)))
-
 
 
 # define ASN1_STRING_FLAG_BITS_LEFT 0x08 /* Set if 0x07 has bits left value */
@@ -231,7 +234,7 @@ struct asn1_string_table_st {
     unsigned long flags;
 };
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_STRING_TABLE, ASN1_STRING_TABLE, ASN1_STRING_TABLE)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_STRING_TABLE, ASN1_STRING_TABLE, ASN1_STRING_TABLE )
 #define sk_ASN1_STRING_TABLE_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_STRING_TABLE_sk_type(sk))
 #define sk_ASN1_STRING_TABLE_value(sk, idx) ((ASN1_STRING_TABLE *)OPENSSL_sk_value(ossl_check_const_ASN1_STRING_TABLE_sk_type(sk), (idx)))
 #define sk_ASN1_STRING_TABLE_new(cmp) ((STACK_OF(ASN1_STRING_TABLE) *)OPENSSL_sk_new(ossl_check_ASN1_STRING_TABLE_compfunc_type(cmp)))
@@ -416,7 +419,7 @@ typedef int OSSL_i2d_of_void_ctx(const void *, unsigned char **, void *vctx);
  */
 
 /* ASN1_ITEM pointer exported type */
-typedef const ASN1_ITEM *ASN1_ITEM_EXP (void);
+typedef const ASN1_ITEM *ASN1_ITEM_EXP(void);
 
 /* Macro to obtain ASN1_ITEM pointer from exported type */
 # define ASN1_ITEM_ptr(iptr) (iptr())
@@ -552,7 +555,7 @@ struct asn1_type_st {
     } value;
 };
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_TYPE, ASN1_TYPE, ASN1_TYPE)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_TYPE, ASN1_TYPE, ASN1_TYPE )
 #define sk_ASN1_TYPE_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_TYPE_sk_type(sk))
 #define sk_ASN1_TYPE_value(sk, idx) ((ASN1_TYPE *)OPENSSL_sk_value(ossl_check_const_ASN1_TYPE_sk_type(sk), (idx)))
 #define sk_ASN1_TYPE_new(cmp) ((STACK_OF(ASN1_TYPE) *)OPENSSL_sk_new(ossl_check_ASN1_TYPE_compfunc_type(cmp)))
@@ -580,7 +583,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(ASN1_TYPE, ASN1_TYPE, ASN1_TYPE)
 #define sk_ASN1_TYPE_set_cmp_func(sk, cmp) ((sk_ASN1_TYPE_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ASN1_TYPE_sk_type(sk), ossl_check_ASN1_TYPE_compfunc_type(cmp)))
 
 
-typedef STACK_OF(ASN1_TYPE) ASN1_SEQUENCE_ANY;
+typedef STACK_OF(ASN1_TYPE)
+ASN1_SEQUENCE_ANY;
 
 DECLARE_ASN1_ENCODE_FUNCTIONS_name(ASN1_SEQUENCE_ANY, ASN1_SEQUENCE_ANY)
 DECLARE_ASN1_ENCODE_FUNCTIONS_name(ASN1_SEQUENCE_ANY, ASN1_SET_ANY)
@@ -625,14 +629,16 @@ DECLARE_ASN1_ALLOC_FUNCTIONS_name(ASN1_TYPE, ASN1_TYPE)
 DECLARE_ASN1_ENCODE_FUNCTIONS(ASN1_TYPE, ASN1_ANY, ASN1_TYPE)
 
 int ASN1_TYPE_get(const ASN1_TYPE *a);
-void ASN1_TYPE_set(ASN1_TYPE *a, int type, void *value);
-int ASN1_TYPE_set1(ASN1_TYPE *a, int type, const void *value);
+void ASN1_TYPE_set(ASN1_TYPE * a, int
+type , void *value ) ;
+int ASN1_TYPE_set1(ASN1_TYPE * a, int
+type , const void *value ) ;
 int ASN1_TYPE_cmp(const ASN1_TYPE *a, const ASN1_TYPE *b);
 
 ASN1_TYPE *ASN1_TYPE_pack_sequence(const ASN1_ITEM *it, void *s, ASN1_TYPE **t);
 void *ASN1_TYPE_unpack_sequence(const ASN1_ITEM *it, const ASN1_TYPE *t);
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_OBJECT, ASN1_OBJECT, ASN1_OBJECT)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_OBJECT, ASN1_OBJECT, ASN1_OBJECT )
 #define sk_ASN1_OBJECT_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_OBJECT_sk_type(sk))
 #define sk_ASN1_OBJECT_value(sk, idx) ((ASN1_OBJECT *)OPENSSL_sk_value(ossl_check_const_ASN1_OBJECT_sk_type(sk), (idx)))
 #define sk_ASN1_OBJECT_new(cmp) ((STACK_OF(ASN1_OBJECT) *)OPENSSL_sk_new(ossl_check_ASN1_OBJECT_compfunc_type(cmp)))
@@ -669,10 +675,10 @@ int ASN1_STRING_copy(ASN1_STRING *dst, const ASN1_STRING *str);
 DECLARE_ASN1_DUP_FUNCTION(ASN1_STRING)
 ASN1_STRING *ASN1_STRING_type_new(int type);
 int ASN1_STRING_cmp(const ASN1_STRING *a, const ASN1_STRING *b);
-  /*
-   * Since this is used to store all sorts of things, via macros, for now,
-   * make its data void *
-   */
+/*
+ * Since this is used to store all sorts of things, via macros, for now,
+ * make its data void *
+ */
 int ASN1_STRING_set(ASN1_STRING *str, const void *data, int len);
 void ASN1_STRING_set0(ASN1_STRING *str, void *data, int len);
 int ASN1_STRING_length(const ASN1_STRING *x);
@@ -698,7 +704,7 @@ int ASN1_BIT_STRING_num_asc(const char *name, BIT_STRING_BITNAME *tbl);
 int ASN1_BIT_STRING_set_asc(ASN1_BIT_STRING *bs, const char *name, int value,
                             BIT_STRING_BITNAME *tbl);
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_INTEGER, ASN1_INTEGER, ASN1_INTEGER)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_INTEGER, ASN1_INTEGER, ASN1_INTEGER )
 #define sk_ASN1_INTEGER_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_INTEGER_sk_type(sk))
 #define sk_ASN1_INTEGER_value(sk, idx) ((ASN1_INTEGER *)OPENSSL_sk_value(ossl_check_const_ASN1_INTEGER_sk_type(sk), (idx)))
 #define sk_ASN1_INTEGER_new(cmp) ((STACK_OF(ASN1_INTEGER) *)OPENSSL_sk_new(ossl_check_ASN1_INTEGER_compfunc_type(cmp)))
@@ -726,10 +732,10 @@ SKM_DEFINE_STACK_OF_INTERNAL(ASN1_INTEGER, ASN1_INTEGER, ASN1_INTEGER)
 #define sk_ASN1_INTEGER_set_cmp_func(sk, cmp) ((sk_ASN1_INTEGER_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ASN1_INTEGER_sk_type(sk), ossl_check_ASN1_INTEGER_compfunc_type(cmp)))
 
 
-
 DECLARE_ASN1_FUNCTIONS(ASN1_INTEGER)
-ASN1_INTEGER *d2i_ASN1_UINTEGER(ASN1_INTEGER **a, const unsigned char **pp,
-                                long length);
+ASN1_INTEGER *d2i_ASN1_UINTEGER(ASN1_INTEGER * *a,
+const unsigned char **pp,
+long length ) ;
 DECLARE_ASN1_DUP_FUNCTION(ASN1_INTEGER)
 int ASN1_INTEGER_cmp(const ASN1_INTEGER *x, const ASN1_INTEGER *y);
 
@@ -760,7 +766,7 @@ int ASN1_OCTET_STRING_cmp(const ASN1_OCTET_STRING *a,
 int ASN1_OCTET_STRING_set(ASN1_OCTET_STRING *str, const unsigned char *data,
                           int len);
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_UTF8STRING, ASN1_UTF8STRING, ASN1_UTF8STRING)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_UTF8STRING, ASN1_UTF8STRING, ASN1_UTF8STRING )
 #define sk_ASN1_UTF8STRING_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_UTF8STRING_sk_type(sk))
 #define sk_ASN1_UTF8STRING_value(sk, idx) ((ASN1_UTF8STRING *)OPENSSL_sk_value(ossl_check_const_ASN1_UTF8STRING_sk_type(sk), (idx)))
 #define sk_ASN1_UTF8STRING_new(cmp) ((STACK_OF(ASN1_UTF8STRING) *)OPENSSL_sk_new(ossl_check_ASN1_UTF8STRING_compfunc_type(cmp)))
@@ -797,7 +803,7 @@ DECLARE_ASN1_FUNCTIONS(ASN1_BMPSTRING)
 int UTF8_getc(const unsigned char *str, int len, unsigned long *val);
 int UTF8_putc(unsigned char *str, int len, unsigned long value);
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_GENERALSTRING, ASN1_GENERALSTRING, ASN1_GENERALSTRING)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_GENERALSTRING, ASN1_GENERALSTRING, ASN1_GENERALSTRING )
 #define sk_ASN1_GENERALSTRING_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_GENERALSTRING_sk_type(sk))
 #define sk_ASN1_GENERALSTRING_value(sk, idx) ((ASN1_GENERALSTRING *)OPENSSL_sk_value(ossl_check_const_ASN1_GENERALSTRING_sk_type(sk), (idx)))
 #define sk_ASN1_GENERALSTRING_new(cmp) ((STACK_OF(ASN1_GENERALSTRING) *)OPENSSL_sk_new(ossl_check_ASN1_GENERALSTRING_compfunc_type(cmp)))
@@ -870,11 +876,14 @@ ASN1_OBJECT *ASN1_OBJECT_create(int nid, unsigned char *data, int len,
                                 const char *sn, const char *ln);
 
 int ASN1_INTEGER_get_int64(int64_t *pr, const ASN1_INTEGER *a);
-int ASN1_INTEGER_set_int64(ASN1_INTEGER *a, int64_t r);
+int ASN1_INTEGER_set_int64(ASN1_INTEGER * a, int64_t
+r ) ;
 int ASN1_INTEGER_get_uint64(uint64_t *pr, const ASN1_INTEGER *a);
-int ASN1_INTEGER_set_uint64(ASN1_INTEGER *a, uint64_t r);
+int ASN1_INTEGER_set_uint64(ASN1_INTEGER * a, uint64_t
+r ) ;
 
-int ASN1_INTEGER_set(ASN1_INTEGER *a, long v);
+int ASN1_INTEGER_set(ASN1_INTEGER * a, long
+v ) ;
 long ASN1_INTEGER_get(const ASN1_INTEGER *a);
 ASN1_INTEGER *BN_to_ASN1_INTEGER(const BIGNUM *bn, ASN1_INTEGER *ai);
 BIGNUM *ASN1_INTEGER_to_BN(const ASN1_INTEGER *ai, BIGNUM *bn);
@@ -907,7 +916,7 @@ int ASN1_object_size(int constructed, int length, int tag);
 /* Used to implement other functions */
 void *ASN1_dup(i2d_of_void *i2d, d2i_of_void *d2i, const void *x);
 
-# define ASN1_dup_of(type,i2d,d2i,x) \
+# define ASN1_dup_of(type, i2d, d2i, x) \
     ((type*)ASN1_dup(CHECKED_I2D_OF(type, i2d), \
                      CHECKED_D2I_OF(type, d2i), \
                      CHECKED_PTR_OF(const type, x)))
@@ -930,9 +939,9 @@ int ASN1_item_verify_ex(const ASN1_ITEM *it, const X509_ALGOR *alg,
                 ASN1_item_free(CHECKED_PTR_OF(type, x), ASN1_ITEM_rptr(type))
 
 # ifndef OPENSSL_NO_STDIO
-void *ASN1_d2i_fp(void *(*xnew) (void), d2i_of_void *d2i, FILE *in, void **x);
+void *ASN1_d2i_fp(void *(*xnew)(void), d2i_of_void *d2i, FILE *in, void **x);
 
-#  define ASN1_d2i_fp_of(type,xnew,d2i,in,x) \
+#  define ASN1_d2i_fp_of(type, xnew, d2i, in, x) \
     ((type*)ASN1_d2i_fp(CHECKED_NEW_OF(type, xnew), \
                         CHECKED_D2I_OF(type, d2i), \
                         in, \
@@ -943,7 +952,7 @@ void *ASN1_item_d2i_fp_ex(const ASN1_ITEM *it, FILE *in, void *x,
 void *ASN1_item_d2i_fp(const ASN1_ITEM *it, FILE *in, void *x);
 int ASN1_i2d_fp(i2d_of_void *i2d, FILE *out, const void *x);
 
-#  define ASN1_i2d_fp_of(type,i2d,out,x) \
+#  define ASN1_i2d_fp_of(type, i2d, out, x) \
     (ASN1_i2d_fp(CHECKED_I2D_OF(type, i2d), \
                  out, \
                  CHECKED_PTR_OF(const type, x)))
@@ -954,9 +963,9 @@ int ASN1_STRING_print_ex_fp(FILE *fp, const ASN1_STRING *str, unsigned long flag
 
 int ASN1_STRING_to_UTF8(unsigned char **out, const ASN1_STRING *in);
 
-void *ASN1_d2i_bio(void *(*xnew) (void), d2i_of_void *d2i, BIO *in, void **x);
+void *ASN1_d2i_bio(void *(*xnew)(void), d2i_of_void *d2i, BIO *in, void **x);
 
-#  define ASN1_d2i_bio_of(type,xnew,d2i,in,x) \
+#  define ASN1_d2i_bio_of(type, xnew, d2i, in, x) \
     ((type*)ASN1_d2i_bio( CHECKED_NEW_OF(type, xnew), \
                           CHECKED_D2I_OF(type, d2i), \
                           in, \
@@ -967,7 +976,7 @@ void *ASN1_item_d2i_bio_ex(const ASN1_ITEM *it, BIO *in, void *pval,
 void *ASN1_item_d2i_bio(const ASN1_ITEM *it, BIO *in, void *pval);
 int ASN1_i2d_bio(i2d_of_void *i2d, BIO *out, const void *x);
 
-#  define ASN1_i2d_bio_of(type,i2d,out,x) \
+#  define ASN1_i2d_bio_of(type, i2d, out, x) \
     (ASN1_i2d_bio(CHECKED_I2D_OF(type, i2d), \
                   out, \
                   CHECKED_PTR_OF(const type, x)))
@@ -992,10 +1001,13 @@ const char *ASN1_tag2str(int tag);
 
 int ASN1_UNIVERSALSTRING_to_string(ASN1_UNIVERSALSTRING *s);
 
-int ASN1_TYPE_set_octetstring(ASN1_TYPE *a, unsigned char *data, int len);
+int ASN1_TYPE_set_octetstring(ASN1_TYPE * a, unsigned char * data, int
+len ) ;
 int ASN1_TYPE_get_octetstring(const ASN1_TYPE *a, unsigned char *data, int max_len);
-int ASN1_TYPE_set_int_octetstring(ASN1_TYPE *a, long num,
-                                  unsigned char *data, int len);
+int ASN1_TYPE_set_int_octetstring(ASN1_TYPE * a, long
+num ,
+unsigned char *data,
+int len ) ;
 int ASN1_TYPE_get_int_octetstring(const ASN1_TYPE *a, long *num,
                                   unsigned char *data, int max_len);
 
@@ -1081,7 +1093,7 @@ void ASN1_PCTX_set_oid_flags(ASN1_PCTX *p, unsigned long flags);
 unsigned long ASN1_PCTX_get_str_flags(const ASN1_PCTX *p);
 void ASN1_PCTX_set_str_flags(ASN1_PCTX *p, unsigned long flags);
 
-ASN1_SCTX *ASN1_SCTX_new(int (*scan_cb) (ASN1_SCTX *ctx));
+ASN1_SCTX *ASN1_SCTX_new(int (*scan_cb)(ASN1_SCTX *ctx));
 void ASN1_SCTX_free(ASN1_SCTX *p);
 const ASN1_ITEM *ASN1_SCTX_get_item(ASN1_SCTX *p);
 const ASN1_TEMPLATE *ASN1_SCTX_get_template(ASN1_SCTX *p);
@@ -1101,11 +1113,11 @@ int PEM_write_bio_ASN1_stream(BIO *out, ASN1_VALUE *val, BIO *in, int flags,
 /* cannot constify val because of CMS_dataFinal() */
 int SMIME_write_ASN1(BIO *bio, ASN1_VALUE *val, BIO *data, int flags,
                      int ctype_nid, int econt_nid,
-                     STACK_OF(X509_ALGOR) *mdalgs, const ASN1_ITEM *it);
+                     STACK_OF(X509_ALGOR) * mdalgs , const ASN1_ITEM *it ) ;
 int SMIME_write_ASN1_ex(BIO *bio, ASN1_VALUE *val, BIO *data, int flags,
                         int ctype_nid, int econt_nid,
-                        STACK_OF(X509_ALGOR) *mdalgs, const ASN1_ITEM *it,
-                        OSSL_LIB_CTX *libctx, const char *propq);
+                        STACK_OF(X509_ALGOR) * mdalgs , const ASN1_ITEM *it,
+        OSSL_LIB_CTX * libctx , const char *propq ) ;
 ASN1_VALUE *SMIME_read_ASN1(BIO *bio, BIO **bcont, const ASN1_ITEM *it);
 ASN1_VALUE *SMIME_read_ASN1_ex(BIO *bio, int flags, BIO **bcont,
                                const ASN1_ITEM *it, ASN1_VALUE **x,
@@ -1124,9 +1136,9 @@ const ASN1_ITEM *ASN1_ITEM_get(size_t i);
 # define DECLARE_ASN1_ENCODE_FUNCTIONS_const(type, name) \
          DECLARE_ASN1_ENCODE_FUNCTIONS(type, name)
 # define I2D_OF_const(type) I2D_OF(type)
-# define ASN1_dup_of_const(type,i2d,d2i,x) ASN1_dup_of(type,i2d,d2i,x)
-# define ASN1_i2d_fp_of_const(type,i2d,out,x) ASN1_i2d_fp_of(type,i2d,out,x)
-# define ASN1_i2d_bio_of_const(type,i2d,out,x) ASN1_i2d_bio_of(type,i2d,out,x)
+# define ASN1_dup_of_const(type, i2d, d2i, x) ASN1_dup_of(type,i2d,d2i,x)
+# define ASN1_i2d_fp_of_const(type, i2d, out, x) ASN1_i2d_fp_of(type,i2d,out,x)
+# define ASN1_i2d_bio_of_const(type, i2d, out, x) ASN1_i2d_bio_of(type,i2d,out,x)
 
 # ifdef  __cplusplus
 }

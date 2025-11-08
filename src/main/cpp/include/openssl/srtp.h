@@ -18,6 +18,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_D1_SRTP_H
 # endif
@@ -56,8 +57,8 @@ extern "C" {
 __owur int SSL_CTX_set_tlsext_use_srtp(SSL_CTX *ctx, const char *profiles);
 __owur int SSL_set_tlsext_use_srtp(SSL *ssl, const char *profiles);
 
-__owur STACK_OF(SRTP_PROTECTION_PROFILE) *SSL_get_srtp_profiles(SSL *ssl);
-__owur SRTP_PROTECTION_PROFILE *SSL_get_selected_srtp_profile(SSL *s);
+__owur STACK_OF(SRTP_PROTECTION_PROFILE) * SSL_get_srtp_profiles(SSL * ssl ) ;
+__owur SRTP_PROTECTION_PROFILE * SSL_get_selected_srtp_profile(SSL * s ) ;
 
 # endif
 

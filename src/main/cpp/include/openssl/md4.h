@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_MD4_H
 # endif
@@ -19,8 +20,10 @@
 # include <openssl/opensslconf.h>
 
 # ifndef OPENSSL_NO_MD4
+
 #  include <openssl/e_os2.h>
 #  include <stddef.h>
+
 #  ifdef  __cplusplus
 extern "C" {
 #   endif

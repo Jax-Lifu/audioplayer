@@ -318,6 +318,7 @@
 
 #include "avio.h"
 #include "libavformat/version_major.h"
+
 #ifndef HAVE_AV_CONFIG_H
 /* When included as part of the ffmpeg build, only include the major version
  * to avoid unnecessary rebuilds. When included externally, keep including
@@ -326,6 +327,7 @@
 
 #include "libavutil/frame.h"
 #include "libavcodec/codec.h"
+
 #endif
 
 struct AVFormatContext;
@@ -532,7 +534,7 @@ typedef struct AVOutputFormat {
      * List of supported codec_id-codec_tag pairs, ordered by "better
      * choice first". The arrays are all terminated by AV_CODEC_ID_NONE.
      */
-    const struct AVCodecTag * const *codec_tag;
+    const struct AVCodecTag *const *codec_tag;
 
 
     const AVClass *priv_class; ///< AVClass for the private context
@@ -573,7 +575,7 @@ typedef struct AVInputFormat {
      */
     const char *extensions;
 
-    const struct AVCodecTag * const *codec_tag;
+    const struct AVCodecTag *const *codec_tag;
 
     const AVClass *priv_class; ///< AVClass for the private context
 
@@ -611,8 +613,8 @@ typedef struct AVIndexEntry {
 #define AVINDEX_DISCARD_FRAME  0x0002    /**
                                           * Flag is used to indicate which frame should be discarded after decoding.
                                           */
-    int flags:2;
-    int size:30; //Yeah, trying to keep the size of this small to reduce memory requirements (it is 24 vs. 32 bytes due to possible 8-byte alignment).
+    int flags: 2;
+    int size: 30; //Yeah, trying to keep the size of this small to reduce memory requirements (it is 24 vs. 32 bytes due to possible 8-byte alignment).
     int min_distance;         /**< Minimum distance between this and the previous keyframe, used to avoid unneeded searching. */
 } AVIndexEntry;
 
@@ -876,7 +878,7 @@ typedef struct AVStream {
      *             "codecpar side data".
      */
     attribute_deprecated
-    int            nb_side_data;
+    int nb_side_data;
 #endif
 
     /**
@@ -1224,11 +1226,11 @@ struct AVCodecParserContext *av_stream_get_parser(const AVStream *s);
  * sizeof(AVProgram) must not be used outside libav*.
  */
 typedef struct AVProgram {
-    int            id;
-    int            flags;
+    int id;
+    int flags;
     enum AVDiscard discard;        ///< selects which program to discard and which to feed to the caller
-    unsigned int   *stream_index;
-    unsigned int   nb_stream_indexes;
+    unsigned int *stream_index;
+    unsigned int nb_stream_indexes;
     AVDictionary *metadata;
 
     int program_num;
@@ -1272,7 +1274,8 @@ typedef struct AVChapter {
 typedef int (*av_format_control_message)(struct AVFormatContext *s, int type,
                                          void *data, size_t data_size);
 
-typedef int (*AVOpenCallback)(struct AVFormatContext *s, AVIOContext **pb, const char *url, int flags,
+typedef int (*AVOpenCallback)(struct AVFormatContext *s, AVIOContext **pb, const char *url,
+                              int flags,
                               const AVIOInterruptCB *int_cb, AVDictionary **options);
 
 /**
@@ -1947,6 +1950,7 @@ typedef struct AVFormatContext {
  */
 attribute_deprecated
 void av_format_inject_global_side_data(AVFormatContext *s);
+
 #endif
 
 #if FF_API_GET_DUR_ESTIMATE_METHOD
@@ -1957,7 +1961,9 @@ void av_format_inject_global_side_data(AVFormatContext *s);
  * @deprecated duration_estimation_method is public and can be read directly.
  */
 attribute_deprecated
-enum AVDurationEstimationMethod av_fmt_ctx_get_duration_estimation_method(const AVFormatContext* ctx);
+enum AVDurationEstimationMethod
+av_fmt_ctx_get_duration_estimation_method(const AVFormatContext *ctx);
+
 #endif
 
 /**
@@ -2186,6 +2192,7 @@ uint8_t *av_stream_new_side_data(AVStream *stream,
 attribute_deprecated
 uint8_t *av_stream_get_side_data(const AVStream *stream,
                                  enum AVPacketSideDataType type, size_t *size);
+
 #endif
 
 AVProgram *av_new_program(AVFormatContext *s, int id);
@@ -2455,7 +2462,9 @@ int av_seek_frame(AVFormatContext *s, int stream_index, int64_t timestamp,
  *
  * @note This is part of the new seek API which is still under construction.
  */
-int avformat_seek_file(AVFormatContext *s, int stream_index, int64_t min_ts, int64_t ts, int64_t max_ts, int flags);
+int
+avformat_seek_file(AVFormatContext *s, int stream_index, int64_t min_ts, int64_t ts, int64_t max_ts,
+                   int flags);
 
 /**
  * Discard all internally buffered data. This can be useful when dealing with
@@ -2812,7 +2821,7 @@ void av_pkt_dump_log2(void *avcl, int level, const AVPacket *pkt, int dump_paylo
  * in AVInputFormat.codec_tag and AVOutputFormat.codec_tag
  * @param tag  codec tag to match to a codec ID
  */
-enum AVCodecID av_codec_get_id(const struct AVCodecTag * const *tags, unsigned int tag);
+enum AVCodecID av_codec_get_id(const struct AVCodecTag *const *tags, unsigned int tag);
 
 /**
  * Get the codec tag for the given codec id id.
@@ -2822,7 +2831,7 @@ enum AVCodecID av_codec_get_id(const struct AVCodecTag * const *tags, unsigned i
  * in AVInputFormat.codec_tag and AVOutputFormat.codec_tag
  * @param id   codec ID to match to a codec tag
  */
-unsigned int av_codec_get_tag(const struct AVCodecTag * const *tags, enum AVCodecID id);
+unsigned int av_codec_get_tag(const struct AVCodecTag *const *tags, enum AVCodecID id);
 
 /**
  * Get the codec tag for the given codec id.
@@ -2833,7 +2842,7 @@ unsigned int av_codec_get_tag(const struct AVCodecTag * const *tags, enum AVCode
  * @param tag A pointer to the found tag
  * @return 0 if id was not found in tags, > 0 if it was found
  */
-int av_codec_get_tag2(const struct AVCodecTag * const *tags, enum AVCodecID id,
+int av_codec_get_tag2(const struct AVCodecTag *const *tags, enum AVCodecID id,
                       unsigned int *tag);
 
 int av_find_default_stream_index(AVFormatContext *s);
@@ -2890,6 +2899,7 @@ const AVIndexEntry *avformat_index_get_entry(AVStream *st, int idx);
 const AVIndexEntry *avformat_index_get_entry_from_timestamp(AVStream *st,
                                                             int64_t wanted_timestamp,
                                                             int flags);
+
 /**
  * Add an index entry into a sorted list. Update the entry if the list
  * already contains it.
@@ -2919,11 +2929,11 @@ int av_add_index_entry(AVStream *st, int64_t pos, int64_t timestamp,
  * @param path_size the size of the path buffer
  * @param url the URL to split
  */
-void av_url_split(char *proto,         int proto_size,
+void av_url_split(char *proto, int proto_size,
                   char *authorization, int authorization_size,
-                  char *hostname,      int hostname_size,
+                  char *hostname, int hostname_size,
                   int *port_ptr,
-                  char *path,          int path_size,
+                  char *path, int path_size,
                   const char *url);
 
 
@@ -2959,7 +2969,7 @@ void av_dump_format(AVFormatContext *ic,
  * @return 0 if OK, -1 on format error
  */
 int av_get_frame_filename2(char *buf, int buf_size,
-                          const char *path, int number, int flags);
+                           const char *path, int number, int flags);
 
 int av_get_frame_filename(char *buf, int buf_size,
                           const char *path, int number);
@@ -3029,14 +3039,17 @@ int avformat_query_codec(const AVOutputFormat *ofmt, enum AVCodecID codec_id,
  * @return the table mapping RIFF FourCCs for video to libavcodec AVCodecID.
  */
 const struct AVCodecTag *avformat_get_riff_video_tags(void);
+
 /**
  * @return the table mapping RIFF FourCCs for audio to AVCodecID.
  */
 const struct AVCodecTag *avformat_get_riff_audio_tags(void);
+
 /**
  * @return the table mapping MOV FourCCs for video to libavcodec AVCodecID.
  */
 const struct AVCodecTag *avformat_get_mov_video_tags(void);
+
 /**
  * @return the table mapping MOV FourCCs for audio to AVCodecID.
  */
@@ -3118,6 +3131,7 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
  */
 attribute_deprecated
 AVRational av_stream_get_codec_timebase(const AVStream *st);
+
 #endif
 
 

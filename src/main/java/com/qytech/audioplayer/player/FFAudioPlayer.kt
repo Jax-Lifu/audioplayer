@@ -9,6 +9,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import com.qytech.audioplayer.model.AudioInfo
+import com.qytech.audioplayer.utils.Logger
 import com.qytech.audioplayer.utils.SystemPropUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +47,7 @@ class FFAudioPlayer(
                 action == Intent.ACTION_MEDIA_REMOVED
             ) {
                 if (audioInfo.sourceId.contains(path)) {
-                    Timber.d("usbReceiver onReceive: $action $path")
+                    Logger.d("usbReceiver onReceive: $action $path")
                     stop()
                     release()
                 }
@@ -207,10 +208,9 @@ class FFAudioPlayer(
 
     @SuppressLint("InlinedApi")
     private fun initAudioTrack() = runCatching {
-        //        SystemPropUtil.set("persist.vendor.bypass_sw_lpbk", if (isDsd()) "1" else "0")
         SystemPropUtil.set("persist.vendor.dsd_mode", if (isDsd()) dsdPlayMode.name else "NULL")
         val encoding = if (!isDsd()) {
-            if (audioInfo.bitPreSample == 32) {
+            if (audioInfo.bitPreSample == 32 || audioInfo.bitPreSample == 24) {
                 AudioFormat.ENCODING_PCM_32BIT
             } else {
                 AudioFormat.ENCODING_PCM_16BIT
@@ -231,18 +231,13 @@ class FFAudioPlayer(
                 DSDMode.DOP -> audioInfo.sampleRate / 16
             }
         }
-        Timber.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding")
+        Logger.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding bitPreSample ${audioInfo.bitPreSample}")
         val isI2s = SystemPropUtil.getBoolean("persist.sys.audio.i2s", false)
-        val channels = native_getChannels()
+        native_getChannels()
 
         val channelMask = when {
             // DSD + I2S 强制四声道
             isDsd() && isI2s -> AudioFormat.CHANNEL_OUT_QUAD
-
-            // 根据声道数匹配
-            channels == 1 -> AudioFormat.CHANNEL_OUT_MONO
-            channels == 4 -> AudioFormat.CHANNEL_OUT_QUAD
-
             // 其他默认立体声
             else -> AudioFormat.CHANNEL_OUT_STEREO
         }

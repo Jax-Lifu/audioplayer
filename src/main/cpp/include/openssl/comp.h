@@ -14,6 +14,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_COMP_H
 # endif
@@ -22,17 +23,17 @@
 
 # include <openssl/crypto.h>
 # include <openssl/comperr.h>
+
 # ifdef  __cplusplus
 extern "C" {
 # endif
-
 
 
 # ifndef OPENSSL_NO_COMP
 
 COMP_CTX *COMP_CTX_new(COMP_METHOD *meth);
 const COMP_METHOD *COMP_CTX_get_method(const COMP_CTX *ctx);
-int COMP_CTX_get_type(const COMP_CTX* comp);
+int COMP_CTX_get_type(const COMP_CTX *comp);
 int COMP_get_type(const COMP_METHOD *meth);
 const char *COMP_get_name(const COMP_METHOD *meth);
 void COMP_CTX_free(COMP_CTX *ctx);
@@ -63,7 +64,7 @@ const BIO_METHOD *BIO_f_zstd(void);
 
 typedef struct ssl_comp_st SSL_COMP;
 
-SKM_DEFINE_STACK_OF_INTERNAL(SSL_COMP, SSL_COMP, SSL_COMP)
+SKM_DEFINE_STACK_OF_INTERNAL(SSL_COMP, SSL_COMP, SSL_COMP )
 #define sk_SSL_COMP_num(sk) OPENSSL_sk_num(ossl_check_const_SSL_COMP_sk_type(sk))
 #define sk_SSL_COMP_value(sk, idx) ((SSL_COMP *)OPENSSL_sk_value(ossl_check_const_SSL_COMP_sk_type(sk), (idx)))
 #define sk_SSL_COMP_new(cmp) ((STACK_OF(SSL_COMP) *)OPENSSL_sk_new(ossl_check_SSL_COMP_compfunc_type(cmp)))
@@ -89,7 +90,6 @@ SKM_DEFINE_STACK_OF_INTERNAL(SSL_COMP, SSL_COMP, SSL_COMP)
 #define sk_SSL_COMP_dup(sk) ((STACK_OF(SSL_COMP) *)OPENSSL_sk_dup(ossl_check_const_SSL_COMP_sk_type(sk)))
 #define sk_SSL_COMP_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(SSL_COMP) *)OPENSSL_sk_deep_copy(ossl_check_const_SSL_COMP_sk_type(sk), ossl_check_SSL_COMP_copyfunc_type(copyfunc), ossl_check_SSL_COMP_freefunc_type(freefunc)))
 #define sk_SSL_COMP_set_cmp_func(sk, cmp) ((sk_SSL_COMP_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_SSL_COMP_sk_type(sk), ossl_check_SSL_COMP_compfunc_type(cmp)))
-
 
 
 # ifdef  __cplusplus

@@ -246,13 +246,13 @@ enum AVFrameSideDataType {
 };
 
 enum AVActiveFormatDescription {
-    AV_AFD_SAME         = 8,
-    AV_AFD_4_3          = 9,
-    AV_AFD_16_9         = 10,
-    AV_AFD_14_9         = 11,
-    AV_AFD_4_3_SP_14_9  = 13,
+    AV_AFD_SAME = 8,
+    AV_AFD_4_3 = 9,
+    AV_AFD_16_9 = 10,
+    AV_AFD_14_9 = 11,
+    AV_AFD_4_3_SP_14_9 = 13,
     AV_AFD_16_9_SP_14_9 = 14,
-    AV_AFD_SP_4_3       = 15,
+    AV_AFD_SP_4_3 = 15,
 };
 
 
@@ -265,7 +265,7 @@ enum AVActiveFormatDescription {
 typedef struct AVFrameSideData {
     enum AVFrameSideDataType type;
     uint8_t *data;
-    size_t   size;
+    size_t size;
     AVDictionary *metadata;
     AVBufferRef *buf;
 } AVFrameSideData;
@@ -282,7 +282,7 @@ enum AVSideDataProps {
      * Multiple instances of this side data type can be meaningfully present in
      * a single side data array.
      */
-    AV_SIDE_DATA_PROP_MULTI  = (1 << 1),
+    AV_SIDE_DATA_PROP_MULTI = (1 << 1),
 };
 
 /**
@@ -293,12 +293,12 @@ typedef struct AVSideDataDescriptor {
     /**
      * Human-readable side data description.
      */
-    const char      *name;
+    const char *name;
 
     /**
      * Side data property flags, a combination of AVSideDataProps values.
      */
-    unsigned         props;
+    unsigned props;
 } AVSideDataDescriptor;
 
 /**
@@ -617,10 +617,10 @@ typedef struct AVFrame {
     /**
      * Number of elements in extended_buf.
      */
-    int        nb_extended_buf;
+    int nb_extended_buf;
 
     AVFrameSideData **side_data;
-    int            nb_side_data;
+    int nb_side_data;
 
 /**
  * @defgroup lavu_frame_flags AV_FRAME_FLAGS
@@ -1012,7 +1012,7 @@ enum {
      * are explicitly documented to accept it. Use this flag only if you
      * absolutely know what you are doing.
      */
-    AV_FRAME_CROP_UNALIGNED     = 1 << 0,
+    AV_FRAME_CROP_UNALIGNED = 1 << 0,
 };
 
 /**
@@ -1145,7 +1145,7 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
  * @return a pointer to the side data of a given type on success, NULL if there
  *         is no side data with such type in this set.
  */
-const AVFrameSideData *av_frame_side_data_get_c(const AVFrameSideData * const *sd,
+const AVFrameSideData *av_frame_side_data_get_c(const AVFrameSideData *const *sd,
                                                 const int nb_sd,
                                                 enum AVFrameSideDataType type);
 
@@ -1156,11 +1156,10 @@ const AVFrameSideData *av_frame_side_data_get_c(const AVFrameSideData * const *s
  * @see av_frame_side_data_get_c()
  */
 static inline
-const AVFrameSideData *av_frame_side_data_get(AVFrameSideData * const *sd,
+const AVFrameSideData *av_frame_side_data_get(AVFrameSideData *const *sd,
                                               const int nb_sd,
-                                              enum AVFrameSideDataType type)
-{
-    return av_frame_side_data_get_c((const AVFrameSideData * const *)sd,
+                                              enum AVFrameSideDataType type) {
+    return av_frame_side_data_get_c((const AVFrameSideData *const *) sd,
                                     nb_sd, type);
 }
 

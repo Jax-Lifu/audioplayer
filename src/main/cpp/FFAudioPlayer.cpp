@@ -83,8 +83,8 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
     AVCodecParameters *codecpar = formatContext->streams[audioStreamIndex]->codecpar;
     AVCodecID codecId = codecpar->codec_id;
 
-    LOGD("codecId: %d , codec name %s, dsd mode %d", codecId,
-         avcodec_descriptor_get(codecId)->name, dsd_mode);
+    LOGD("codecId: %d , codec name %s", codecId,
+         avcodec_descriptor_get(codecId)->name);
 
     switch (codecId) {
         case AV_CODEC_ID_DSD_LSBF:
@@ -112,8 +112,22 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
     channels = codecContext->ch_layout.nb_channels;
     timeBase = &formatContext->streams[audioStreamIndex]->time_base;
     AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
-    outputFormat = (in_sample_fmt == AV_SAMPLE_FMT_S32 || in_sample_fmt == AV_SAMPLE_FMT_S32P)
-                   ? AV_SAMPLE_FMT_S32 : AV_SAMPLE_FMT_S16;
+    outputFormat = (codecContext->sample_fmt == AV_SAMPLE_FMT_S32 ||
+                    codecContext->sample_fmt == AV_SAMPLE_FMT_S32P ||
+                    codecContext->sample_fmt == AV_SAMPLE_FMT_FLT ||
+                    codecContext->sample_fmt == AV_SAMPLE_FMT_FLTP ||
+                    codecContext->sample_fmt == AV_SAMPLE_FMT_DBL ||
+                    codecContext->sample_fmt == AV_SAMPLE_FMT_DBLP)
+                   ? AV_SAMPLE_FMT_S32
+                   : AV_SAMPLE_FMT_S16;
+
+    LOGD("decoded sample_rate=%d, channels=%d, sample_fmt=%s , outputFormat=%s",
+         codecContext->sample_rate,
+         codecContext->ch_layout.nb_channels,
+         av_get_sample_fmt_name(codecContext->sample_fmt),
+         av_get_sample_fmt_name(outputFormat));
+
+
     // 如果是 PCM 或 D2P DSD，创建 swrContext
     if (!isDsdAudio() || (isDsdAudio() && dsdMode == D2P)) {
         if (!swrContext) {
@@ -245,27 +259,29 @@ bool FFAudioPlayer::openAudioFile(const char *filePath, const char *headers) {
 }
 
 bool FFAudioPlayer::decodePacket(AVPacket *packet, AVFrame *frame) {
-    if (shouldStopped || isStopped || !formatContext || !packet || !frame) return false;
+    if (shouldStopped || isStopped || !formatContext || !packet || !frame)
+        return false;
 
+    // ---------- 读取音频帧 ----------
     result = av_read_frame(formatContext, packet);
     if (result == AVERROR_EOF) return false;
     if (result < 0) return false;
 
+    // 忽略非音频流
     if (packet->stream_index != audioStreamIndex) {
         av_packet_unref(packet);
         return true;
     }
 
+    // ---------- DSD 音频特殊处理 ----------
     if (isDsdAudio()) {
-        // 更新播放进度
         if (packet->pts != AV_NOPTS_VALUE) {
             double timeSec = packet->pts * av_q2d(*timeBase);
             long positionMs = static_cast<long>(timeSec * 1000);
-            {
-                std::lock_guard<std::mutex> lock(stateMutex);
-                currentPosition = positionMs;
-            }
+            std::lock_guard<std::mutex> lock(stateMutex);
+            currentPosition = positionMs;
         }
+
         switch (dsdMode) {
             case NATIVE:
                 processDSDNative(packet->data, packet->size);
@@ -281,35 +297,75 @@ bool FFAudioPlayer::decodePacket(AVPacket *packet, AVFrame *frame) {
         return true;
     }
 
+    // ---------- PCM 解码逻辑 ----------
     result = avcodec_send_packet(codecContext, packet);
     if (result < 0) {
         av_packet_unref(packet);
         return true;
     }
 
-    while (avcodec_receive_frame(codecContext, frame) == 0) {
-        int outSamples = swr_get_out_samples(swrContext, frame->nb_samples);
-        int outSampleSize = av_get_bytes_per_sample(outputFormat);
-        int bufferOutSize = outSamples * outSampleSize * channels;
+    while (true) {
+        result = avcodec_receive_frame(codecContext, frame);
+        if (result == AVERROR(EAGAIN) || result == AVERROR_EOF || result < 0)
+            break;
 
-        uint8_t *outputBuffer = (uint8_t *) av_malloc(bufferOutSize);
-        if (!outputBuffer) break;
+        // ✅ 只处理有效帧
+        if (frame->nb_samples > 0)
+            processPCM(frame);
 
-        swr_convert(swrContext, &outputBuffer, outSamples, (const uint8_t **) frame->data,
-                    frame->nb_samples);
-        playAudio((char *) outputBuffer, bufferOutSize);
-        av_free(outputBuffer);
-
-        if (frame->pts != AV_NOPTS_VALUE) {
-            long position = frame->pts * av_q2d(*timeBase) * 1000;
-            std::lock_guard<std::mutex> lock(stateMutex);
-            currentPosition = position;
-        }
+        av_frame_unref(frame);
     }
 
     av_packet_unref(packet);
     return true;
 }
+
+
+void FFAudioPlayer::processPCM(AVFrame *frame) {
+    if (!frame || !codecContext) return;
+
+    // 如果 swrContext 没有创建，直接返回（一般在 init 已经创建）
+    if (!swrContext) return;
+
+    // 计算输出样本数量：考虑 swr 内部延迟 + 当前帧样本数
+    int outSamples = av_rescale_rnd(
+            swr_get_delay(swrContext, frame->sample_rate) + frame->nb_samples,
+            sampleRate, frame->sample_rate, AV_ROUND_UP);
+
+    // 每个样本占用字节数（输出格式）
+    int outSampleSize = av_get_bytes_per_sample(outputFormat);
+
+    // 输出缓冲区大小 = 样本数 * 通道数 * 每个样本字节数
+    int bufferOutSize = outSamples * outSampleSize * channels;
+
+    // 分配输出缓冲区
+    uint8_t *outputBuffer = (uint8_t *) av_malloc(bufferOutSize);
+    if (!outputBuffer) return;
+
+    // 执行重采样
+    int convertedSamples = swr_convert(
+            swrContext,
+            &outputBuffer,         // 输出缓冲区
+            outSamples,            // 输出样本数
+            (const uint8_t **) frame->data, // 输入 PCM 数据
+            frame->nb_samples);    // 输入样本数
+
+    if (convertedSamples > 0) {
+        int dataSize = convertedSamples * outSampleSize * channels;
+        playAudio(reinterpret_cast<const char *>(outputBuffer), dataSize);
+    }
+
+    av_free(outputBuffer);
+
+    // 更新播放进度
+    if (frame->pts != AV_NOPTS_VALUE) {
+        double timeSec = frame->pts * av_q2d(*timeBase);
+        long positionMs = static_cast<long>(timeSec * 1000);
+        std::lock_guard<std::mutex> lock(stateMutex);
+        currentPosition = positionMs;
+    }
+}
+
 
 void FFAudioPlayer::decodeLoop() {
     AVPacket *packet = av_packet_alloc();

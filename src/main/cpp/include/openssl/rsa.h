@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_RSA_H
 # endif
@@ -22,13 +23,20 @@
 # include <openssl/bio.h>
 # include <openssl/crypto.h>
 # include <openssl/types.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0
+
 #  include <openssl/bn.h>
+
 # endif
+
 # include <openssl/rsaerr.h>
 # include <openssl/safestack.h>
+
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
 
 # ifdef  __cplusplus
@@ -205,26 +213,27 @@ int EVP_PKEY_CTX_get0_rsa_oaep_label(EVP_PKEY_CTX *ctx, unsigned char **label);
 
 # define RSA_PKCS1_PADDING_SIZE    11
 
-# define RSA_set_app_data(s,arg)         RSA_set_ex_data(s,0,arg)
+# define RSA_set_app_data(s, arg)         RSA_set_ex_data(s,0,arg)
 # define RSA_get_app_data(s)             RSA_get_ex_data(s,0)
 
 # ifndef OPENSSL_NO_DEPRECATED_3_0
-OSSL_DEPRECATEDIN_3_0 RSA *RSA_new(void);
-OSSL_DEPRECATEDIN_3_0 RSA *RSA_new_method(ENGINE *engine);
+OSSL_DEPRECATEDIN_3_0 RSA * RSA_new(void);
+OSSL_DEPRECATEDIN_3_0 RSA * RSA_new_method(ENGINE * engine ) ;
 OSSL_DEPRECATEDIN_3_0 int RSA_bits(const RSA *rsa);
 OSSL_DEPRECATEDIN_3_0 int RSA_size(const RSA *rsa);
 OSSL_DEPRECATEDIN_3_0 int RSA_security_bits(const RSA *rsa);
 
-OSSL_DEPRECATEDIN_3_0 int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
-OSSL_DEPRECATEDIN_3_0 int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q);
-OSSL_DEPRECATEDIN_3_0 int RSA_set0_crt_params(RSA *r,
-                                              BIGNUM *dmp1, BIGNUM *dmq1,
-                                              BIGNUM *iqmp);
-OSSL_DEPRECATEDIN_3_0 int RSA_set0_multi_prime_params(RSA *r,
-                                                      BIGNUM *primes[],
-                                                      BIGNUM *exps[],
-                                                      BIGNUM *coeffs[],
-                                                      int pnum);
+OSSL_DEPRECATEDIN_3_0 int RSA_set0_key(RSA * r, BIGNUM * n, BIGNUM * e, BIGNUM * d);
+OSSL_DEPRECATEDIN_3_0 int RSA_set0_factors(RSA * r, BIGNUM * p, BIGNUM * q);
+OSSL_DEPRECATEDIN_3_0 int RSA_set0_crt_params(RSA * r,
+                                              BIGNUM * dmp1, BIGNUM * dmq1,
+                                              BIGNUM * iqmp);
+OSSL_DEPRECATEDIN_3_0 int RSA_set0_multi_prime_params(RSA * r,
+                                                      BIGNUM * primes[],
+                                                      BIGNUM * exps[],
+                                                      BIGNUM * coeffs[],
+                                                      int
+pnum ) ;
 OSSL_DEPRECATEDIN_3_0 void RSA_get0_key(const RSA *r,
                                         const BIGNUM **n, const BIGNUM **e,
                                         const BIGNUM **d);
@@ -240,20 +249,22 @@ OSSL_DEPRECATEDIN_3_0 void RSA_get0_crt_params(const RSA *r,
 OSSL_DEPRECATEDIN_3_0
 int RSA_get0_multi_prime_crt_params(const RSA *r, const BIGNUM *exps[],
                                     const BIGNUM *coeffs[]);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_n(const RSA *d);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_e(const RSA *d);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_d(const RSA *d);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_p(const RSA *d);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_q(const RSA *d);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_dmp1(const RSA *r);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_dmq1(const RSA *r);
-OSSL_DEPRECATEDIN_3_0 const BIGNUM *RSA_get0_iqmp(const RSA *r);
-OSSL_DEPRECATEDIN_3_0 const RSA_PSS_PARAMS *RSA_get0_pss_params(const RSA *r);
-OSSL_DEPRECATEDIN_3_0 void RSA_clear_flags(RSA *r, int flags);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_n(const RSA *d);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_e(const RSA *d);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_d(const RSA *d);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_p(const RSA *d);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_q(const RSA *d);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_dmp1(const RSA *r);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_dmq1(const RSA *r);
+OSSL_DEPRECATEDIN_3_0 const BIGNUM * RSA_get0_iqmp(const RSA *r);
+OSSL_DEPRECATEDIN_3_0 const RSA_PSS_PARAMS * RSA_get0_pss_params(const RSA *r);
+OSSL_DEPRECATEDIN_3_0 void RSA_clear_flags(RSA * r, int
+flags ) ;
 OSSL_DEPRECATEDIN_3_0 int RSA_test_flags(const RSA *r, int flags);
-OSSL_DEPRECATEDIN_3_0 void RSA_set_flags(RSA *r, int flags);
-OSSL_DEPRECATEDIN_3_0 int RSA_get_version(RSA *r);
-OSSL_DEPRECATEDIN_3_0 ENGINE *RSA_get0_engine(const RSA *r);
+OSSL_DEPRECATEDIN_3_0 void RSA_set_flags(RSA * r, int
+flags ) ;
+OSSL_DEPRECATEDIN_3_0 int RSA_get_version(RSA * r);
+OSSL_DEPRECATEDIN_3_0 ENGINE * RSA_get0_engine(const RSA *r);
 # endif  /* !OPENSSL_NO_DEPRECATED_3_0 */
 
 # define EVP_RSA_gen(bits) \
@@ -261,34 +272,40 @@ OSSL_DEPRECATEDIN_3_0 ENGINE *RSA_get0_engine(const RSA *r);
 
 /* Deprecated version */
 # ifndef OPENSSL_NO_DEPRECATED_0_9_8
-OSSL_DEPRECATEDIN_0_9_8 RSA *RSA_generate_key(int bits, unsigned long e, void
-                                              (*callback) (int, int, void *),
-                                              void *cb_arg);
+OSSL_DEPRECATEDIN_0_9_8 RSA * RSA_generate_key(int bits, unsigned long e, void
+(*callback)(int, int, void *),
+                                               void *cb_arg);
 # endif
 
 /* New version */
 # ifndef OPENSSL_NO_DEPRECATED_3_0
-OSSL_DEPRECATEDIN_3_0 int RSA_generate_key_ex(RSA *rsa, int bits, BIGNUM *e,
-                                              BN_GENCB *cb);
+OSSL_DEPRECATEDIN_3_0 int RSA_generate_key_ex(RSA * rsa, int
+bits , BIGNUM *e,
+        BN_GENCB * cb ) ;
 /* Multi-prime version */
-OSSL_DEPRECATEDIN_3_0 int RSA_generate_multi_prime_key(RSA *rsa, int bits,
-                                                       int primes, BIGNUM *e,
-                                                       BN_GENCB *cb);
+OSSL_DEPRECATEDIN_3_0 int RSA_generate_multi_prime_key(RSA * rsa, int
+bits ,
+int primes, BIGNUM * e ,
+BN_GENCB *cb ) ;
 
 OSSL_DEPRECATEDIN_3_0
-int RSA_X931_derive_ex(RSA *rsa, BIGNUM *p1, BIGNUM *p2,
-                       BIGNUM *q1, BIGNUM *q2,
-                       const BIGNUM *Xp1, const BIGNUM *Xp2,
-                       const BIGNUM *Xp, const BIGNUM *Xq1,
-                       const BIGNUM *Xq2, const BIGNUM *Xq,
-                       const BIGNUM *e, BN_GENCB *cb);
-OSSL_DEPRECATEDIN_3_0 int RSA_X931_generate_key_ex(RSA *rsa, int bits,
-                                                   const BIGNUM *e,
-                                                   BN_GENCB *cb);
+int RSA_X931_derive_ex(RSA * rsa, BIGNUM * p1, BIGNUM * p2,
+                       BIGNUM * q1, BIGNUM * q2,
+const BIGNUM *Xp1,
+const BIGNUM *Xp2,
+const BIGNUM *Xp,
+const BIGNUM *Xq1,
+const BIGNUM *Xq2,
+const BIGNUM *Xq,
+const BIGNUM *e, BN_GENCB * cb ) ;
+OSSL_DEPRECATEDIN_3_0 int RSA_X931_generate_key_ex(RSA * rsa, int
+bits ,
+const BIGNUM *e,
+        BN_GENCB * cb ) ;
 
 OSSL_DEPRECATEDIN_3_0 int RSA_check_key(const RSA *);
 OSSL_DEPRECATEDIN_3_0 int RSA_check_key_ex(const RSA *, BN_GENCB *cb);
-        /* next 4 return -1 on error */
+/* next 4 return -1 on error */
 OSSL_DEPRECATEDIN_3_0
 int RSA_public_encrypt(int flen, const unsigned char *from, unsigned char *to,
                        RSA *rsa, int padding);
@@ -301,24 +318,25 @@ int RSA_public_decrypt(int flen, const unsigned char *from, unsigned char *to,
 OSSL_DEPRECATEDIN_3_0
 int RSA_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
                         RSA *rsa, int padding);
-OSSL_DEPRECATEDIN_3_0 void RSA_free(RSA *r);
+OSSL_DEPRECATEDIN_3_0 void RSA_free(RSA * r);
 /* "up" the RSA object's reference count */
-OSSL_DEPRECATEDIN_3_0 int RSA_up_ref(RSA *r);
+OSSL_DEPRECATEDIN_3_0 int RSA_up_ref(RSA * r);
 OSSL_DEPRECATEDIN_3_0 int RSA_flags(const RSA *r);
 
 OSSL_DEPRECATEDIN_3_0 void RSA_set_default_method(const RSA_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 const RSA_METHOD *RSA_get_default_method(void);
-OSSL_DEPRECATEDIN_3_0 const RSA_METHOD *RSA_null_method(void);
-OSSL_DEPRECATEDIN_3_0 const RSA_METHOD *RSA_get_method(const RSA *rsa);
-OSSL_DEPRECATEDIN_3_0 int RSA_set_method(RSA *rsa, const RSA_METHOD *meth);
+OSSL_DEPRECATEDIN_3_0 const RSA_METHOD * RSA_get_default_method(void);
+OSSL_DEPRECATEDIN_3_0 const RSA_METHOD * RSA_null_method(void);
+OSSL_DEPRECATEDIN_3_0 const RSA_METHOD * RSA_get_method(const RSA *rsa);
+OSSL_DEPRECATEDIN_3_0 int RSA_set_method(RSA * rsa,
+const RSA_METHOD *meth ) ;
 
 /* these are the actual RSA functions */
-OSSL_DEPRECATEDIN_3_0 const RSA_METHOD *RSA_PKCS1_OpenSSL(void);
+OSSL_DEPRECATEDIN_3_0 const RSA_METHOD * RSA_PKCS1_OpenSSL(void);
 
 DECLARE_ASN1_ENCODE_FUNCTIONS_name_attr(OSSL_DEPRECATEDIN_3_0,
-                                        RSA, RSAPublicKey)
+        RSA, RSAPublicKey )
 DECLARE_ASN1_ENCODE_FUNCTIONS_name_attr(OSSL_DEPRECATEDIN_3_0,
-                                        RSA, RSAPrivateKey)
+        RSA, RSAPrivateKey )
 # endif  /* !OPENSSL_NO_DEPRECATED_3_0 */
 
 int RSA_pkey_ctx_ctrl(EVP_PKEY_CTX *ctx, int optype, int cmd, int p1, void *p2);
@@ -379,9 +397,9 @@ int RSA_verify_ASN1_OCTET_STRING(int type,
                                  unsigned char *sigbuf, unsigned int siglen,
                                  RSA *rsa);
 
-OSSL_DEPRECATEDIN_3_0 int RSA_blinding_on(RSA *rsa, BN_CTX *ctx);
-OSSL_DEPRECATEDIN_3_0 void RSA_blinding_off(RSA *rsa);
-OSSL_DEPRECATEDIN_3_0 BN_BLINDING *RSA_setup_blinding(RSA *rsa, BN_CTX *ctx);
+OSSL_DEPRECATEDIN_3_0 int RSA_blinding_on(RSA * rsa, BN_CTX * ctx);
+OSSL_DEPRECATEDIN_3_0 void RSA_blinding_off(RSA * rsa);
+OSSL_DEPRECATEDIN_3_0 BN_BLINDING * RSA_setup_blinding(RSA * rsa , BN_CTX *ctx ) ;
 
 OSSL_DEPRECATEDIN_3_0
 int RSA_padding_add_PKCS1_type_1(unsigned char *to, int tlen,
@@ -432,32 +450,40 @@ OSSL_DEPRECATEDIN_3_0 int RSA_padding_check_X931(unsigned char *to, int tlen,
 OSSL_DEPRECATEDIN_3_0 int RSA_X931_hash_id(int nid);
 
 OSSL_DEPRECATEDIN_3_0
-int RSA_verify_PKCS1_PSS(RSA *rsa, const unsigned char *mHash,
-                         const EVP_MD *Hash, const unsigned char *EM,
-                         int sLen);
+int RSA_verify_PKCS1_PSS(RSA * rsa,
+const unsigned char *mHash,
+const EVP_MD *Hash,
+const unsigned char *EM,
+int sLen ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_padding_add_PKCS1_PSS(RSA *rsa, unsigned char *EM,
-                              const unsigned char *mHash, const EVP_MD *Hash,
-                              int sLen);
+int RSA_padding_add_PKCS1_PSS(RSA * rsa, unsigned char * EM,
+const unsigned char *mHash,
+const EVP_MD *Hash,
+int sLen ) ;
 
 OSSL_DEPRECATEDIN_3_0
-int RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
-                              const EVP_MD *Hash, const EVP_MD *mgf1Hash,
-                              const unsigned char *EM, int sLen);
+int RSA_verify_PKCS1_PSS_mgf1(RSA * rsa,
+const unsigned char *mHash,
+const EVP_MD *Hash,
+const EVP_MD *mgf1Hash,
+const unsigned char *EM,
+int sLen ) ;
 
 OSSL_DEPRECATEDIN_3_0
-int RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
-                                   const unsigned char *mHash,
-                                   const EVP_MD *Hash, const EVP_MD *mgf1Hash,
-                                   int sLen);
+int RSA_padding_add_PKCS1_PSS_mgf1(RSA * rsa, unsigned char * EM,
+const unsigned char *mHash,
+const EVP_MD *Hash,
+const EVP_MD *mgf1Hash,
+int sLen ) ;
 
 # define RSA_get_ex_new_index(l, p, newf, dupf, freef) \
     CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_RSA, l, p, newf, dupf, freef)
-OSSL_DEPRECATEDIN_3_0 int RSA_set_ex_data(RSA *r, int idx, void *arg);
+OSSL_DEPRECATEDIN_3_0 int RSA_set_ex_data(RSA * r, int
+idx , void *arg ) ;
 OSSL_DEPRECATEDIN_3_0 void *RSA_get_ex_data(const RSA *r, int idx);
 
-DECLARE_ASN1_DUP_FUNCTION_name_attr(OSSL_DEPRECATEDIN_3_0, RSA, RSAPublicKey)
-DECLARE_ASN1_DUP_FUNCTION_name_attr(OSSL_DEPRECATEDIN_3_0, RSA, RSAPrivateKey)
+DECLARE_ASN1_DUP_FUNCTION_name_attr(OSSL_DEPRECATEDIN_3_0, RSA, RSAPublicKey )
+DECLARE_ASN1_DUP_FUNCTION_name_attr(OSSL_DEPRECATEDIN_3_0, RSA, RSAPrivateKey )
 
 /*
  * If this flag is set the RSA method is FIPS compliant and can be used in
@@ -481,132 +507,145 @@ DECLARE_ASN1_DUP_FUNCTION_name_attr(OSSL_DEPRECATEDIN_3_0, RSA, RSAPrivateKey)
  */
 #  define RSA_FLAG_CHECKED                        0x0800
 
-OSSL_DEPRECATEDIN_3_0 RSA_METHOD *RSA_meth_new(const char *name, int flags);
-OSSL_DEPRECATEDIN_3_0 void RSA_meth_free(RSA_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 RSA_METHOD *RSA_meth_dup(const RSA_METHOD *meth);
+OSSL_DEPRECATEDIN_3_0 RSA_METHOD * RSA_meth_new(const char *name, int flags);
+OSSL_DEPRECATEDIN_3_0 void RSA_meth_free(RSA_METHOD * meth);
+OSSL_DEPRECATEDIN_3_0 RSA_METHOD * RSA_meth_dup(const RSA_METHOD *meth);
 OSSL_DEPRECATEDIN_3_0 const char *RSA_meth_get0_name(const RSA_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 int RSA_meth_set1_name(RSA_METHOD *meth,
-                                             const char *name);
+OSSL_DEPRECATEDIN_3_0 int RSA_meth_set1_name(RSA_METHOD * meth,
+const char *name ) ;
 OSSL_DEPRECATEDIN_3_0 int RSA_meth_get_flags(const RSA_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 int RSA_meth_set_flags(RSA_METHOD *meth, int flags);
+OSSL_DEPRECATEDIN_3_0 int RSA_meth_set_flags(RSA_METHOD * meth, int
+flags ) ;
 OSSL_DEPRECATEDIN_3_0 void *RSA_meth_get0_app_data(const RSA_METHOD *meth);
-OSSL_DEPRECATEDIN_3_0 int RSA_meth_set0_app_data(RSA_METHOD *meth,
-                                                 void *app_data);
+OSSL_DEPRECATEDIN_3_0 int RSA_meth_set0_app_data(RSA_METHOD * meth,
+                                                 void * app_data);
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_pub_enc(const RSA_METHOD *meth)) (int flen,
+int (*RSA_meth_get_pub_enc(const RSA_METHOD *meth))(int flen,
+                                                    const unsigned char *from,
+                                                    unsigned char *to,
+                                                    RSA *rsa, int padding);
+OSSL_DEPRECATEDIN_3_0
+int RSA_meth_set_pub_enc(RSA_METHOD * rsa,
+                         int(*pub_enc) ( int flen,
+const unsigned char *from,
+unsigned char *to, RSA * rsa ,
+int padding )) ;
+OSSL_DEPRECATEDIN_3_0
+int (*RSA_meth_get_pub_dec(const RSA_METHOD *meth))(int flen,
+                                                    const unsigned char *from,
+                                                    unsigned char *to,
+                                                    RSA *rsa, int padding);
+OSSL_DEPRECATEDIN_3_0
+int RSA_meth_set_pub_dec(RSA_METHOD * rsa,
+                         int(*pub_dec) ( int flen,
+const unsigned char *from,
+unsigned char *to, RSA * rsa ,
+int padding )) ;
+OSSL_DEPRECATEDIN_3_0
+int (*RSA_meth_get_priv_enc(const RSA_METHOD *meth))(int flen,
                                                      const unsigned char *from,
                                                      unsigned char *to,
                                                      RSA *rsa, int padding);
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_pub_enc(RSA_METHOD *rsa,
-                         int (*pub_enc) (int flen, const unsigned char *from,
-                                         unsigned char *to, RSA *rsa,
-                                         int padding));
+int RSA_meth_set_priv_enc(RSA_METHOD * rsa,
+                          int(*priv_enc) ( int flen,
+const unsigned char *from,
+unsigned char *to, RSA * rsa ,
+int padding )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_pub_dec(const RSA_METHOD *meth)) (int flen,
+int (*RSA_meth_get_priv_dec(const RSA_METHOD *meth))(int flen,
                                                      const unsigned char *from,
                                                      unsigned char *to,
                                                      RSA *rsa, int padding);
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_pub_dec(RSA_METHOD *rsa,
-                         int (*pub_dec) (int flen, const unsigned char *from,
-                                         unsigned char *to, RSA *rsa,
-                                         int padding));
+int RSA_meth_set_priv_dec(RSA_METHOD * rsa,
+                          int(*priv_dec) ( int flen,
+const unsigned char *from,
+unsigned char *to, RSA * rsa ,
+int padding )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_priv_enc(const RSA_METHOD *meth)) (int flen,
-                                                      const unsigned char *from,
-                                                      unsigned char *to,
-                                                      RSA *rsa, int padding);
+int (*RSA_meth_get_mod_exp(const RSA_METHOD *meth)) ( BIGNUM *r0,
+const BIGNUM *i,
+        RSA * rsa , BN_CTX *ctx ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_priv_enc(RSA_METHOD *rsa,
-                          int (*priv_enc) (int flen, const unsigned char *from,
-                                           unsigned char *to, RSA *rsa,
-                                           int padding));
+int RSA_meth_set_mod_exp(RSA_METHOD * rsa,
+                         int(*mod_exp) ( BIGNUM *r0,
+const BIGNUM *i, RSA * rsa ,
+BN_CTX *ctx )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_priv_dec(const RSA_METHOD *meth)) (int flen,
-                                                      const unsigned char *from,
-                                                      unsigned char *to,
-                                                      RSA *rsa, int padding);
+int (*RSA_meth_get_bn_mod_exp(const RSA_METHOD *meth)) ( BIGNUM *r,
+const BIGNUM *a,
+const BIGNUM *p,
+const BIGNUM *m,
+        BN_CTX * ctx ,
+BN_MONT_CTX *m_ctx ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_priv_dec(RSA_METHOD *rsa,
-                          int (*priv_dec) (int flen, const unsigned char *from,
-                                           unsigned char *to, RSA *rsa,
-                                           int padding));
+int RSA_meth_set_bn_mod_exp(RSA_METHOD * rsa,
+                            int(*bn_mod_exp) ( BIGNUM *r,
+const BIGNUM *a,
+const BIGNUM *p,
+const BIGNUM *m,
+        BN_CTX * ctx ,
+BN_MONT_CTX *m_ctx )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_mod_exp(const RSA_METHOD *meth)) (BIGNUM *r0,
-                                                     const BIGNUM *i,
-                                                     RSA *rsa, BN_CTX *ctx);
+int (*RSA_meth_get_init(const RSA_METHOD *meth)) ( RSA *rsa ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_mod_exp(RSA_METHOD *rsa,
-                         int (*mod_exp) (BIGNUM *r0, const BIGNUM *i, RSA *rsa,
-                                         BN_CTX *ctx));
+int RSA_meth_set_init(RSA_METHOD * rsa, int(*init) ( RSA *rsa )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_bn_mod_exp(const RSA_METHOD *meth)) (BIGNUM *r,
-                                                        const BIGNUM *a,
-                                                        const BIGNUM *p,
-                                                        const BIGNUM *m,
-                                                        BN_CTX *ctx,
-                                                        BN_MONT_CTX *m_ctx);
+int (*RSA_meth_get_finish(const RSA_METHOD *meth)) ( RSA *rsa ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_bn_mod_exp(RSA_METHOD *rsa,
-                            int (*bn_mod_exp) (BIGNUM *r,
-                                               const BIGNUM *a,
-                                               const BIGNUM *p,
-                                               const BIGNUM *m,
-                                               BN_CTX *ctx,
-                                               BN_MONT_CTX *m_ctx));
+int RSA_meth_set_finish(RSA_METHOD * rsa, int(*finish) ( RSA *rsa )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_init(const RSA_METHOD *meth)) (RSA *rsa);
+int (*RSA_meth_get_sign(const RSA_METHOD *meth))(int type,
+                                                 const unsigned char *m,
+                                                 unsigned int m_length,
+                                                 unsigned char *sigret,
+                                                 unsigned int *siglen,
+                                                 const RSA *rsa);
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_init(RSA_METHOD *rsa, int (*init) (RSA *rsa));
+int RSA_meth_set_sign(RSA_METHOD * rsa,
+                      int(*sign) ( int type,
+const unsigned char *m,
+unsigned int m_length,
+unsigned char *sigret,
+unsigned int *siglen,
+const RSA *rsa )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_finish(const RSA_METHOD *meth)) (RSA *rsa);
+int (*RSA_meth_get_verify(const RSA_METHOD *meth))(int dtype,
+                                                   const unsigned char *m,
+                                                   unsigned int m_length,
+                                                   const unsigned char *sigbuf,
+                                                   unsigned int siglen,
+                                                   const RSA *rsa);
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_finish(RSA_METHOD *rsa, int (*finish) (RSA *rsa));
+int RSA_meth_set_verify(RSA_METHOD * rsa,
+                        int(*verify) ( int dtype,
+const unsigned char *m,
+unsigned int m_length,
+const unsigned char *sigbuf,
+unsigned int siglen,
+const RSA *rsa )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_sign(const RSA_METHOD *meth)) (int type,
-                                                  const unsigned char *m,
-                                                  unsigned int m_length,
-                                                  unsigned char *sigret,
-                                                  unsigned int *siglen,
-                                                  const RSA *rsa);
+int (*RSA_meth_get_keygen(const RSA_METHOD *meth)) ( RSA *rsa,
+int bits,
+        BIGNUM * e , BN_GENCB *cb ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_sign(RSA_METHOD *rsa,
-                      int (*sign) (int type, const unsigned char *m,
-                                   unsigned int m_length,
-                                   unsigned char *sigret, unsigned int *siglen,
-                                   const RSA *rsa));
+int RSA_meth_set_keygen(RSA_METHOD * rsa,
+                        int(*keygen) ( RSA *rsa,
+int bits, BIGNUM * e ,
+BN_GENCB *cb )) ;
 OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_verify(const RSA_METHOD *meth)) (int dtype,
-                                                    const unsigned char *m,
-                                                    unsigned int m_length,
-                                                    const unsigned char *sigbuf,
-                                                    unsigned int siglen,
-                                                    const RSA *rsa);
+int (*RSA_meth_get_multi_prime_keygen(const RSA_METHOD *meth)) ( RSA *rsa,
+int bits,
+int primes,
+        BIGNUM * e ,
+BN_GENCB *cb ) ;
 OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_verify(RSA_METHOD *rsa,
-                        int (*verify) (int dtype, const unsigned char *m,
-                                       unsigned int m_length,
-                                       const unsigned char *sigbuf,
-                                       unsigned int siglen, const RSA *rsa));
-OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_keygen(const RSA_METHOD *meth)) (RSA *rsa, int bits,
-                                                    BIGNUM *e, BN_GENCB *cb);
-OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_keygen(RSA_METHOD *rsa,
-                        int (*keygen) (RSA *rsa, int bits, BIGNUM *e,
-                                       BN_GENCB *cb));
-OSSL_DEPRECATEDIN_3_0
-int (*RSA_meth_get_multi_prime_keygen(const RSA_METHOD *meth)) (RSA *rsa,
-                                                                int bits,
-                                                                int primes,
-                                                                BIGNUM *e,
-                                                                BN_GENCB *cb);
-OSSL_DEPRECATEDIN_3_0
-int RSA_meth_set_multi_prime_keygen(RSA_METHOD *meth,
-                                    int (*keygen) (RSA *rsa, int bits,
-                                                   int primes, BIGNUM *e,
-                                                   BN_GENCB *cb));
+int RSA_meth_set_multi_prime_keygen(RSA_METHOD * meth,
+                                    int(*keygen) ( RSA *rsa,
+int bits,
+int primes, BIGNUM * e ,
+BN_GENCB *cb )) ;
 #endif  /* !OPENSSL_NO_DEPRECATED_3_0 */
 
 # ifdef  __cplusplus

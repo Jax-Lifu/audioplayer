@@ -26,13 +26,13 @@ data class SacdToc(
     val discDateMonth: Byte, // 碟片的发行月份
     val discDateDay: Byte, // 碟片的发行日期
     val textAreaCount: Byte, // 文本区域数量，表示碟片上包含多少个文本信息区域
-    val localeList: List<ScarletBook.LocaleTable> // 语言区域列表，表示碟片支持的语言或地区信息
+    val localeList: List<ScarletBook.LocaleTable>, // 语言区域列表，表示碟片支持的语言或地区信息
 ) {
     companion object {
         @OptIn(ExperimentalStdlibApi::class)
         fun read(buffer: ByteBuffer): SacdToc? {
             val id = buffer.getString(ScarletBook.SACD_ID_LENGTH)
-            // Timber.d("read id: $id")
+            // Logger.d("read id: $id")
             if (id != ScarletBook.SACD_TOC) {
                 return null
             }

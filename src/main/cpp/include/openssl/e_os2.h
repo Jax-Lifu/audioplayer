@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_E_OS2_H
 # endif
@@ -95,7 +96,7 @@ extern "C" {
 # ifdef OPENSSL_SYS_WINDOWS
 #  ifndef OPENSSL_OPT_WINDLL
 #   if defined(_WINDLL)         /* This is used when building OpenSSL to
-                                 * indicate that DLL linkage should be used */
+* indicate that DLL linkage should be used */
 #    define OPENSSL_OPT_WINDLL
 #   endif
 #  endif
@@ -237,7 +238,7 @@ typedef UINTN uintptr_t;
 #  undef OPENSSL_NO_INTTYPES_H
 /* Because the specs say that inttypes.h includes stdint.h if present */
 #  undef OPENSSL_NO_STDINT_H
-# elif defined(_MSC_VER) && _MSC_VER<1600
+# elif defined(_MSC_VER) && _MSC_VER < 1600
 /*
  * minimally required typdefs for systems not supporting inttypes.h or
  * stdint.h: currently just older VC++
@@ -270,16 +271,16 @@ typedef uint64_t ossl_uintmax_t;
 /* ossl_inline: portable inline definition usable in public headers */
 # if !defined(inline) && !defined(__cplusplus)
 #  if defined(__STDC_VERSION__) && __STDC_VERSION__>=199901L
-   /* just use inline */
+/* just use inline */
 #   define ossl_inline inline
 #  elif defined(__GNUC__) && __GNUC__>=2
 #   define ossl_inline __inline__
 #  elif defined(_MSC_VER)
-  /*
-   * Visual Studio: inline is available in C++ only, however
-   * __inline is available for C, see
-   * http://msdn.microsoft.com/en-us/library/z8y1yy88.aspx
-   */
+/*
+* Visual Studio: inline is available in C++ only, however
+* __inline is available for C, see
+* http://msdn.microsoft.com/en-us/library/z8y1yy88.aspx
+*/
 #   define ossl_inline __inline
 #  else
 #   define ossl_inline

@@ -17,6 +17,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_ASN1T_H
 # endif
@@ -894,7 +895,7 @@ DECLARE_ASN1_ITEM(LONG)
 DECLARE_ASN1_ITEM(ZLONG)
 # endif
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_VALUE, ASN1_VALUE, ASN1_VALUE)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_VALUE, ASN1_VALUE, ASN1_VALUE )
 #define sk_ASN1_VALUE_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_VALUE_sk_type(sk))
 #define sk_ASN1_VALUE_value(sk, idx) ((ASN1_VALUE *)OPENSSL_sk_value(ossl_check_const_ASN1_VALUE_sk_type(sk), (idx)))
 #define sk_ASN1_VALUE_new(cmp) ((STACK_OF(ASN1_VALUE) *)OPENSSL_sk_new(ossl_check_ASN1_VALUE_compfunc_type(cmp)))
@@ -922,15 +923,21 @@ SKM_DEFINE_STACK_OF_INTERNAL(ASN1_VALUE, ASN1_VALUE, ASN1_VALUE)
 #define sk_ASN1_VALUE_set_cmp_func(sk, cmp) ((sk_ASN1_VALUE_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ASN1_VALUE_sk_type(sk), ossl_check_ASN1_VALUE_compfunc_type(cmp)))
 
 
-
 /* Functions used internally by the ASN1 code */
 
-int ASN1_item_ex_new(ASN1_VALUE **pval, const ASN1_ITEM *it);
-void ASN1_item_ex_free(ASN1_VALUE **pval, const ASN1_ITEM *it);
+int ASN1_item_ex_new(ASN1_VALUE * *pval,
+const ASN1_ITEM *it ) ;
+void ASN1_item_ex_free(ASN1_VALUE * *pval,
+const ASN1_ITEM *it ) ;
 
-int ASN1_item_ex_d2i(ASN1_VALUE **pval, const unsigned char **in, long len,
-                     const ASN1_ITEM *it, int tag, int aclass, char opt,
-                     ASN1_TLC *ctx);
+int ASN1_item_ex_d2i(ASN1_VALUE * *pval,
+const unsigned char **in,
+long len,
+const ASN1_ITEM *it,
+int tag,
+int aclass,
+char opt,
+        ASN1_TLC * ctx ) ;
 
 int ASN1_item_ex_i2d(const ASN1_VALUE **pval, unsigned char **out,
                      const ASN1_ITEM *it, int tag, int aclass);

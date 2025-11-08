@@ -12,6 +12,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import com.qytech.audioplayer.decrypted.FlacAesDataSourceFactory
 import com.qytech.audioplayer.decrypted.SecurityKeyDecryptor
 import com.qytech.audioplayer.model.AudioInfo
@@ -96,7 +97,7 @@ class ExoAudioPlayer(
 
             is AudioInfo.Remote -> {
                 when {
-                    audioInfo.sourceId.contains("sonyselect", ignoreCase = true) -> {
+                    isSonySelectMediaSource(audioInfo) -> {
                         val securityKey =
                             audioInfo.encryptedSecurityKey?.let { encryptedSecurityKey ->
                                 SecurityKeyDecryptor.decryptSecurityKey(encryptedSecurityKey)
@@ -114,14 +115,13 @@ class ExoAudioPlayer(
                             .createMediaSource(media)
                     }
 
-                    (audioInfo.sourceId.contains("u3m8", ignoreCase = true) ||
-                            audioInfo.sourceId.contains("m3u8", ignoreCase = true)) -> {
+                    isHlsMediaSource(audioInfo) -> {
                         HlsMediaSource.Factory(cacheDataSourceFactory)
                             .createMediaSource(media)
                     }
 
                     else -> {
-                        DefaultMediaSourceFactory(cacheDataSourceFactory)
+                        ProgressiveMediaSource.Factory(cacheDataSourceFactory)
                             .createMediaSource(media)
                     }
                 }
@@ -135,6 +135,13 @@ class ExoAudioPlayer(
             }
         }
     }
+
+    private fun isSonySelectMediaSource(audioInfo: AudioInfo.Remote): Boolean =
+        audioInfo.sourceId.contains("sonyselect", ignoreCase = true)
+
+    private fun isHlsMediaSource(audioInfo: AudioInfo.Remote): Boolean =
+        (audioInfo.sourceId.contains("u3m8", ignoreCase = true) ||
+                audioInfo.sourceId.contains("m3u8", ignoreCase = true))
 
     override fun play() {
         coroutineScope.launch(Dispatchers.Main) {
@@ -242,7 +249,7 @@ class ExoAudioPlayer(
                     }
                     updateProgress(getCurrentPosition())
                 }
-                delay(500)
+                delay(1000)
             }
         }
     }

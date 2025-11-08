@@ -138,6 +138,8 @@ private:
     void processDSDOp(const uint8_t *src, size_t size);
 
     void processDSDD2P(AVCodecContext *avctx, const AVPacket *avpkt);
+
+    void processPCM(AVFrame *frame);
 };
 
 

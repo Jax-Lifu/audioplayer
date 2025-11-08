@@ -14,6 +14,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_TLS1_H
 # endif
@@ -288,9 +289,9 @@ int SSL_get_shared_sigalgs(SSL *s, int idx,
                            int *psign, int *phash, int *psignandhash,
                            unsigned char *rsig, unsigned char *rhash);
 
-__owur int SSL_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) *chain);
+__owur int SSL_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) * chain ) ;
 
-# define SSL_set_tlsext_host_name(s,name) \
+# define SSL_set_tlsext_host_name(s, name) \
         SSL_ctrl(s,SSL_CTRL_SET_TLSEXT_HOSTNAME,TLSEXT_NAMETYPE_host_name,\
                 (void *)name)
 
@@ -365,8 +366,8 @@ __owur int SSL_check_chain(SSL *s, X509 *x, EVP_PKEY *pk, STACK_OF(X509) *chain)
                 (void (*)(void))cb)
 # endif
 int SSL_CTX_set_tlsext_ticket_key_evp_cb
-    (SSL_CTX *ctx, int (*fp)(SSL *, unsigned char *, unsigned char *,
-                             EVP_CIPHER_CTX *, EVP_MAC_CTX *, int));
+        (SSL_CTX *ctx, int (*fp)(SSL *, unsigned char *, unsigned char *,
+                                 EVP_CIPHER_CTX *, EVP_MAC_CTX *, int));
 
 /* PSK ciphersuites from 4279 */
 # define TLS1_CK_PSK_WITH_RC4_128_SHA                    0x0300008A

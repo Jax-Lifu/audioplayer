@@ -13,14 +13,19 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_BN_H
 # endif
 
 # include <openssl/e_os2.h>
+
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
+
 # include <openssl/opensslconf.h>
 # include <openssl/types.h>
 # include <openssl/crypto.h>
@@ -100,11 +105,11 @@ BN_GENCB *BN_GENCB_new(void);
 void BN_GENCB_free(BN_GENCB *cb);
 
 /* Populate a BN_GENCB structure with an "old"-style callback */
-void BN_GENCB_set_old(BN_GENCB *gencb, void (*callback) (int, int, void *),
+void BN_GENCB_set_old(BN_GENCB *gencb, void (*callback)(int, int, void *),
                       void *cb_arg);
 
 /* Populate a BN_GENCB structure with a "new"-style callback */
-void BN_GENCB_set(BN_GENCB *gencb, int (*callback) (int, int, BN_GENCB *),
+void BN_GENCB_set(BN_GENCB *gencb, int (*callback)(int, int, BN_GENCB *),
                   void *cb_arg);
 
 void *BN_GENCB_get_arg(BN_GENCB *cb);
@@ -274,7 +279,7 @@ int BN_is_negative(const BIGNUM *b);
 
 int BN_div(BIGNUM *dv, BIGNUM *rem, const BIGNUM *m, const BIGNUM *d,
            BN_CTX *ctx);
-# define BN_mod(rem,m,d,ctx) BN_div(NULL,(rem),(m),(d),(ctx))
+# define BN_mod(rem, m, d, ctx) BN_div(NULL,(rem),(m),(d),(ctx))
 int BN_nnmod(BIGNUM *r, const BIGNUM *m, const BIGNUM *d, BN_CTX *ctx);
 int BN_mod_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b, const BIGNUM *m,
                BN_CTX *ctx);
@@ -361,17 +366,19 @@ void BN_consttime_swap(BN_ULONG swap, BIGNUM *a, BIGNUM *b, int nwords);
 /* Deprecated versions */
 # ifndef OPENSSL_NO_DEPRECATED_0_9_8
 OSSL_DEPRECATEDIN_0_9_8
-BIGNUM *BN_generate_prime(BIGNUM *ret, int bits, int safe,
-                          const BIGNUM *add, const BIGNUM *rem,
-                          void (*callback) (int, int, void *),
-                          void *cb_arg);
+        BIGNUM * BN_generate_prime(BIGNUM * ret , int bits,
+int safe,
+const BIGNUM *add,
+const BIGNUM *rem,
+void (*callback)(int, int, void *),
+void *cb_arg ) ;
 OSSL_DEPRECATEDIN_0_9_8
 int BN_is_prime(const BIGNUM *p, int nchecks,
-                void (*callback) (int, int, void *),
+                void (*callback)(int, int, void *),
                 BN_CTX *ctx, void *cb_arg);
 OSSL_DEPRECATEDIN_0_9_8
 int BN_is_prime_fasttest(const BIGNUM *p, int nchecks,
-                         void (*callback) (int, int, void *),
+                         void (*callback)(int, int, void *),
                          BN_CTX *ctx, void *cb_arg,
                          int do_trial_division);
 # endif
@@ -383,40 +390,54 @@ int BN_is_prime_fasttest_ex(const BIGNUM *p, int nchecks, BN_CTX *ctx,
                             int do_trial_division, BN_GENCB *cb);
 # endif
 /* Newer versions */
-int BN_generate_prime_ex2(BIGNUM *ret, int bits, int safe,
-                          const BIGNUM *add, const BIGNUM *rem, BN_GENCB *cb,
-                          BN_CTX *ctx);
-int BN_generate_prime_ex(BIGNUM *ret, int bits, int safe, const BIGNUM *add,
-                         const BIGNUM *rem, BN_GENCB *cb);
+int BN_generate_prime_ex2(BIGNUM * ret, int
+bits , int safe,
+const BIGNUM *add,
+const BIGNUM *rem, BN_GENCB * cb ,
+BN_CTX *ctx ) ;
+int BN_generate_prime_ex(BIGNUM * ret, int
+bits , int safe,
+const BIGNUM *add,
+const BIGNUM *rem, BN_GENCB * cb ) ;
 int BN_check_prime(const BIGNUM *p, BN_CTX *ctx, BN_GENCB *cb);
 
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 OSSL_DEPRECATEDIN_3_0
-int BN_X931_generate_Xpq(BIGNUM *Xp, BIGNUM *Xq, int nbits, BN_CTX *ctx);
+int BN_X931_generate_Xpq(BIGNUM * Xp, BIGNUM * Xq, int
+nbits , BN_CTX *ctx ) ;
 
 OSSL_DEPRECATEDIN_3_0
-int BN_X931_derive_prime_ex(BIGNUM *p, BIGNUM *p1, BIGNUM *p2,
-                            const BIGNUM *Xp, const BIGNUM *Xp1,
-                            const BIGNUM *Xp2, const BIGNUM *e, BN_CTX *ctx,
-                            BN_GENCB *cb);
+int BN_X931_derive_prime_ex(BIGNUM * p, BIGNUM * p1, BIGNUM * p2,
+const BIGNUM *Xp,
+const BIGNUM *Xp1,
+const BIGNUM *Xp2,
+const BIGNUM *e, BN_CTX * ctx ,
+BN_GENCB *cb ) ;
 OSSL_DEPRECATEDIN_3_0
-int BN_X931_generate_prime_ex(BIGNUM *p, BIGNUM *p1, BIGNUM *p2, BIGNUM *Xp1,
-                              BIGNUM *Xp2, const BIGNUM *Xp, const BIGNUM *e,
-                              BN_CTX *ctx, BN_GENCB *cb);
+int BN_X931_generate_prime_ex(BIGNUM * p, BIGNUM * p1, BIGNUM * p2, BIGNUM * Xp1,
+                              BIGNUM * Xp2,
+const BIGNUM *Xp,
+const BIGNUM *e,
+        BN_CTX * ctx , BN_GENCB *cb ) ;
 # endif
 
 BN_MONT_CTX *BN_MONT_CTX_new(void);
-int BN_mod_mul_montgomery(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                          BN_MONT_CTX *mont, BN_CTX *ctx);
-int BN_to_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mont,
-                     BN_CTX *ctx);
-int BN_from_montgomery(BIGNUM *r, const BIGNUM *a, BN_MONT_CTX *mont,
-                       BN_CTX *ctx);
-void BN_MONT_CTX_free(BN_MONT_CTX *mont);
-int BN_MONT_CTX_set(BN_MONT_CTX *mont, const BIGNUM *mod, BN_CTX *ctx);
-BN_MONT_CTX *BN_MONT_CTX_copy(BN_MONT_CTX *to, BN_MONT_CTX *from);
-BN_MONT_CTX *BN_MONT_CTX_set_locked(BN_MONT_CTX **pmont, CRYPTO_RWLOCK *lock,
-                                    const BIGNUM *mod, BN_CTX *ctx);
+int BN_mod_mul_montgomery(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+        BN_MONT_CTX * mont , BN_CTX *ctx ) ;
+int BN_to_montgomery(BIGNUM * r,
+const BIGNUM *a, BN_MONT_CTX * mont ,
+BN_CTX *ctx ) ;
+int BN_from_montgomery(BIGNUM * r,
+const BIGNUM *a, BN_MONT_CTX * mont ,
+BN_CTX *ctx ) ;
+void BN_MONT_CTX_free(BN_MONT_CTX * mont);
+int BN_MONT_CTX_set(BN_MONT_CTX * mont,
+const BIGNUM *mod, BN_CTX * ctx ) ;
+BN_MONT_CTX *BN_MONT_CTX_copy(BN_MONT_CTX * to, BN_MONT_CTX * from);
+BN_MONT_CTX *BN_MONT_CTX_set_locked(BN_MONT_CTX * *pmont, CRYPTO_RWLOCK * lock,
+const BIGNUM *mod, BN_CTX * ctx ) ;
 
 /* BN_BLINDING flags */
 # define BN_BLINDING_NO_UPDATE   0x00000001
@@ -425,28 +446,29 @@ BN_MONT_CTX *BN_MONT_CTX_set_locked(BN_MONT_CTX **pmont, CRYPTO_RWLOCK *lock,
 BN_BLINDING *BN_BLINDING_new(const BIGNUM *A, const BIGNUM *Ai, BIGNUM *mod);
 void BN_BLINDING_free(BN_BLINDING *b);
 int BN_BLINDING_update(BN_BLINDING *b, BN_CTX *ctx);
-int BN_BLINDING_convert(BIGNUM *n, BN_BLINDING *b, BN_CTX *ctx);
-int BN_BLINDING_invert(BIGNUM *n, BN_BLINDING *b, BN_CTX *ctx);
-int BN_BLINDING_convert_ex(BIGNUM *n, BIGNUM *r, BN_BLINDING *b, BN_CTX *);
-int BN_BLINDING_invert_ex(BIGNUM *n, const BIGNUM *r, BN_BLINDING *b,
-                          BN_CTX *);
+int BN_BLINDING_convert(BIGNUM * n, BN_BLINDING * b, BN_CTX * ctx);
+int BN_BLINDING_invert(BIGNUM * n, BN_BLINDING * b, BN_CTX * ctx);
+int BN_BLINDING_convert_ex(BIGNUM * n, BIGNUM * r, BN_BLINDING * b, BN_CTX * );
+int BN_BLINDING_invert_ex(BIGNUM * n,
+const BIGNUM *r, BN_BLINDING * b ,
+BN_CTX * ) ;
 
-int BN_BLINDING_is_current_thread(BN_BLINDING *b);
-void BN_BLINDING_set_current_thread(BN_BLINDING *b);
-int BN_BLINDING_lock(BN_BLINDING *b);
-int BN_BLINDING_unlock(BN_BLINDING *b);
+int BN_BLINDING_is_current_thread(BN_BLINDING * b);
+void BN_BLINDING_set_current_thread(BN_BLINDING * b);
+int BN_BLINDING_lock(BN_BLINDING * b);
+int BN_BLINDING_unlock(BN_BLINDING * b);
 
 unsigned long BN_BLINDING_get_flags(const BN_BLINDING *);
-void BN_BLINDING_set_flags(BN_BLINDING *, unsigned long);
-BN_BLINDING *BN_BLINDING_create_param(BN_BLINDING *b,
-                                      const BIGNUM *e, BIGNUM *m, BN_CTX *ctx,
-                                      int (*bn_mod_exp) (BIGNUM *r,
-                                                         const BIGNUM *a,
-                                                         const BIGNUM *p,
-                                                         const BIGNUM *m,
-                                                         BN_CTX *ctx,
-                                                         BN_MONT_CTX *m_ctx),
-                                      BN_MONT_CTX *m_ctx);
+void BN_BLINDING_set_flags(BN_BLINDING * , unsigned long);
+BN_BLINDING *BN_BLINDING_create_param(BN_BLINDING * b,
+const BIGNUM *e, BIGNUM * m , BN_CTX *ctx,
+int (*bn_mod_exp)(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p,
+const BIGNUM *m,
+        BN_CTX * ctx ,
+BN_MONT_CTX *m_ctx ) ,
+BN_MONT_CTX *m_ctx ) ;
 # ifndef OPENSSL_NO_DEPRECATED_0_9_8
 OSSL_DEPRECATEDIN_0_9_8
 void BN_set_params(int mul, int high, int low, int mont);
@@ -457,12 +479,17 @@ int BN_get_params(int which); /* 0, mul, 1 high, 2 low, 3 mont */
 BN_RECP_CTX *BN_RECP_CTX_new(void);
 void BN_RECP_CTX_free(BN_RECP_CTX *recp);
 int BN_RECP_CTX_set(BN_RECP_CTX *recp, const BIGNUM *rdiv, BN_CTX *ctx);
-int BN_mod_mul_reciprocal(BIGNUM *r, const BIGNUM *x, const BIGNUM *y,
-                          BN_RECP_CTX *recp, BN_CTX *ctx);
-int BN_mod_exp_recp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                    const BIGNUM *m, BN_CTX *ctx);
-int BN_div_recp(BIGNUM *dv, BIGNUM *rem, const BIGNUM *m,
-                BN_RECP_CTX *recp, BN_CTX *ctx);
+int BN_mod_mul_reciprocal(BIGNUM * r,
+const BIGNUM *x,
+const BIGNUM *y,
+        BN_RECP_CTX * recp , BN_CTX *ctx ) ;
+int BN_mod_exp_recp(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p,
+const BIGNUM *m, BN_CTX * ctx ) ;
+int BN_div_recp(BIGNUM * dv, BIGNUM * rem,
+const BIGNUM *m,
+        BN_RECP_CTX * recp , BN_CTX *ctx ) ;
 
 # ifndef OPENSSL_NO_EC2M
 
@@ -476,31 +503,49 @@ int BN_div_recp(BIGNUM *dv, BIGNUM *rem, const BIGNUM *m,
 /*
  * r = a + b
  */
-int BN_GF2m_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
+int BN_GF2m_add(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b ) ;
 #  define BN_GF2m_sub(r, a, b) BN_GF2m_add(r, a, b)
 /*
  * r=a mod p
  */
-int BN_GF2m_mod(BIGNUM *r, const BIGNUM *a, const BIGNUM *p);
+int BN_GF2m_mod(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p ) ;
 /* r = (a * b) mod p */
-int BN_GF2m_mod_mul(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                    const BIGNUM *p, BN_CTX *ctx);
+int BN_GF2m_mod_mul(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const BIGNUM *p, BN_CTX * ctx ) ;
 /* r = (a * a) mod p */
-int BN_GF2m_mod_sqr(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
+int BN_GF2m_mod_sqr(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
 /* r = (1 / b) mod p */
-int BN_GF2m_mod_inv(BIGNUM *r, const BIGNUM *b, const BIGNUM *p, BN_CTX *ctx);
+int BN_GF2m_mod_inv(BIGNUM * r,
+const BIGNUM *b,
+const BIGNUM *p, BN_CTX * ctx ) ;
 /* r = (a / b) mod p */
-int BN_GF2m_mod_div(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                    const BIGNUM *p, BN_CTX *ctx);
+int BN_GF2m_mod_div(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const BIGNUM *p, BN_CTX * ctx ) ;
 /* r = (a ^ b) mod p */
-int BN_GF2m_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                    const BIGNUM *p, BN_CTX *ctx);
+int BN_GF2m_mod_exp(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const BIGNUM *p, BN_CTX * ctx ) ;
 /* r = sqrt(a) mod p */
-int BN_GF2m_mod_sqrt(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                     BN_CTX *ctx);
+int BN_GF2m_mod_sqrt(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p,
+        BN_CTX * ctx ) ;
 /* r^2 + r = a mod p */
-int BN_GF2m_mod_solve_quad(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                           BN_CTX *ctx);
+int BN_GF2m_mod_solve_quad(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p,
+        BN_CTX * ctx ) ;
 #  define BN_GF2m_cmp(a, b) BN_ucmp((a), (b))
 /*-
  * Some functions allow for representation of the irreducible polynomials
@@ -509,28 +554,42 @@ int BN_GF2m_mod_solve_quad(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
  * where m = p[0] > p[1] > ... > p[k] = 0.
  */
 /* r = a mod p */
-int BN_GF2m_mod_arr(BIGNUM *r, const BIGNUM *a, const int p[]);
+int BN_GF2m_mod_arr(BIGNUM * r,
+const BIGNUM *a,
+const int p[] ) ;
 /* r = (a * b) mod p */
-int BN_GF2m_mod_mul_arr(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                        const int p[], BN_CTX *ctx);
+int BN_GF2m_mod_mul_arr(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const int p[], BN_CTX * ctx ) ;
 /* r = (a * a) mod p */
-int BN_GF2m_mod_sqr_arr(BIGNUM *r, const BIGNUM *a, const int p[],
-                        BN_CTX *ctx);
+int BN_GF2m_mod_sqr_arr(BIGNUM * r,
+const BIGNUM *a,
+const int p[],
+        BN_CTX * ctx ) ;
 /* r = (1 / b) mod p */
-int BN_GF2m_mod_inv_arr(BIGNUM *r, const BIGNUM *b, const int p[],
-                        BN_CTX *ctx);
+int BN_GF2m_mod_inv_arr(BIGNUM * r,
+const BIGNUM *b,
+const int p[],
+        BN_CTX * ctx ) ;
 /* r = (a / b) mod p */
-int BN_GF2m_mod_div_arr(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                        const int p[], BN_CTX *ctx);
+int BN_GF2m_mod_div_arr(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const int p[], BN_CTX * ctx ) ;
 /* r = (a ^ b) mod p */
-int BN_GF2m_mod_exp_arr(BIGNUM *r, const BIGNUM *a, const BIGNUM *b,
-                        const int p[], BN_CTX *ctx);
+int BN_GF2m_mod_exp_arr(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *b,
+const int p[], BN_CTX * ctx ) ;
 /* r = sqrt(a) mod p */
-int BN_GF2m_mod_sqrt_arr(BIGNUM *r, const BIGNUM *a,
-                         const int p[], BN_CTX *ctx);
+int BN_GF2m_mod_sqrt_arr(BIGNUM * r,
+const BIGNUM *a,
+const int p[], BN_CTX * ctx ) ;
 /* r^2 + r = a mod p */
-int BN_GF2m_mod_solve_quad_arr(BIGNUM *r, const BIGNUM *a,
-                               const int p[], BN_CTX *ctx);
+int BN_GF2m_mod_solve_quad_arr(BIGNUM * r,
+const BIGNUM *a,
+const int p[], BN_CTX * ctx ) ;
 int BN_GF2m_poly2arr(const BIGNUM *a, int p[], int max);
 int BN_GF2m_arr2poly(const int p[], BIGNUM *a);
 
@@ -539,11 +598,21 @@ int BN_GF2m_arr2poly(const int p[], BIGNUM *a);
 /*
  * faster mod functions for the 'NIST primes' 0 <= a < p^2
  */
-int BN_nist_mod_192(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
-int BN_nist_mod_224(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
-int BN_nist_mod_256(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
-int BN_nist_mod_384(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
-int BN_nist_mod_521(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx);
+int BN_nist_mod_192(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
+int BN_nist_mod_224(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
+int BN_nist_mod_256(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
+int BN_nist_mod_384(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
+int BN_nist_mod_521(BIGNUM * r,
+const BIGNUM *a,
+const BIGNUM *p, BN_CTX * ctx ) ;
 
 const BIGNUM *BN_get0_nist_prime_192(void);
 const BIGNUM *BN_get0_nist_prime_224(void);
@@ -551,24 +620,28 @@ const BIGNUM *BN_get0_nist_prime_256(void);
 const BIGNUM *BN_get0_nist_prime_384(void);
 const BIGNUM *BN_get0_nist_prime_521(void);
 
-int (*BN_nist_mod_func(const BIGNUM *p)) (BIGNUM *r, const BIGNUM *a,
-                                          const BIGNUM *field, BN_CTX *ctx);
+int (*BN_nist_mod_func(const BIGNUM *p)) ( BIGNUM *r,
+const BIGNUM *a,
+const BIGNUM *field, BN_CTX * ctx ) ;
 
-int BN_generate_dsa_nonce(BIGNUM *out, const BIGNUM *range,
-                          const BIGNUM *priv, const unsigned char *message,
-                          size_t message_len, BN_CTX *ctx);
+int BN_generate_dsa_nonce(BIGNUM * out,
+const BIGNUM *range,
+const BIGNUM *priv,
+const unsigned char *message,
+        size_t
+message_len , BN_CTX *ctx ) ;
 
 /* Primes from RFC 2409 */
-BIGNUM *BN_get_rfc2409_prime_768(BIGNUM *bn);
-BIGNUM *BN_get_rfc2409_prime_1024(BIGNUM *bn);
+BIGNUM *BN_get_rfc2409_prime_768(BIGNUM * bn);
+BIGNUM *BN_get_rfc2409_prime_1024(BIGNUM * bn);
 
 /* Primes from RFC 3526 */
-BIGNUM *BN_get_rfc3526_prime_1536(BIGNUM *bn);
-BIGNUM *BN_get_rfc3526_prime_2048(BIGNUM *bn);
-BIGNUM *BN_get_rfc3526_prime_3072(BIGNUM *bn);
-BIGNUM *BN_get_rfc3526_prime_4096(BIGNUM *bn);
-BIGNUM *BN_get_rfc3526_prime_6144(BIGNUM *bn);
-BIGNUM *BN_get_rfc3526_prime_8192(BIGNUM *bn);
+BIGNUM *BN_get_rfc3526_prime_1536(BIGNUM * bn);
+BIGNUM *BN_get_rfc3526_prime_2048(BIGNUM * bn);
+BIGNUM *BN_get_rfc3526_prime_3072(BIGNUM * bn);
+BIGNUM *BN_get_rfc3526_prime_4096(BIGNUM * bn);
+BIGNUM *BN_get_rfc3526_prime_6144(BIGNUM * bn);
+BIGNUM *BN_get_rfc3526_prime_8192(BIGNUM * bn);
 
 #  ifndef OPENSSL_NO_DEPRECATED_1_1_0
 #   define get_rfc2409_prime_768 BN_get_rfc2409_prime_768
@@ -581,7 +654,9 @@ BIGNUM *BN_get_rfc3526_prime_8192(BIGNUM *bn);
 #   define get_rfc3526_prime_8192 BN_get_rfc3526_prime_8192
 #  endif
 
-int BN_bntest_rand(BIGNUM *rnd, int bits, int top, int bottom);
+int BN_bntest_rand(BIGNUM * rnd, int
+bits , int top,
+int bottom ) ;
 
 
 # ifdef  __cplusplus

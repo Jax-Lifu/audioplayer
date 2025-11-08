@@ -166,7 +166,7 @@ int CDSTDecoder::decode(uint8_t *DSTFrame, int frameSize, uint8_t *DSDFrame) {
                 BitVal = ((((uint16_t) Predict) >> 15) ^ Residual) & 1;
 
                 // Shift the result into the correct bit position
-                DSDFrame[(BitNr >> 3) * NrOfChannels + ChNr] |= (uint8_t)(
+                DSDFrame[(BitNr >> 3) * NrOfChannels + ChNr] |= (uint8_t) (
                         BitVal << (7 - (BitNr & 7)));
 
                 // Update filter
@@ -261,7 +261,7 @@ CDSTDecoder::fillTable4Bit(CSegment &S, uint8_t Table4Bit[MAX_CHANNELS][MAX_DSDB
             End = Start + S.Resolution * 8 * S.SegmentLen[ChNr][SegNr];
 
             for (int BitNr = Start; BitNr < End; BitNr++) {
-                uint8_t *p = (uint8_t * ) & Table4Bit[ChNr][BitNr / 2];
+                uint8_t *p = (uint8_t *) &Table4Bit[ChNr][BitNr / 2];
                 int s = (BitNr & 1) << 2;
                 *p = ((uint8_t) Val << s) | (*p & (0xf0 >> s));
             }
@@ -272,7 +272,7 @@ CDSTDecoder::fillTable4Bit(CSegment &S, uint8_t Table4Bit[MAX_CHANNELS][MAX_DSDB
         Val = (int8_t) S.Table4Segment[ChNr][SegNr];
 
         for (int BitNr = Start; BitNr < FrameHdr.NrOfBitsPerCh; BitNr++) {
-            uint8_t *p = (uint8_t * ) & Table4Bit[ChNr][BitNr / 2];
+            uint8_t *p = (uint8_t *) &Table4Bit[ChNr][BitNr / 2];
             int s = (BitNr & 1) << 2;
             *p = ((uint8_t) Val << s) | (*p & (0xf0 >> s));
         }

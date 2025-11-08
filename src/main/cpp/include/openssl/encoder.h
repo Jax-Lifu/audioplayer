@@ -14,8 +14,11 @@
 # include <openssl/opensslconf.h>
 
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
+
 # include <stdarg.h>
 # include <stddef.h>
 # include <openssl/encodererr.h>

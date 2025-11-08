@@ -18,6 +18,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_CRYPTO_H
 # endif
@@ -28,7 +29,9 @@
 # include <openssl/e_os2.h>
 
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
 
 # include <openssl/safestack.h>
@@ -49,7 +52,9 @@
 # include <openssl/symhacks.h>
 
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0
+
 #  include <openssl/opensslv.h>
+
 # endif
 
 #ifdef  __cplusplus
@@ -170,7 +175,7 @@ const char *OpenSSL_version(int type);
 # define OPENSSL_FULL_VERSION_STRING    7
 # define OPENSSL_MODULES_DIR            8
 # define OPENSSL_CPU_INFO               9
-# define OPENSSL_WINCTX             	10
+# define OPENSSL_WINCTX                10
 
 const char *OPENSSL_info(int type);
 /*
@@ -191,7 +196,11 @@ int OPENSSL_issetugid(void);
 
 struct crypto_ex_data_st {
     OSSL_LIB_CTX *ctx;
-    STACK_OF(void) *sk;
+
+    STACK_OF(void)
+
+    *
+    sk;
 };
 
 SKM_DEFINE_STACK_OF_INTERNAL(void, void, void)
@@ -247,12 +256,12 @@ SKM_DEFINE_STACK_OF_INTERNAL(void, void, void)
 # define CRYPTO_EX_INDEX_EVP_PKEY        17
 # define CRYPTO_EX_INDEX__COUNT          18
 
-typedef void CRYPTO_EX_new (void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+typedef void CRYPTO_EX_new(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
                            int idx, long argl, void *argp);
-typedef void CRYPTO_EX_free (void *parent, void *ptr, CRYPTO_EX_DATA *ad,
-                             int idx, long argl, void *argp);
-typedef int CRYPTO_EX_dup (CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
-                           void **from_d, int idx, long argl, void *argp);
+typedef void CRYPTO_EX_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+                            int idx, long argl, void *argp);
+typedef int CRYPTO_EX_dup(CRYPTO_EX_DATA *to, const CRYPTO_EX_DATA *from,
+                          void **from_d, int idx, long argl, void *argp);
 __owur int CRYPTO_get_ex_new_index(int class_index, long argl, void *argp,
                                    CRYPTO_EX_new *new_func,
                                    CRYPTO_EX_dup *dup_func,
@@ -432,7 +441,7 @@ OSSL_DEPRECATEDIN_3_0 int CRYPTO_mem_leaks(BIO *bio);
 /* die if we have to */
 ossl_noreturn void OPENSSL_die(const char *assertion, const char *file, int line);
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0
-#  define OpenSSLDie(f,l,a) OPENSSL_die((a),(f),(l))
+#  define OpenSSLDie(f, l, a) OPENSSL_die((a),(f),(l))
 # endif
 # define OPENSSL_assert(e) \
     (void)((e) ? 0 : (OPENSSL_die("assertion failed: " #e, OPENSSL_FILE, OPENSSL_LINE), 1))
@@ -460,7 +469,7 @@ int OPENSSL_gmtime_diff(int *pday, int *psec,
  * into a defined order as the return value when a != b is undefined, other
  * than to be non-zero.
  */
-int CRYPTO_memcmp(const void * in_a, const void * in_b, size_t len);
+int CRYPTO_memcmp(const void *in_a, const void *in_b, size_t len);
 
 /* Standard initialisation options */
 # define OPENSSL_INIT_NO_LOAD_CRYPTO_STRINGS 0x00000001L

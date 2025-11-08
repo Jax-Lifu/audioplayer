@@ -107,7 +107,7 @@ int dst_decoder_t::init(int channel_count, int samplerate, int framerate) {
             frame_slot->channel_count = channel_count;
             frame_slot->samplerate = samplerate;
             frame_slot->framerate = framerate;
-            frame_slot->dsd_size = (size_t)(samplerate / 8 / framerate * channel_count);
+            frame_slot->dsd_size = (size_t) (samplerate / 8 / framerate * channel_count);
             pthread_mutex_init(&frame_slot->hMutex, NULL);
             pthread_cond_init(&frame_slot->hEventGet, NULL);
             pthread_cond_init(&frame_slot->hEventPut, NULL);
@@ -165,11 +165,11 @@ dst_decoder_t::decode(uint8_t *dst_data, size_t dst_size, uint8_t **dsd_data, si
     switch (frame_slot->state) {
         case SLOT_READY:
             *dsd_data = frame_slot->dsd_data;
-            *dsd_size = (size_t)(samplerate / 8 / framerate * channel_count);
+            *dsd_size = (size_t) (samplerate / 8 / framerate * channel_count);
             break;
         case SLOT_READY_WITH_ERROR:
             *dsd_data = frame_slot->dsd_data;
-            *dsd_size = (size_t)(samplerate / 8 / framerate * channel_count);
+            *dsd_size = (size_t) (samplerate / 8 / framerate * channel_count);
             memset(*dsd_data, DSD_SILENCE_BYTE, *dsd_size);
             break;
         default:

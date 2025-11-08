@@ -12,6 +12,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_TXT_DB_H
 # endif
@@ -34,13 +35,19 @@ extern "C" {
 #endif
 
 typedef OPENSSL_STRING *OPENSSL_PSTRING;
-DEFINE_SPECIAL_STACK_OF(OPENSSL_PSTRING, OPENSSL_STRING)
+DEFINE_SPECIAL_STACK_OF(OPENSSL_PSTRING, OPENSSL_STRING )
 
 typedef struct txt_db_st {
     int num_fields;
-    STACK_OF(OPENSSL_PSTRING) *data;
-    LHASH_OF(OPENSSL_STRING) **index;
-    int (**qual) (OPENSSL_STRING *);
+    STACK_OF(OPENSSL_PSTRING)
+    *
+    data;
+    LHASH_OF(OPENSSL_STRING)
+    **
+    index;
+
+    int (**qual)(OPENSSL_STRING *);
+
     long error;
     long arg1;
     long arg2;
@@ -49,8 +56,9 @@ typedef struct txt_db_st {
 
 TXT_DB *TXT_DB_read(BIO *in, int num);
 long TXT_DB_write(BIO *out, TXT_DB *db);
-int TXT_DB_create_index(TXT_DB *db, int field, int (*qual) (OPENSSL_STRING *),
-                        OPENSSL_LH_HASHFUNC hash, OPENSSL_LH_COMPFUNC cmp);
+int TXT_DB_create_index(TXT_DB *db, int field, int (*qual)(OPENSSL_STRING *),
+        OPENSSL_LH_HASHFUNC
+hash , OPENSSL_LH_COMPFUNC cmp ) ;
 void TXT_DB_free(TXT_DB *db);
 OPENSSL_STRING *TXT_DB_get_by_index(TXT_DB *db, int idx,
                                     OPENSSL_STRING *value);

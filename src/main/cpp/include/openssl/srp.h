@@ -21,6 +21,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_SRP_H
 # endif
@@ -28,6 +29,7 @@
 #include <openssl/opensslconf.h>
 
 #ifndef OPENSSL_NO_SRP
+
 # include <stdio.h>
 # include <string.h>
 # include <openssl/safestack.h>
@@ -44,7 +46,7 @@ typedef struct SRP_gN_cache_st {
     char *b64_bn;
     BIGNUM *bn;
 } SRP_gN_cache;
-SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN_cache, SRP_gN_cache, SRP_gN_cache)
+SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN_cache, SRP_gN_cache, SRP_gN_cache )
 #define sk_SRP_gN_cache_num(sk) OPENSSL_sk_num(ossl_check_const_SRP_gN_cache_sk_type(sk))
 #define sk_SRP_gN_cache_value(sk, idx) ((SRP_gN_cache *)OPENSSL_sk_value(ossl_check_const_SRP_gN_cache_sk_type(sk), (idx)))
 #define sk_SRP_gN_cache_new(cmp) ((STACK_OF(SRP_gN_cache) *)OPENSSL_sk_new(ossl_check_SRP_gN_cache_compfunc_type(cmp)))
@@ -72,7 +74,6 @@ SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN_cache, SRP_gN_cache, SRP_gN_cache)
 #define sk_SRP_gN_cache_set_cmp_func(sk, cmp) ((sk_SRP_gN_cache_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_SRP_gN_cache_sk_type(sk), ossl_check_SRP_gN_cache_compfunc_type(cmp)))
 
 
-
 typedef struct SRP_user_pwd_st {
     /* Owned by us. */
     char *id;
@@ -84,7 +85,7 @@ typedef struct SRP_user_pwd_st {
     /* Owned by us. */
     char *info;
 } SRP_user_pwd;
-SKM_DEFINE_STACK_OF_INTERNAL(SRP_user_pwd, SRP_user_pwd, SRP_user_pwd)
+SKM_DEFINE_STACK_OF_INTERNAL(SRP_user_pwd, SRP_user_pwd, SRP_user_pwd )
 #define sk_SRP_user_pwd_num(sk) OPENSSL_sk_num(ossl_check_const_SRP_user_pwd_sk_type(sk))
 #define sk_SRP_user_pwd_value(sk, idx) ((SRP_user_pwd *)OPENSSL_sk_value(ossl_check_const_SRP_user_pwd_sk_type(sk), (idx)))
 #define sk_SRP_user_pwd_new(cmp) ((STACK_OF(SRP_user_pwd) *)OPENSSL_sk_new(ossl_check_SRP_user_pwd_compfunc_type(cmp)))
@@ -113,18 +114,20 @@ SKM_DEFINE_STACK_OF_INTERNAL(SRP_user_pwd, SRP_user_pwd, SRP_user_pwd)
 
 
 OSSL_DEPRECATEDIN_3_0
-SRP_user_pwd *SRP_user_pwd_new(void);
+        SRP_user_pwd * SRP_user_pwd_new(void);
 OSSL_DEPRECATEDIN_3_0
-void SRP_user_pwd_free(SRP_user_pwd *user_pwd);
+void SRP_user_pwd_free(SRP_user_pwd * user_pwd);
 
 OSSL_DEPRECATEDIN_3_0
-void SRP_user_pwd_set_gN(SRP_user_pwd *user_pwd, const BIGNUM *g,
-                         const BIGNUM *N);
+void SRP_user_pwd_set_gN(SRP_user_pwd * user_pwd,
+const BIGNUM *g,
+const BIGNUM *N ) ;
 OSSL_DEPRECATEDIN_3_0
-int SRP_user_pwd_set1_ids(SRP_user_pwd *user_pwd, const char *id,
-                          const char *info);
+int SRP_user_pwd_set1_ids(SRP_user_pwd * user_pwd,
+const char *id,
+const char *info ) ;
 OSSL_DEPRECATEDIN_3_0
-int SRP_user_pwd_set0_sv(SRP_user_pwd *user_pwd, BIGNUM *s, BIGNUM *v);
+int SRP_user_pwd_set0_sv(SRP_user_pwd * user_pwd, BIGNUM * s, BIGNUM * v);
 
 typedef struct SRP_VBASE_st {
     STACK_OF(SRP_user_pwd) *users_pwd;
@@ -143,7 +146,7 @@ typedef struct SRP_gN_st {
     const BIGNUM *g;
     const BIGNUM *N;
 } SRP_gN;
-SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN, SRP_gN, SRP_gN)
+SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN, SRP_gN, SRP_gN )
 #define sk_SRP_gN_num(sk) OPENSSL_sk_num(ossl_check_const_SRP_gN_sk_type(sk))
 #define sk_SRP_gN_value(sk, idx) ((SRP_gN *)OPENSSL_sk_value(ossl_check_const_SRP_gN_sk_type(sk), (idx)))
 #define sk_SRP_gN_new(cmp) ((STACK_OF(SRP_gN) *)OPENSSL_sk_new(ossl_check_SRP_gN_compfunc_type(cmp)))
@@ -171,20 +174,19 @@ SKM_DEFINE_STACK_OF_INTERNAL(SRP_gN, SRP_gN, SRP_gN)
 #define sk_SRP_gN_set_cmp_func(sk, cmp) ((sk_SRP_gN_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_SRP_gN_sk_type(sk), ossl_check_SRP_gN_compfunc_type(cmp)))
 
 
+OSSL_DEPRECATEDIN_3_0
+        SRP_VBASE * SRP_VBASE_new(char *seed_key);
+OSSL_DEPRECATEDIN_3_0
+void SRP_VBASE_free(SRP_VBASE * vb);
+OSSL_DEPRECATEDIN_3_0
+int SRP_VBASE_init(SRP_VBASE * vb, char * verifier_file);
 
 OSSL_DEPRECATEDIN_3_0
-SRP_VBASE *SRP_VBASE_new(char *seed_key);
-OSSL_DEPRECATEDIN_3_0
-void SRP_VBASE_free(SRP_VBASE *vb);
-OSSL_DEPRECATEDIN_3_0
-int SRP_VBASE_init(SRP_VBASE *vb, char *verifier_file);
-
-OSSL_DEPRECATEDIN_3_0
-int SRP_VBASE_add0_user(SRP_VBASE *vb, SRP_user_pwd *user_pwd);
+int SRP_VBASE_add0_user(SRP_VBASE * vb, SRP_user_pwd * user_pwd);
 
 /* NOTE: unlike in SRP_VBASE_get_by_user, caller owns the returned pointer.*/
 OSSL_DEPRECATEDIN_3_0
-SRP_user_pwd *SRP_VBASE_get1_by_user(SRP_VBASE *vb, char *username);
+        SRP_user_pwd * SRP_VBASE_get1_by_user(SRP_VBASE * vb , char *username ) ;
 
 OSSL_DEPRECATEDIN_3_0
 char *SRP_create_verifier_ex(const char *user, const char *pass, char **salt,
@@ -227,43 +229,43 @@ int SRP_create_verifier_BN(const char *user, const char *pass, BIGNUM **salt,
 OSSL_DEPRECATEDIN_3_0
 char *SRP_check_known_gN_param(const BIGNUM *g, const BIGNUM *N);
 OSSL_DEPRECATEDIN_3_0
-SRP_gN *SRP_get_default_gN(const char *id);
+        SRP_gN * SRP_get_default_gN(const char *id);
 
 /* server side .... */
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_server_key(const BIGNUM *A, const BIGNUM *v, const BIGNUM *u,
-                            const BIGNUM *b, const BIGNUM *N);
+        BIGNUM * SRP_Calc_server_key(const BIGNUM *A, const BIGNUM *v, const BIGNUM *u,
+                                     const BIGNUM *b, const BIGNUM *N);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_B_ex(const BIGNUM *b, const BIGNUM *N, const BIGNUM *g,
-                      const BIGNUM *v, OSSL_LIB_CTX *libctx, const char *propq);
+        BIGNUM * SRP_Calc_B_ex(const BIGNUM *b, const BIGNUM *N, const BIGNUM *g,
+                               const BIGNUM *v, OSSL_LIB_CTX *libctx, const char *propq);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_B(const BIGNUM *b, const BIGNUM *N, const BIGNUM *g,
-                   const BIGNUM *v);
+        BIGNUM * SRP_Calc_B(const BIGNUM *b, const BIGNUM *N, const BIGNUM *g,
+                            const BIGNUM *v);
 
 OSSL_DEPRECATEDIN_3_0
 int SRP_Verify_A_mod_N(const BIGNUM *A, const BIGNUM *N);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_u_ex(const BIGNUM *A, const BIGNUM *B, const BIGNUM *N,
-                      OSSL_LIB_CTX *libctx, const char *propq);
+        BIGNUM * SRP_Calc_u_ex(const BIGNUM *A, const BIGNUM *B, const BIGNUM *N,
+                               OSSL_LIB_CTX *libctx, const char *propq);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_u(const BIGNUM *A, const BIGNUM *B, const BIGNUM *N);
+        BIGNUM * SRP_Calc_u(const BIGNUM *A, const BIGNUM *B, const BIGNUM *N);
 
 /* client side .... */
 
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_x_ex(const BIGNUM *s, const char *user, const char *pass,
-                      OSSL_LIB_CTX *libctx, const char *propq);
+        BIGNUM * SRP_Calc_x_ex(const BIGNUM *s, const char *user, const char *pass,
+                               OSSL_LIB_CTX *libctx, const char *propq);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_x(const BIGNUM *s, const char *user, const char *pass);
+        BIGNUM * SRP_Calc_x(const BIGNUM *s, const char *user, const char *pass);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_A(const BIGNUM *a, const BIGNUM *N, const BIGNUM *g);
+        BIGNUM * SRP_Calc_A(const BIGNUM *a, const BIGNUM *N, const BIGNUM *g);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_client_key_ex(const BIGNUM *N, const BIGNUM *B, const BIGNUM *g,
-                            const BIGNUM *x, const BIGNUM *a, const BIGNUM *u,
-                            OSSL_LIB_CTX *libctx, const char *propq);
+        BIGNUM * SRP_Calc_client_key_ex(const BIGNUM *N, const BIGNUM *B, const BIGNUM *g,
+                                        const BIGNUM *x, const BIGNUM *a, const BIGNUM *u,
+                                        OSSL_LIB_CTX *libctx, const char *propq);
 OSSL_DEPRECATEDIN_3_0
-BIGNUM *SRP_Calc_client_key(const BIGNUM *N, const BIGNUM *B, const BIGNUM *g,
-                            const BIGNUM *x, const BIGNUM *a, const BIGNUM *u);
+        BIGNUM * SRP_Calc_client_key(const BIGNUM *N, const BIGNUM *B, const BIGNUM *g,
+                                     const BIGNUM *x, const BIGNUM *a, const BIGNUM *u);
 OSSL_DEPRECATEDIN_3_0
 int SRP_Verify_B_mod_N(const BIGNUM *B, const BIGNUM *N);
 
@@ -274,7 +276,7 @@ int SRP_Verify_B_mod_N(const BIGNUM *B, const BIGNUM *N);
 /* This method ignores the configured seed and fails for an unknown user. */
 # ifndef OPENSSL_NO_DEPRECATED_1_1_0
 OSSL_DEPRECATEDIN_1_1_0
-SRP_user_pwd *SRP_VBASE_get_by_user(SRP_VBASE *vb, char *username);
+        SRP_user_pwd * SRP_VBASE_get_by_user(SRP_VBASE * vb , char *username ) ;
 # endif
 
 # ifdef  __cplusplus

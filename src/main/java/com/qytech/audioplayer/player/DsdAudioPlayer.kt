@@ -14,6 +14,7 @@ import com.qytech.audioplayer.parser.DsfAudioFileParser
 import com.qytech.audioplayer.parser.SacdAudioFileParser
 import com.qytech.audioplayer.stream.SeekableInputStreamFactory
 import com.qytech.audioplayer.utils.DsdInterleavedToPcm
+import com.qytech.audioplayer.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -139,7 +140,7 @@ class DsdAudioPlayer(
             return
         }
         if (offsetPreSeconds == -1L) {
-            Timber.d("seek failed: offsetPreSeconds = $offsetPreSeconds")
+            Logger.d("seek failed: offsetPreSeconds = $offsetPreSeconds")
             return
         }
         runCatching {
@@ -191,7 +192,7 @@ class DsdAudioPlayer(
             "dsd512" -> 512
             else -> 64
         }.apply {
-            Timber.d("getOversampleRate: $this")
+            Logger.d("getOversampleRate: $this")
         }
     }
 
@@ -252,7 +253,7 @@ class DsdAudioPlayer(
             .setChannelMask(channelMask)
             .build()
         val bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding)
-        Timber.d("sampleRate: $sampleRate, channelMask: $channelMask, encoding: $encoding, bufferSize: $bufferSize")
+        Logger.d("sampleRate: $sampleRate, channelMask: $channelMask, encoding: $encoding, bufferSize: $bufferSize")
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(audioAttributes)
             .setAudioFormat(audioFormat)
@@ -299,7 +300,7 @@ class DsdAudioPlayer(
 
                 val bytesRead = stream.read(srcData)
                 if (bytesRead == -1) {
-                    Timber.d("EOF reached")
+                    Logger.d("EOF reached")
                     updateStateChange(PlaybackState.COMPLETED)
                     break
                 }

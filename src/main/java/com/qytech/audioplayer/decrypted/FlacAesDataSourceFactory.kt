@@ -6,7 +6,7 @@ import androidx.media3.datasource.DataSource
 class FlacAesDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
     private val securityKey: String,
-    private val initVector: String
+    private val initVector: String,
 ) : DataSource.Factory {
 
     @SuppressLint("UnsafeOptInUsageError")

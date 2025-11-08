@@ -49,7 +49,7 @@ class SacdAudioFileParser(
 
     override suspend fun parse(): List<AudioInfo>? {
         sacdSectorSize = detectSectorSize() ?: return null
-        //Timber.d("SACD sector size detected: $sacdSectorSize")
+        //Logger.d("SACD sector size detected: $sacdSectorSize")
 
         buffer = reader.readBuffer(absoluteOffset = SACD_TOC_START * sacdSectorSize.toLong())
             ?: return null
@@ -193,7 +193,7 @@ class SacdAudioFileParser(
 
     private fun isValidSacdToc(buffer: ByteBuffer): Boolean {
         val id = buffer.getString(ScarletBook.SACD_ID_LENGTH)
-        //Timber.d("isValidSacdToc: $id")
+        //Logger.d("isValidSacdToc: $id")
         return id == ScarletBook.SACD_TOC
     }
 

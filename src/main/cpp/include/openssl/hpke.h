@@ -78,9 +78,9 @@ extern "C" {
 # endif
 
 typedef struct {
-    uint16_t    kem_id; /* Key Encapsulation Method id */
-    uint16_t    kdf_id; /* Key Derivation Function id */
-    uint16_t    aead_id; /* AEAD alg id */
+    uint16_t kem_id; /* Key Encapsulation Method id */
+    uint16_t kdf_id; /* Key Derivation Function id */
+    uint16_t aead_id; /* AEAD alg id */
 } OSSL_HPKE_SUITE;
 
 /**

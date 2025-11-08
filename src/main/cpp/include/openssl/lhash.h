@@ -18,14 +18,18 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_LHASH_H
 # endif
 
 # include <openssl/e_os2.h>
 # include <openssl/bio.h>
+
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
 
 #ifdef  __cplusplus
@@ -33,14 +37,14 @@ extern "C" {
 #endif
 
 typedef struct lhash_node_st OPENSSL_LH_NODE;
-typedef int (*OPENSSL_LH_COMPFUNC) (const void *, const void *);
-typedef int (*OPENSSL_LH_COMPFUNCTHUNK) (const void *, const void *, OPENSSL_LH_COMPFUNC cfn);
-typedef unsigned long (*OPENSSL_LH_HASHFUNC) (const void *);
-typedef unsigned long (*OPENSSL_LH_HASHFUNCTHUNK) (const void *, OPENSSL_LH_HASHFUNC hfn);
-typedef void (*OPENSSL_LH_DOALL_FUNC) (void *);
-typedef void (*OPENSSL_LH_DOALL_FUNC_THUNK) (void *, OPENSSL_LH_DOALL_FUNC doall);
-typedef void (*OPENSSL_LH_DOALL_FUNCARG) (void *, void *);
-typedef void (*OPENSSL_LH_DOALL_FUNCARG_THUNK) (void *, void *, OPENSSL_LH_DOALL_FUNCARG doall);
+typedef int (*OPENSSL_LH_COMPFUNC)(const void *, const void *);
+typedef int (*OPENSSL_LH_COMPFUNCTHUNK)(const void *, const void *, OPENSSL_LH_COMPFUNC cfn);
+typedef unsigned long (*OPENSSL_LH_HASHFUNC)(const void *);
+typedef unsigned long (*OPENSSL_LH_HASHFUNCTHUNK)(const void *, OPENSSL_LH_HASHFUNC hfn);
+typedef void (*OPENSSL_LH_DOALL_FUNC)(void *);
+typedef void (*OPENSSL_LH_DOALL_FUNC_THUNK)(void *, OPENSSL_LH_DOALL_FUNC doall);
+typedef void (*OPENSSL_LH_DOALL_FUNCARG)(void *, void *);
+typedef void (*OPENSSL_LH_DOALL_FUNCARG_THUNK)(void *, void *, OPENSSL_LH_DOALL_FUNCARG doall);
 typedef struct lhash_st OPENSSL_LHASH;
 
 /*
@@ -100,8 +104,8 @@ void OPENSSL_LH_doall(OPENSSL_LHASH *lh, OPENSSL_LH_DOALL_FUNC func);
 void OPENSSL_LH_doall_arg(OPENSSL_LHASH *lh,
                           OPENSSL_LH_DOALL_FUNCARG func, void *arg);
 void OPENSSL_LH_doall_arg_thunk(OPENSSL_LHASH *lh,
-                          OPENSSL_LH_DOALL_FUNCARG_THUNK daaw,
-                          OPENSSL_LH_DOALL_FUNCARG fn, void *arg);
+                                OPENSSL_LH_DOALL_FUNCARG_THUNK daaw,
+                                OPENSSL_LH_DOALL_FUNCARG fn, void *arg);
 
 unsigned long OPENSSL_LH_strhash(const char *c);
 unsigned long OPENSSL_LH_num_items(const OPENSSL_LHASH *lh);

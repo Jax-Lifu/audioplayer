@@ -23,12 +23,12 @@ extern "C" {
 /*
  * Method used for non-thread-assisted QUIC client operation.
  */
-__owur const SSL_METHOD *OSSL_QUIC_client_method(void);
+__owur const SSL_METHOD * OSSL_QUIC_client_method(void);
 
 /*
  * Method used for thread-assisted QUIC client operation.
  */
-__owur const SSL_METHOD *OSSL_QUIC_client_thread_method(void);
+__owur const SSL_METHOD * OSSL_QUIC_client_thread_method(void);
 
 /*
  * QUIC transport error codes (RFC 9000 s. 20.1)
@@ -65,7 +65,7 @@ __owur const SSL_METHOD *OSSL_QUIC_client_thread_method(void);
 /*
  * Method used for QUIC server operation.
  */
-__owur const SSL_METHOD *OSSL_QUIC_server_method(void);
+__owur const SSL_METHOD * OSSL_QUIC_server_method(void);
 
 #  ifdef __cplusplus
 }

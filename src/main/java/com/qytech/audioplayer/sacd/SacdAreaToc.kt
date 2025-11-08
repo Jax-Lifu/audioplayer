@@ -4,7 +4,7 @@ import com.qytech.audioplayer.extension.getString
 import com.qytech.audioplayer.extension.skip
 import com.qytech.audioplayer.model.ScarletBook
 import com.qytech.audioplayer.model.ScarletBook.FrameFormat
-import timber.log.Timber
+import com.qytech.audioplayer.utils.Logger
 import java.nio.ByteBuffer
 
 data class SacdAreaToc(
@@ -32,7 +32,7 @@ data class SacdAreaToc(
     val areaDescriptionOffset: Int, // 区域描述的偏移位置，用于描述该区域的详细信息
     val copyrightOffset: Int, // 版权信息的偏移位置
     val areaDescriptionPhoneticOffset: Int, // 区域描述的拼音偏移位置
-    val copyrightPhoneticOffset: Int // 版权信息的拼音偏移位置
+    val copyrightPhoneticOffset: Int, // 版权信息的拼音偏移位置
 ) {
     companion object {
         /**
@@ -60,7 +60,7 @@ data class SacdAreaToc(
             if (id != ScarletBook.SACD_TWOCHTOC &&
                 id != ScarletBook.SACD_MULCHTOC
             ) {
-                Timber.d("id is not TWOCHTOC or MULCHTOC")
+                Logger.d("id is not TWOCHTOC or MULCHTOC")
                 return null
             }
             val version = ScarletBook.Version(buffer.get(), buffer.get())

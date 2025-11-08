@@ -389,7 +389,7 @@ enum AVPacketSideDataType {
  */
 typedef struct AVPacketSideData {
     uint8_t *data;
-    size_t   size;
+    size_t size;
     enum AVPacketSideDataType type;
 } AVPacketSideData;
 
@@ -537,12 +537,12 @@ typedef struct AVPacket {
      */
     int64_t dts;
     uint8_t *data;
-    int   size;
-    int   stream_index;
+    int size;
+    int stream_index;
     /**
      * A combination of AV_PKT_FLAG values
      */
-    int   flags;
+    int flags;
     /**
      * Additional packet data that can be provided by the container.
      * Packet can contain several types of side information.
@@ -613,8 +613,8 @@ typedef struct AVPacketList {
 #define AV_PKT_FLAG_DISPOSABLE 0x0010
 
 enum AVSideDataParamChangeFlags {
-    AV_SIDE_DATA_PARAM_CHANGE_SAMPLE_RATE    = 0x0004,
-    AV_SIDE_DATA_PARAM_CHANGE_DIMENSIONS     = 0x0008,
+    AV_SIDE_DATA_PARAM_CHANGE_SAMPLE_RATE = 0x0004,
+    AV_SIDE_DATA_PARAM_CHANGE_DIMENSIONS = 0x0008,
 };
 
 /**
@@ -668,6 +668,7 @@ void av_packet_free(AVPacket **pkt);
  */
 attribute_deprecated
 void av_init_packet(AVPacket *pkt);
+
 #endif
 
 /**
@@ -719,7 +720,7 @@ int av_packet_from_data(AVPacket *pkt, uint8_t *data, int size);
  * @param size side information size
  * @return pointer to fresh allocated data or NULL otherwise
  */
-uint8_t* av_packet_new_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
+uint8_t *av_packet_new_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
                                  size_t size);
 
 /**
@@ -758,7 +759,7 @@ int av_packet_shrink_side_data(AVPacket *pkt, enum AVPacketSideDataType type,
  *             or to zero if the desired side data is not present.
  * @return pointer to data if present or NULL otherwise
  */
-uint8_t* av_packet_get_side_data(const AVPacket *pkt, enum AVPacketSideDataType type,
+uint8_t *av_packet_get_side_data(const AVPacket *pkt, enum AVPacketSideDataType type,
                                  size_t *size);
 
 /**
@@ -769,6 +770,7 @@ uint8_t* av_packet_get_side_data(const AVPacket *pkt, enum AVPacketSideDataType 
  * @return pointer to data if successful, NULL otherwise
  */
 uint8_t *av_packet_pack_dictionary(AVDictionary *dict, size_t *size);
+
 /**
  * Unpack a dictionary from side_data.
  *

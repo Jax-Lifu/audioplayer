@@ -73,7 +73,9 @@ typedef struct AVD3D12VADeviceContext {
      * locking implementation.
      */
     void (*lock)(void *lock_ctx);
+
     void (*unlock)(void *lock_ctx);
+
     void *lock_ctx;
 } AVD3D12VADeviceContext;
 

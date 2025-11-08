@@ -18,7 +18,7 @@ object DsfAudioFrame {
         srcData: ByteArray,
         destData: ByteArray,
         length: Int,
-        lsbFirst: Int = 1
+        lsbFirst: Int = 1,
     ) {
         if (lsbFirst == 1) {
             // 计算迭代次数，每次处理8个目标字节
@@ -33,12 +33,12 @@ object DsfAudioFrame {
                 // 计算目标数组的起始下标
                 val destIndex = k * 8
                 // 处理前4字节：通过 byteReversalTable 做字节反转查找
-                dest[destIndex    ] = table[src[j    ].toInt() and 0xFF]
+                dest[destIndex] = table[src[j].toInt() and 0xFF]
                 dest[destIndex + 1] = table[src[j + 1].toInt() and 0xFF]
                 dest[destIndex + 2] = table[src[j + 2].toInt() and 0xFF]
                 dest[destIndex + 3] = table[src[j + 3].toInt() and 0xFF]
                 // 处理后4字节：来自 srcData 偏移4096 的位置
-                dest[destIndex + 4] = table[src[j + 4096    ].toInt() and 0xFF]
+                dest[destIndex + 4] = table[src[j + 4096].toInt() and 0xFF]
                 dest[destIndex + 5] = table[src[j + 4096 + 1].toInt() and 0xFF]
                 dest[destIndex + 6] = table[src[j + 4096 + 2].toInt() and 0xFF]
                 dest[destIndex + 7] = table[src[j + 4096 + 3].toInt() and 0xFF]
@@ -52,12 +52,12 @@ object DsfAudioFrame {
             for (k in 0 until iterations) {
                 val destIndex = k * 8
                 // 直接复制前4字节
-                dest[destIndex    ] = src[j    ]
+                dest[destIndex] = src[j]
                 dest[destIndex + 1] = src[j + 1]
                 dest[destIndex + 2] = src[j + 2]
                 dest[destIndex + 3] = src[j + 3]
                 // 直接复制后4字节（来自 srcData 偏移4096 的位置）
-                dest[destIndex + 4] = src[j + 4096    ]
+                dest[destIndex + 4] = src[j + 4096]
                 dest[destIndex + 5] = src[j + 4096 + 1]
                 dest[destIndex + 6] = src[j + 4096 + 2]
                 dest[destIndex + 7] = src[j + 4096 + 3]
@@ -76,7 +76,7 @@ object DsfAudioFrame {
     private fun convertToDopStream(
         srcData: ByteArray,
         destData: ByteArray,
-        length: Int
+        length: Int,
     ) {
         var destDataIndex: Int
         var dataChannel1: Int

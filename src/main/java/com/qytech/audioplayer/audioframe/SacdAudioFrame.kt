@@ -1,10 +1,11 @@
 package com.qytech.audioplayer.audioframe
 
 import com.qytech.audioplayer.model.ScarletBook
-import com.qytech.audioplayer.player.FFmpegDstDecoder
 import com.qytech.audioplayer.sacd.DSTDecoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,7 +50,7 @@ data class AudioFrameHeader(
             val secondLeastBit = (unsignedByte shr 1) and 0x1           // 提取第二低位
             val middleThreeBits = (unsignedByte shr 2) and 0x7        // 提取第3至5位
             val mostSignificantBits = (unsignedByte shr 5) and 0x7    // 提取最高3位
-            // Timber.d("FrameHeader ${unsignedByte.toString(16)} dstEncoded = $leastSignificantBit frameInfoCount = $middleThreeBits, packetInfoCount = $mostSignificantBits")
+            // Logger.d("FrameHeader ${unsignedByte.toString(16)} dstEncoded = $leastSignificantBit frameInfoCount = $middleThreeBits, packetInfoCount = $mostSignificantBits")
             // 根据字节序的不同，构造 AudioFrameHeader 实例
             return if (bigEndian) {
                 // 大端模式: 最高位开始依次映射到 dstEncoded, reserved, frameInfoCount, packetInfoCount
@@ -83,7 +84,7 @@ data class AudioPacketInfo(
             val frameStart = (data1 shr 7) and 1
             val dataType = (data1 shr 3) and 7
             val packetLength = ((data1 and 7) shl 8 or data2)
-            // Timber.d("AudioPacketInfo ${data1.toString(16)} ${data2.toString(16)} frameStart = $frameStart dataType = $dataType packetLength = $packetLength")
+            // Logger.d("AudioPacketInfo ${data1.toString(16)} ${data2.toString(16)} frameStart = $frameStart dataType = $dataType packetLength = $packetLength")
             return AudioPacketInfo(frameStart, dataType, packetLength)
         }
     }
@@ -141,58 +142,6 @@ object SacdAudioFrame {
     private var frameDsdBuffer = ByteArray(9408)
     private var dffBuffer = ByteArray(9408)
 
-    fun readDstFrame(
-        srcData: ByteArray,
-        length: Int,
-        shouldCancelDstDecode: AtomicBoolean,
-        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
-    ) {
-        index = 0
-        while (index < length) {
-            if (shouldCancelDstDecode.get()) {
-                break
-            }
-            val header = AudioFrameHeader.fromByte(srcData[index])
-            index++
-
-
-            packetInfoList = MutableList(header.packetInfoCount) {
-                // Extract 2 bytes for each AudioPacketInfo
-                val byte1 = srcData[index++].toInt() and 0xFF
-                val byte2 = srcData[index++].toInt() and 0xFF
-                AudioPacketInfo.fromLong(byte1, byte2)
-            }
-
-            MutableList(header.frameInfoCount) {
-                val arraySize = if (header.dstEncoded == 1) 4 else 3
-                if (index + arraySize > length) {
-                    return
-                }
-                val audioFrameArray = ByteArray(arraySize)
-                System.arraycopy(srcData, index, audioFrameArray, 0, arraySize)
-                index += arraySize
-                AudioFrameInfo.read(audioFrameArray)
-            }
-
-            packetInfoList?.forEach { packetInfo ->
-                when (ScarletBook.AudioPacketDataType.fromValue(packetInfo.dataType)) {
-                    ScarletBook.AudioPacketDataType.AUDIO -> {
-                        if (header.dstEncoded == 1) {
-                            handleDstAudioPacket(srcData, packetInfo, index, onFrameDecoded)
-                        }
-                        index += packetInfo.packetLength
-                    }
-
-                    ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
-                    ScarletBook.AudioPacketDataType.PADDING,
-                        -> {
-                        index += packetInfo.packetLength
-                    }
-                }
-
-            }
-        }
-    }
 
     fun read(srcData: ByteArray, destData: ByteArray, length: Int, isDopEnable: Boolean): Int {
         val tempData = ByteArray(length)
@@ -240,48 +189,200 @@ object SacdAudioFrame {
                 }
             }
         }
-        // Timber.d("currentDataSize: $currentDataSize")
+        // Logger.d("currentDataSize: $currentDataSize")
 
         //interleaveDffBlockStereo(destData, tempData, currentDataSize)
         return DffAudioFrame.read(tempData, destData, currentDataSize, isDopEnable)
     }
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+//    fun readDstFrame(
+//        srcData: ByteArray,
+//        length: Int,
+//        shouldCancelDstDecode: AtomicBoolean,
+//        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
+//    ) {
+//        index = 0
+//        while (index < length) {
+//            if (shouldCancelDstDecode.get()) {
+//                break
+//            }
+//            val header = AudioFrameHeader.fromByte(srcData[index])
+//            index++
+//
+//
+//            packetInfoList = MutableList(header.packetInfoCount) {
+//                // Extract 2 bytes for each AudioPacketInfo
+//                val byte1 = srcData[index++].toInt() and 0xFF
+//                val byte2 = srcData[index++].toInt() and 0xFF
+//                AudioPacketInfo.fromLong(byte1, byte2)
+//            }
+//
+//            MutableList(header.frameInfoCount) {
+//                val arraySize = if (header.dstEncoded == 1) 4 else 3
+//                if (index + arraySize > length) {
+//                    return
+//                }
+//                val audioFrameArray = ByteArray(arraySize)
+//                System.arraycopy(srcData, index, audioFrameArray, 0, arraySize)
+//                index += arraySize
+//                AudioFrameInfo.read(audioFrameArray)
+//            }
+//
+//            packetInfoList?.forEach { packetInfo ->
+//                when (ScarletBook.AudioPacketDataType.fromValue(packetInfo.dataType)) {
+//                    ScarletBook.AudioPacketDataType.AUDIO -> {
+//                        if (header.dstEncoded == 1) {
+//                            handleDstAudioPacket(srcData, packetInfo, index, onFrameDecoded)
+//                        }
+//                        index += packetInfo.packetLength
+//                    }
+//
+//                    ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
+//                    ScarletBook.AudioPacketDataType.PADDING,
+//                        -> {
+//                        index += packetInfo.packetLength
+//                    }
+//                }
+//
+//            }
+//        }
+//    }
+//    @OptIn(ExperimentalStdlibApi::class)
+//    private fun handleDstAudioPacket(
+//        srcData: ByteArray,
+//        packetInfo: AudioPacketInfo,
+//        index: Int,
+//        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
+//    ) {
+//        runCatching {
+//            if (packetInfo.frameStart == 1) {
+//                if (frameSize != 0) {
+//                    frameDstBuffer?.toByteArray()?.let { dstData ->
+//                        // DST 解码为 DSD 流
+////                        dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize)
+////                        DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
+////                        onFrameDecoded?.invoke(dffBuffer, dffBuffer.size)
+//                        val result = FFmpegDstDecoder.decodeDstFrame(dstData)
+//                        result?.let { dsdData ->
+//                            onFrameDecoded?.invoke(dsdData, dsdData.size)
+//                        }
+//                    }
+//                }
+//
+//                frameSize = packetInfo.packetLength
+//                frameDstBuffer = mutableListOf<Byte>().apply {
+//                    addAll(srcData.copyOfRange(index, index + packetInfo.packetLength).toList())
+//                }
+//            } else {
+//                frameSize += packetInfo.packetLength
+//                frameDstBuffer?.addAll(
+//                    srcData.copyOfRange(index, index + packetInfo.packetLength).toList()
+//                )
+//            }
+//        }.onFailure {
+//            Timber.e("handleDstAudioPacket error $it")
+//        }
+//    }
+
+
+    // 新增一个协程解码器实例
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var dstFrameDecoder: DSTFrameDecoder? = null
+
+    fun readDstFrame(
+        srcData: ByteArray,
+        length: Int,
+        shouldCancelDstDecode: AtomicBoolean,
+        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
+    ) {
+        // 如果没有初始化异步解码器，则创建一个
+        if (dstFrameDecoder == null && onFrameDecoded != null) {
+            dstFrameDecoder = DSTFrameDecoder(coroutineScope) { dsdData, size ->
+                onFrameDecoded(dsdData, size)
+            }
+        }
+
+        var index = 0
+        while (index < length) {
+            if (shouldCancelDstDecode.get()) {
+                Timber.w("DST decode canceled, stop parsing.")
+                dstFrameDecoder?.cancel()
+                break
+            }
+
+            // 解析帧头
+            val header = AudioFrameHeader.fromByte(srcData[index])
+            index++
+
+            // 解析 AudioPacketInfo
+            packetInfoList = MutableList(header.packetInfoCount) {
+                val byte1 = srcData[index++].toInt() and 0xFF
+                val byte2 = srcData[index++].toInt() and 0xFF
+                AudioPacketInfo.fromLong(byte1, byte2)
+            }
+
+            // 解析 AudioFrameInfo（可能不重要，仅推进 index）
+            repeat(header.frameInfoCount) {
+                val arraySize = if (header.dstEncoded == 1) 4 else 3
+                if (index + arraySize > length) return
+                val audioFrameArray = ByteArray(arraySize)
+                System.arraycopy(srcData, index, audioFrameArray, 0, arraySize)
+                index += arraySize
+                AudioFrameInfo.read(audioFrameArray)
+            }
+
+            // 遍历所有数据包
+            packetInfoList?.forEach { packetInfo ->
+                when (ScarletBook.AudioPacketDataType.fromValue(packetInfo.dataType)) {
+                    ScarletBook.AudioPacketDataType.AUDIO -> {
+                        if (header.dstEncoded == 1) {
+                            handleDstAudioPacketAsync(srcData, packetInfo, index)
+                        }
+                        index += packetInfo.packetLength
+                    }
+
+                    ScarletBook.AudioPacketDataType.SUPPLEMENTARY,
+                    ScarletBook.AudioPacketDataType.PADDING,
+                        -> {
+                        index += packetInfo.packetLength
+                    }
+                }
+            }
+        }
+    }
 
     @OptIn(ExperimentalStdlibApi::class)
-    private fun handleDstAudioPacket(
+    private fun handleDstAudioPacketAsync(
         srcData: ByteArray,
         packetInfo: AudioPacketInfo,
         index: Int,
-        onFrameDecoded: ((ByteArray, Int) -> Unit)? = null,
     ) {
         runCatching {
             if (packetInfo.frameStart == 1) {
-                if (frameSize != 0) {
-                    frameDstBuffer?.toByteArray()?.let { dstData ->
-                        // DST 解码为 DSD 流
-//                        dstDecoder.frameDSTDecode(dstData, frameDsdBuffer, frameSize)
-//                        DffAudioFrame.read(frameDsdBuffer, dffBuffer, frameDsdBuffer.size, false)
-//                        onFrameDecoded?.invoke(dffBuffer, dffBuffer.size)
-                        val result = FFmpegDstDecoder.decodeDstFrame(dstData)
-                        result?.let { dsdData ->
-                            onFrameDecoded?.invoke(dsdData, dsdData.size)
-                        }
+                // 遇到新帧头，说明上一帧已完整收集
+                if (frameSize != 0 && frameDstBuffer?.isNotEmpty() == true) {
+                    val dstData = frameDstBuffer?.toByteArray() ?: return@runCatching
+                    // 异步提交给协程解码器（不会阻塞主线程）
+                    coroutineScope.launch {
+                        dstFrameDecoder?.submitFrame(dstData)
                     }
                 }
 
+                // 启动新帧
                 frameSize = packetInfo.packetLength
                 frameDstBuffer = mutableListOf<Byte>().apply {
                     addAll(srcData.copyOfRange(index, index + packetInfo.packetLength).toList())
                 }
             } else {
+                // 当前包属于上一帧，拼接数据
                 frameSize += packetInfo.packetLength
                 frameDstBuffer?.addAll(
                     srcData.copyOfRange(index, index + packetInfo.packetLength).toList()
                 )
             }
         }.onFailure {
-            Timber.e("handleDstAudioPacket error $it")
+            Timber.e(it, "handleDstAudioPacketAsync error")
         }
     }
+
 }

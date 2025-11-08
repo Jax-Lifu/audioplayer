@@ -17,6 +17,7 @@
 # pragma once
 
 # include <openssl/macros.h>
+
 # ifndef OPENSSL_NO_DEPRECATED_3_0
 #  define HEADER_X509V3_H
 # endif
@@ -25,8 +26,11 @@
 # include <openssl/x509.h>
 # include <openssl/conf.h>
 # include <openssl/x509v3err.h>
+
 # ifndef OPENSSL_NO_STDIO
+
 #  include <stdio.h>
+
 # endif
 
 #ifdef __cplusplus
@@ -40,21 +44,22 @@ struct v3_ext_ctx;
 /* Useful typedefs */
 
 typedef void *(*X509V3_EXT_NEW)(void);
-typedef void (*X509V3_EXT_FREE) (void *);
+typedef void (*X509V3_EXT_FREE)(void *);
 typedef void *(*X509V3_EXT_D2I)(void *, const unsigned char **, long);
-typedef int (*X509V3_EXT_I2D) (const void *, unsigned char **);
+typedef int (*X509V3_EXT_I2D)(const void *, unsigned char **);
 typedef STACK_OF(CONF_VALUE) *
-    (*X509V3_EXT_I2V) (const struct v3_ext_method *method, void *ext,
-                       STACK_OF(CONF_VALUE) *extlist);
+( * X509V3_EXT_I2V ) ( const struct v3_ext_method *method,
+void *ext,
+        STACK_OF(CONF_VALUE) * extlist ) ;
 typedef void *(*X509V3_EXT_V2I)(const struct v3_ext_method *method,
                                 struct v3_ext_ctx *ctx,
-                                STACK_OF(CONF_VALUE) *values);
+                                STACK_OF(CONF_VALUE) * values ) ;
 typedef char *(*X509V3_EXT_I2S)(const struct v3_ext_method *method,
                                 void *ext);
 typedef void *(*X509V3_EXT_S2I)(const struct v3_ext_method *method,
                                 struct v3_ext_ctx *ctx, const char *str);
-typedef int (*X509V3_EXT_I2R) (const struct v3_ext_method *method, void *ext,
-                               BIO *out, int indent);
+typedef int (*X509V3_EXT_I2R)(const struct v3_ext_method *method, void *ext,
+                              BIO *out, int indent);
 typedef void *(*X509V3_EXT_R2I)(const struct v3_ext_method *method,
                                 struct v3_ext_ctx *ctx, const char *str);
 
@@ -83,10 +88,19 @@ struct v3_ext_method {
 };
 
 typedef struct X509V3_CONF_METHOD_st {
-    char *(*get_string) (void *db, const char *section, const char *value);
-    STACK_OF(CONF_VALUE) *(*get_section) (void *db, const char *section);
-    void (*free_string) (void *db, char *string);
-    void (*free_section) (void *db, STACK_OF(CONF_VALUE) *section);
+    char *(*get_string)(void *db, const char *section, const char *value);
+
+    STACK_OF(CONF_VALUE)
+    *(*get_section) (
+    void *db,
+    const char *section
+    );
+
+    void (*free_string)(void *db, char *string);
+
+    void (*free_section)(void *db, STACK_OF(CONF_VALUE)
+
+    *section);
 } X509V3_CONF_METHOD;
 
 /* Context specific info for producing X509 v3 extensions*/
@@ -109,7 +123,7 @@ struct v3_ext_ctx {
 
 typedef struct v3_ext_method X509V3_EXT_METHOD;
 
-SKM_DEFINE_STACK_OF_INTERNAL(X509V3_EXT_METHOD, X509V3_EXT_METHOD, X509V3_EXT_METHOD)
+SKM_DEFINE_STACK_OF_INTERNAL(X509V3_EXT_METHOD, X509V3_EXT_METHOD, X509V3_EXT_METHOD )
 #define sk_X509V3_EXT_METHOD_num(sk) OPENSSL_sk_num(ossl_check_const_X509V3_EXT_METHOD_sk_type(sk))
 #define sk_X509V3_EXT_METHOD_value(sk, idx) ((X509V3_EXT_METHOD *)OPENSSL_sk_value(ossl_check_const_X509V3_EXT_METHOD_sk_type(sk), (idx)))
 #define sk_X509V3_EXT_METHOD_new(cmp) ((STACK_OF(X509V3_EXT_METHOD) *)OPENSSL_sk_new(ossl_check_X509V3_EXT_METHOD_compfunc_type(cmp)))
@@ -208,7 +222,7 @@ typedef struct ACCESS_DESCRIPTION_st {
 
 int GENERAL_NAME_set1_X509_NAME(GENERAL_NAME **tgt, const X509_NAME *src);
 
-SKM_DEFINE_STACK_OF_INTERNAL(ACCESS_DESCRIPTION, ACCESS_DESCRIPTION, ACCESS_DESCRIPTION)
+SKM_DEFINE_STACK_OF_INTERNAL(ACCESS_DESCRIPTION, ACCESS_DESCRIPTION, ACCESS_DESCRIPTION )
 #define sk_ACCESS_DESCRIPTION_num(sk) OPENSSL_sk_num(ossl_check_const_ACCESS_DESCRIPTION_sk_type(sk))
 #define sk_ACCESS_DESCRIPTION_value(sk, idx) ((ACCESS_DESCRIPTION *)OPENSSL_sk_value(ossl_check_const_ACCESS_DESCRIPTION_sk_type(sk), (idx)))
 #define sk_ACCESS_DESCRIPTION_new(cmp) ((STACK_OF(ACCESS_DESCRIPTION) *)OPENSSL_sk_new(ossl_check_ACCESS_DESCRIPTION_compfunc_type(cmp)))
@@ -234,7 +248,7 @@ SKM_DEFINE_STACK_OF_INTERNAL(ACCESS_DESCRIPTION, ACCESS_DESCRIPTION, ACCESS_DESC
 #define sk_ACCESS_DESCRIPTION_dup(sk) ((STACK_OF(ACCESS_DESCRIPTION) *)OPENSSL_sk_dup(ossl_check_const_ACCESS_DESCRIPTION_sk_type(sk)))
 #define sk_ACCESS_DESCRIPTION_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(ACCESS_DESCRIPTION) *)OPENSSL_sk_deep_copy(ossl_check_const_ACCESS_DESCRIPTION_sk_type(sk), ossl_check_ACCESS_DESCRIPTION_copyfunc_type(copyfunc), ossl_check_ACCESS_DESCRIPTION_freefunc_type(freefunc)))
 #define sk_ACCESS_DESCRIPTION_set_cmp_func(sk, cmp) ((sk_ACCESS_DESCRIPTION_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ACCESS_DESCRIPTION_sk_type(sk), ossl_check_ACCESS_DESCRIPTION_compfunc_type(cmp)))
-SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_NAME, GENERAL_NAME, GENERAL_NAME)
+SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_NAME, GENERAL_NAME, GENERAL_NAME )
 #define sk_GENERAL_NAME_num(sk) OPENSSL_sk_num(ossl_check_const_GENERAL_NAME_sk_type(sk))
 #define sk_GENERAL_NAME_value(sk, idx) ((GENERAL_NAME *)OPENSSL_sk_value(ossl_check_const_GENERAL_NAME_sk_type(sk), (idx)))
 #define sk_GENERAL_NAME_new(cmp) ((STACK_OF(GENERAL_NAME) *)OPENSSL_sk_new(ossl_check_GENERAL_NAME_compfunc_type(cmp)))
@@ -262,12 +276,16 @@ SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_NAME, GENERAL_NAME, GENERAL_NAME)
 #define sk_GENERAL_NAME_set_cmp_func(sk, cmp) ((sk_GENERAL_NAME_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_GENERAL_NAME_sk_type(sk), ossl_check_GENERAL_NAME_compfunc_type(cmp)))
 
 
-typedef STACK_OF(ACCESS_DESCRIPTION) AUTHORITY_INFO_ACCESS;
-typedef STACK_OF(ASN1_OBJECT) EXTENDED_KEY_USAGE;
-typedef STACK_OF(ASN1_INTEGER) TLS_FEATURE;
-typedef STACK_OF(GENERAL_NAME) GENERAL_NAMES;
+typedef STACK_OF(ACCESS_DESCRIPTION)
+AUTHORITY_INFO_ACCESS;
+typedef STACK_OF(ASN1_OBJECT)
+EXTENDED_KEY_USAGE;
+typedef STACK_OF(ASN1_INTEGER)
+TLS_FEATURE;
+typedef STACK_OF(GENERAL_NAME)
+GENERAL_NAMES;
 
-SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_NAMES, GENERAL_NAMES, GENERAL_NAMES)
+SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_NAMES, GENERAL_NAMES, GENERAL_NAMES )
 #define sk_GENERAL_NAMES_num(sk) OPENSSL_sk_num(ossl_check_const_GENERAL_NAMES_sk_type(sk))
 #define sk_GENERAL_NAMES_value(sk, idx) ((GENERAL_NAMES *)OPENSSL_sk_value(ossl_check_const_GENERAL_NAMES_sk_type(sk), (idx)))
 #define sk_GENERAL_NAMES_new(cmp) ((STACK_OF(GENERAL_NAMES) *)OPENSSL_sk_new(ossl_check_GENERAL_NAMES_compfunc_type(cmp)))
@@ -327,7 +345,7 @@ struct DIST_POINT_st {
     int dp_reasons;
 };
 
-SKM_DEFINE_STACK_OF_INTERNAL(DIST_POINT, DIST_POINT, DIST_POINT)
+SKM_DEFINE_STACK_OF_INTERNAL(DIST_POINT, DIST_POINT, DIST_POINT )
 #define sk_DIST_POINT_num(sk) OPENSSL_sk_num(ossl_check_const_DIST_POINT_sk_type(sk))
 #define sk_DIST_POINT_value(sk, idx) ((DIST_POINT *)OPENSSL_sk_value(ossl_check_const_DIST_POINT_sk_type(sk), (idx)))
 #define sk_DIST_POINT_new(cmp) ((STACK_OF(DIST_POINT) *)OPENSSL_sk_new(ossl_check_DIST_POINT_compfunc_type(cmp)))
@@ -355,7 +373,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(DIST_POINT, DIST_POINT, DIST_POINT)
 #define sk_DIST_POINT_set_cmp_func(sk, cmp) ((sk_DIST_POINT_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_DIST_POINT_sk_type(sk), ossl_check_DIST_POINT_compfunc_type(cmp)))
 
 
-typedef STACK_OF(DIST_POINT) CRL_DIST_POINTS;
+typedef STACK_OF(DIST_POINT)
+CRL_DIST_POINTS;
 
 struct AUTHORITY_KEYID_st {
     ASN1_OCTET_STRING *keyid;
@@ -370,7 +389,7 @@ typedef struct SXNET_ID_st {
     ASN1_OCTET_STRING *user;
 } SXNETID;
 
-SKM_DEFINE_STACK_OF_INTERNAL(SXNETID, SXNETID, SXNETID)
+SKM_DEFINE_STACK_OF_INTERNAL(SXNETID, SXNETID, SXNETID )
 #define sk_SXNETID_num(sk) OPENSSL_sk_num(ossl_check_const_SXNETID_sk_type(sk))
 #define sk_SXNETID_value(sk, idx) ((SXNETID *)OPENSSL_sk_value(ossl_check_const_SXNETID_sk_type(sk), (idx)))
 #define sk_SXNETID_new(cmp) ((STACK_OF(SXNETID) *)OPENSSL_sk_new(ossl_check_SXNETID_compfunc_type(cmp)))
@@ -396,7 +415,6 @@ SKM_DEFINE_STACK_OF_INTERNAL(SXNETID, SXNETID, SXNETID)
 #define sk_SXNETID_dup(sk) ((STACK_OF(SXNETID) *)OPENSSL_sk_dup(ossl_check_const_SXNETID_sk_type(sk)))
 #define sk_SXNETID_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(SXNETID) *)OPENSSL_sk_deep_copy(ossl_check_const_SXNETID_sk_type(sk), ossl_check_SXNETID_copyfunc_type(copyfunc), ossl_check_SXNETID_freefunc_type(freefunc)))
 #define sk_SXNETID_set_cmp_func(sk, cmp) ((sk_SXNETID_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_SXNETID_sk_type(sk), ossl_check_SXNETID_compfunc_type(cmp)))
-
 
 
 typedef struct SXNET_st {
@@ -430,7 +448,7 @@ typedef struct POLICYQUALINFO_st {
     } d;
 } POLICYQUALINFO;
 
-SKM_DEFINE_STACK_OF_INTERNAL(POLICYQUALINFO, POLICYQUALINFO, POLICYQUALINFO)
+SKM_DEFINE_STACK_OF_INTERNAL(POLICYQUALINFO, POLICYQUALINFO, POLICYQUALINFO )
 #define sk_POLICYQUALINFO_num(sk) OPENSSL_sk_num(ossl_check_const_POLICYQUALINFO_sk_type(sk))
 #define sk_POLICYQUALINFO_value(sk, idx) ((POLICYQUALINFO *)OPENSSL_sk_value(ossl_check_const_POLICYQUALINFO_sk_type(sk), (idx)))
 #define sk_POLICYQUALINFO_new(cmp) ((STACK_OF(POLICYQUALINFO) *)OPENSSL_sk_new(ossl_check_POLICYQUALINFO_compfunc_type(cmp)))
@@ -458,13 +476,12 @@ SKM_DEFINE_STACK_OF_INTERNAL(POLICYQUALINFO, POLICYQUALINFO, POLICYQUALINFO)
 #define sk_POLICYQUALINFO_set_cmp_func(sk, cmp) ((sk_POLICYQUALINFO_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_POLICYQUALINFO_sk_type(sk), ossl_check_POLICYQUALINFO_compfunc_type(cmp)))
 
 
-
 typedef struct POLICYINFO_st {
     ASN1_OBJECT *policyid;
     STACK_OF(POLICYQUALINFO) *qualifiers;
 } POLICYINFO;
 
-SKM_DEFINE_STACK_OF_INTERNAL(POLICYINFO, POLICYINFO, POLICYINFO)
+SKM_DEFINE_STACK_OF_INTERNAL(POLICYINFO, POLICYINFO, POLICYINFO )
 #define sk_POLICYINFO_num(sk) OPENSSL_sk_num(ossl_check_const_POLICYINFO_sk_type(sk))
 #define sk_POLICYINFO_value(sk, idx) ((POLICYINFO *)OPENSSL_sk_value(ossl_check_const_POLICYINFO_sk_type(sk), (idx)))
 #define sk_POLICYINFO_new(cmp) ((STACK_OF(POLICYINFO) *)OPENSSL_sk_new(ossl_check_POLICYINFO_compfunc_type(cmp)))
@@ -492,14 +509,15 @@ SKM_DEFINE_STACK_OF_INTERNAL(POLICYINFO, POLICYINFO, POLICYINFO)
 #define sk_POLICYINFO_set_cmp_func(sk, cmp) ((sk_POLICYINFO_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_POLICYINFO_sk_type(sk), ossl_check_POLICYINFO_compfunc_type(cmp)))
 
 
-typedef STACK_OF(POLICYINFO) CERTIFICATEPOLICIES;
+typedef STACK_OF(POLICYINFO)
+CERTIFICATEPOLICIES;
 
 typedef struct POLICY_MAPPING_st {
     ASN1_OBJECT *issuerDomainPolicy;
     ASN1_OBJECT *subjectDomainPolicy;
 } POLICY_MAPPING;
 
-SKM_DEFINE_STACK_OF_INTERNAL(POLICY_MAPPING, POLICY_MAPPING, POLICY_MAPPING)
+SKM_DEFINE_STACK_OF_INTERNAL(POLICY_MAPPING, POLICY_MAPPING, POLICY_MAPPING )
 #define sk_POLICY_MAPPING_num(sk) OPENSSL_sk_num(ossl_check_const_POLICY_MAPPING_sk_type(sk))
 #define sk_POLICY_MAPPING_value(sk, idx) ((POLICY_MAPPING *)OPENSSL_sk_value(ossl_check_const_POLICY_MAPPING_sk_type(sk), (idx)))
 #define sk_POLICY_MAPPING_new(cmp) ((STACK_OF(POLICY_MAPPING) *)OPENSSL_sk_new(ossl_check_POLICY_MAPPING_compfunc_type(cmp)))
@@ -527,7 +545,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(POLICY_MAPPING, POLICY_MAPPING, POLICY_MAPPING)
 #define sk_POLICY_MAPPING_set_cmp_func(sk, cmp) ((sk_POLICY_MAPPING_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_POLICY_MAPPING_sk_type(sk), ossl_check_POLICY_MAPPING_compfunc_type(cmp)))
 
 
-typedef STACK_OF(POLICY_MAPPING) POLICY_MAPPINGS;
+typedef STACK_OF(POLICY_MAPPING)
+POLICY_MAPPINGS;
 
 typedef struct GENERAL_SUBTREE_st {
     GENERAL_NAME *base;
@@ -535,7 +554,7 @@ typedef struct GENERAL_SUBTREE_st {
     ASN1_INTEGER *maximum;
 } GENERAL_SUBTREE;
 
-SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_SUBTREE, GENERAL_SUBTREE, GENERAL_SUBTREE)
+SKM_DEFINE_STACK_OF_INTERNAL(GENERAL_SUBTREE, GENERAL_SUBTREE, GENERAL_SUBTREE )
 #define sk_GENERAL_SUBTREE_num(sk) OPENSSL_sk_num(ossl_check_const_GENERAL_SUBTREE_sk_type(sk))
 #define sk_GENERAL_SUBTREE_value(sk, idx) ((GENERAL_SUBTREE *)OPENSSL_sk_value(ossl_check_const_GENERAL_SUBTREE_sk_type(sk), (idx)))
 #define sk_GENERAL_SUBTREE_new(cmp) ((STACK_OF(GENERAL_SUBTREE) *)OPENSSL_sk_new(ossl_check_GENERAL_SUBTREE_compfunc_type(cmp)))
@@ -707,13 +726,15 @@ typedef struct x509_purpose_st {
     int purpose;
     int trust;                  /* Default trust ID */
     int flags;
-    int (*check_purpose) (const struct x509_purpose_st *, const X509 *, int);
+
+    int (*check_purpose)(const struct x509_purpose_st *, const X509 *, int);
+
     char *name;
     char *sname;
     void *usr_data;
 } X509_PURPOSE;
 
-SKM_DEFINE_STACK_OF_INTERNAL(X509_PURPOSE, X509_PURPOSE, X509_PURPOSE)
+SKM_DEFINE_STACK_OF_INTERNAL(X509_PURPOSE, X509_PURPOSE, X509_PURPOSE )
 #define sk_X509_PURPOSE_num(sk) OPENSSL_sk_num(ossl_check_const_X509_PURPOSE_sk_type(sk))
 #define sk_X509_PURPOSE_value(sk, idx) ((X509_PURPOSE *)OPENSSL_sk_value(ossl_check_const_X509_PURPOSE_sk_type(sk), (idx)))
 #define sk_X509_PURPOSE_new(cmp) ((STACK_OF(X509_PURPOSE) *)OPENSSL_sk_new(ossl_check_X509_PURPOSE_compfunc_type(cmp)))
@@ -787,15 +808,22 @@ DECLARE_ASN1_FUNCTIONS(SXNETID)
 
 DECLARE_ASN1_FUNCTIONS(ISSUER_SIGN_TOOL)
 
-int SXNET_add_id_asc(SXNET **psx, const char *zone, const char *user, int userlen);
-int SXNET_add_id_ulong(SXNET **psx, unsigned long lzone, const char *user,
-                       int userlen);
-int SXNET_add_id_INTEGER(SXNET **psx, ASN1_INTEGER *izone, const char *user,
-                         int userlen);
+int SXNET_add_id_asc(SXNET * *psx,
+const char *zone,
+const char *user,
+int userlen ) ;
+int SXNET_add_id_ulong(SXNET * *psx, unsigned long
+lzone , const char *user,
+int userlen ) ;
+int SXNET_add_id_INTEGER(SXNET * *psx, ASN1_INTEGER * izone,
+const char *user,
+int userlen ) ;
 
-ASN1_OCTET_STRING *SXNET_get_id_asc(SXNET *sx, const char *zone);
-ASN1_OCTET_STRING *SXNET_get_id_ulong(SXNET *sx, unsigned long lzone);
-ASN1_OCTET_STRING *SXNET_get_id_INTEGER(SXNET *sx, ASN1_INTEGER *zone);
+ASN1_OCTET_STRING *SXNET_get_id_asc(SXNET * sx,
+const char *zone ) ;
+ASN1_OCTET_STRING *SXNET_get_id_ulong(SXNET * sx, unsigned long
+lzone ) ;
+ASN1_OCTET_STRING *SXNET_get_id_INTEGER(SXNET * sx, ASN1_INTEGER * zone);
 
 DECLARE_ASN1_FUNCTIONS(AUTHORITY_KEYID)
 
@@ -803,48 +831,52 @@ DECLARE_ASN1_FUNCTIONS(PKEY_USAGE_PERIOD)
 
 DECLARE_ASN1_FUNCTIONS(GENERAL_NAME)
 DECLARE_ASN1_DUP_FUNCTION(GENERAL_NAME)
-int GENERAL_NAME_cmp(GENERAL_NAME *a, GENERAL_NAME *b);
+int GENERAL_NAME_cmp(GENERAL_NAME * a, GENERAL_NAME * b);
 
-ASN1_BIT_STRING *v2i_ASN1_BIT_STRING(X509V3_EXT_METHOD *method,
-                                     X509V3_CTX *ctx,
-                                     STACK_OF(CONF_VALUE) *nval);
-STACK_OF(CONF_VALUE) *i2v_ASN1_BIT_STRING(X509V3_EXT_METHOD *method,
-                                          ASN1_BIT_STRING *bits,
-                                          STACK_OF(CONF_VALUE) *extlist);
-char *i2s_ASN1_IA5STRING(X509V3_EXT_METHOD *method, ASN1_IA5STRING *ia5);
-ASN1_IA5STRING *s2i_ASN1_IA5STRING(X509V3_EXT_METHOD *method,
-                                   X509V3_CTX *ctx, const char *str);
-char *i2s_ASN1_UTF8STRING(X509V3_EXT_METHOD *method, ASN1_UTF8STRING *utf8);
-ASN1_UTF8STRING *s2i_ASN1_UTF8STRING(X509V3_EXT_METHOD *method,
-                                   X509V3_CTX *ctx, const char *str);
+ASN1_BIT_STRING *v2i_ASN1_BIT_STRING(X509V3_EXT_METHOD * method,
+                                     X509V3_CTX * ctx,
+                                     STACK_OF(CONF_VALUE) * nval);
+STACK_OF(CONF_VALUE) * i2v_ASN1_BIT_STRING(X509V3_EXT_METHOD * method ,
+ASN1_BIT_STRING *bits,
+        STACK_OF(CONF_VALUE) * extlist ) ;
+char *i2s_ASN1_IA5STRING(X509V3_EXT_METHOD * method, ASN1_IA5STRING * ia5);
+ASN1_IA5STRING *s2i_ASN1_IA5STRING(X509V3_EXT_METHOD * method,
+                                   X509V3_CTX * ctx,
+const char *str ) ;
+char *i2s_ASN1_UTF8STRING(X509V3_EXT_METHOD * method, ASN1_UTF8STRING * utf8);
+ASN1_UTF8STRING *s2i_ASN1_UTF8STRING(X509V3_EXT_METHOD * method,
+                                     X509V3_CTX * ctx,
+const char *str ) ;
 
-STACK_OF(CONF_VALUE) *i2v_GENERAL_NAME(X509V3_EXT_METHOD *method,
-                                       GENERAL_NAME *gen,
-                                       STACK_OF(CONF_VALUE) *ret);
+STACK_OF(CONF_VALUE) * i2v_GENERAL_NAME(X509V3_EXT_METHOD * method ,
+GENERAL_NAME *gen,
+        STACK_OF(CONF_VALUE) * ret ) ;
 int GENERAL_NAME_print(BIO *out, GENERAL_NAME *gen);
 
 DECLARE_ASN1_FUNCTIONS(GENERAL_NAMES)
 
-STACK_OF(CONF_VALUE) *i2v_GENERAL_NAMES(X509V3_EXT_METHOD *method,
-                                        GENERAL_NAMES *gen,
-                                        STACK_OF(CONF_VALUE) *extlist);
+STACK_OF(CONF_VALUE) * i2v_GENERAL_NAMES(X509V3_EXT_METHOD * method ,
+GENERAL_NAMES *gen,
+        STACK_OF(CONF_VALUE) * extlist ) ;
 GENERAL_NAMES *v2i_GENERAL_NAMES(const X509V3_EXT_METHOD *method,
-                                 X509V3_CTX *ctx, STACK_OF(CONF_VALUE) *nval);
+                                 X509V3_CTX *ctx, STACK_OF(CONF_VALUE) * nval ) ;
 
 DECLARE_ASN1_FUNCTIONS(OTHERNAME)
 DECLARE_ASN1_FUNCTIONS(EDIPARTYNAME)
-int OTHERNAME_cmp(OTHERNAME *a, OTHERNAME *b);
-void GENERAL_NAME_set0_value(GENERAL_NAME *a, int type, void *value);
+int OTHERNAME_cmp(OTHERNAME * a, OTHERNAME * b);
+void GENERAL_NAME_set0_value(GENERAL_NAME * a, int
+type , void *value ) ;
 void *GENERAL_NAME_get0_value(const GENERAL_NAME *a, int *ptype);
-int GENERAL_NAME_set0_othername(GENERAL_NAME *gen,
-                                ASN1_OBJECT *oid, ASN1_TYPE *value);
+int GENERAL_NAME_set0_othername(GENERAL_NAME * gen,
+                                ASN1_OBJECT * oid, ASN1_TYPE * value);
 int GENERAL_NAME_get0_otherName(const GENERAL_NAME *gen,
                                 ASN1_OBJECT **poid, ASN1_TYPE **pvalue);
 
-char *i2s_ASN1_OCTET_STRING(X509V3_EXT_METHOD *method,
-                            const ASN1_OCTET_STRING *ia5);
-ASN1_OCTET_STRING *s2i_ASN1_OCTET_STRING(X509V3_EXT_METHOD *method,
-                                         X509V3_CTX *ctx, const char *str);
+char *i2s_ASN1_OCTET_STRING(X509V3_EXT_METHOD * method,
+const ASN1_OCTET_STRING *ia5 ) ;
+ASN1_OCTET_STRING *s2i_ASN1_OCTET_STRING(X509V3_EXT_METHOD * method,
+                                         X509V3_CTX * ctx,
+const char *str ) ;
 
 DECLARE_ASN1_FUNCTIONS(EXTENDED_KEY_USAGE)
 int i2a_ACCESS_DESCRIPTION(BIO *bp, const ACCESS_DESCRIPTION *a);
@@ -862,7 +894,8 @@ DECLARE_ASN1_FUNCTIONS(DIST_POINT)
 DECLARE_ASN1_FUNCTIONS(DIST_POINT_NAME)
 DECLARE_ASN1_FUNCTIONS(ISSUING_DIST_POINT)
 
-int DIST_POINT_set_dpname(DIST_POINT_NAME *dpn, const X509_NAME *iname);
+int DIST_POINT_set_dpname(DIST_POINT_NAME * dpn,
+const X509_NAME *iname ) ;
 
 int NAME_CONSTRAINTS_check(X509 *x, NAME_CONSTRAINTS *nc);
 int NAME_CONSTRAINTS_check_CN(X509 *x, NAME_CONSTRAINTS *nc);
@@ -883,10 +916,11 @@ DECLARE_ASN1_ALLOC_FUNCTIONS(NAME_CONSTRAINTS)
 DECLARE_ASN1_ALLOC_FUNCTIONS(POLICY_CONSTRAINTS)
 DECLARE_ASN1_ITEM(POLICY_CONSTRAINTS)
 
-GENERAL_NAME *a2i_GENERAL_NAME(GENERAL_NAME *out,
-                               const X509V3_EXT_METHOD *method,
-                               X509V3_CTX *ctx, int gen_type,
-                               const char *value, int is_nc);
+GENERAL_NAME *a2i_GENERAL_NAME(GENERAL_NAME * out,
+const X509V3_EXT_METHOD *method,
+        X509V3_CTX * ctx , int gen_type,
+const char *value,
+int is_nc ) ;
 
 # ifdef OPENSSL_CONF_H
 GENERAL_NAME *v2i_GENERAL_NAME(const X509V3_EXT_METHOD *method,
@@ -931,44 +965,53 @@ void X509V3_set_nconf(X509V3_CTX *ctx, CONF *conf);
 void X509V3_set_conf_lhash(X509V3_CTX *ctx, LHASH_OF(CONF_VALUE) *lhash);
 # endif
 
-char *X509V3_get_string(X509V3_CTX *ctx, const char *name, const char *section);
-STACK_OF(CONF_VALUE) *X509V3_get_section(X509V3_CTX *ctx, const char *section);
-void X509V3_string_free(X509V3_CTX *ctx, char *str);
-void X509V3_section_free(X509V3_CTX *ctx, STACK_OF(CONF_VALUE) *section);
-void X509V3_set_ctx(X509V3_CTX *ctx, X509 *issuer, X509 *subject,
-                    X509_REQ *req, X509_CRL *crl, int flags);
+char *X509V3_get_string(X509V3_CTX * ctx,
+const char *name,
+const char *section ) ;
+STACK_OF(CONF_VALUE) * X509V3_get_section(X509V3_CTX * ctx , const char *section ) ;
+void X509V3_string_free(X509V3_CTX * ctx, char * str);
+void X509V3_section_free(X509V3_CTX * ctx, STACK_OF(CONF_VALUE) * section);
+void X509V3_set_ctx(X509V3_CTX * ctx, X509 * issuer, X509 * subject,
+                    X509_REQ * req, X509_CRL * crl, int
+flags ) ;
 /* For API backward compatibility, this is separate from X509V3_set_ctx(): */
-int X509V3_set_issuer_pkey(X509V3_CTX *ctx, EVP_PKEY *pkey);
+int X509V3_set_issuer_pkey(X509V3_CTX * ctx, EVP_PKEY * pkey);
 
 int X509V3_add_value(const char *name, const char *value,
-                     STACK_OF(CONF_VALUE) **extlist);
+                     STACK_OF(CONF_VALUE) * * extlist ) ;
 int X509V3_add_value_uchar(const char *name, const unsigned char *value,
-                           STACK_OF(CONF_VALUE) **extlist);
+                           STACK_OF(CONF_VALUE) * * extlist ) ;
 int X509V3_add_value_bool(const char *name, int asn1_bool,
-                          STACK_OF(CONF_VALUE) **extlist);
+                          STACK_OF(CONF_VALUE) * * extlist ) ;
 int X509V3_add_value_int(const char *name, const ASN1_INTEGER *aint,
-                         STACK_OF(CONF_VALUE) **extlist);
-char *i2s_ASN1_INTEGER(X509V3_EXT_METHOD *meth, const ASN1_INTEGER *aint);
-ASN1_INTEGER *s2i_ASN1_INTEGER(X509V3_EXT_METHOD *meth, const char *value);
-char *i2s_ASN1_ENUMERATED(X509V3_EXT_METHOD *meth, const ASN1_ENUMERATED *aint);
-char *i2s_ASN1_ENUMERATED_TABLE(X509V3_EXT_METHOD *meth,
-                                const ASN1_ENUMERATED *aint);
-int X509V3_EXT_add(X509V3_EXT_METHOD *ext);
-int X509V3_EXT_add_list(X509V3_EXT_METHOD *extlist);
+                         STACK_OF(CONF_VALUE) * * extlist ) ;
+char *i2s_ASN1_INTEGER(X509V3_EXT_METHOD * meth,
+const ASN1_INTEGER *aint ) ;
+ASN1_INTEGER *s2i_ASN1_INTEGER(X509V3_EXT_METHOD * meth,
+const char *value ) ;
+char *i2s_ASN1_ENUMERATED(X509V3_EXT_METHOD * meth,
+const ASN1_ENUMERATED *aint ) ;
+char *i2s_ASN1_ENUMERATED_TABLE(X509V3_EXT_METHOD * meth,
+const ASN1_ENUMERATED *aint ) ;
+int X509V3_EXT_add(X509V3_EXT_METHOD * ext);
+int X509V3_EXT_add_list(X509V3_EXT_METHOD * extlist);
 int X509V3_EXT_add_alias(int nid_to, int nid_from);
 void X509V3_EXT_cleanup(void);
 
 const X509V3_EXT_METHOD *X509V3_EXT_get(X509_EXTENSION *ext);
 const X509V3_EXT_METHOD *X509V3_EXT_get_nid(int nid);
 int X509V3_add_standard_extensions(void);
-STACK_OF(CONF_VALUE) *X509V3_parse_list(const char *line);
+STACK_OF(CONF_VALUE) * X509V3_parse_list(const char *line);
 void *X509V3_EXT_d2i(X509_EXTENSION *ext);
-void *X509V3_get_d2i(const STACK_OF(X509_EXTENSION) *x, int nid, int *crit,
-                     int *idx);
+void *X509V3_get_d2i(const STACK_OF(X509_EXTENSION) * x , int nid,
+int *crit,
+int *idx ) ;
 
 X509_EXTENSION *X509V3_EXT_i2d(int ext_nid, int crit, void *ext_struc);
-int X509V3_add1_i2d(STACK_OF(X509_EXTENSION) **x, int nid, void *value,
-                    int crit, unsigned long flags);
+int X509V3_add1_i2d(STACK_OF(X509_EXTENSION) * *x, int
+nid , void *value,
+int crit,
+unsigned long flags ) ;
 
 #ifndef OPENSSL_NO_DEPRECATED_1_1_0
 /* The new declarations are in crypto.h, but the old ones were here. */
@@ -976,16 +1019,17 @@ int X509V3_add1_i2d(STACK_OF(X509_EXTENSION) **x, int nid, void *value,
 # define string_to_hex OPENSSL_hexstr2buf
 #endif
 
-void X509V3_EXT_val_prn(BIO *out, STACK_OF(CONF_VALUE) *val, int indent,
-                        int ml);
+void X509V3_EXT_val_prn(BIO *out, STACK_OF(CONF_VALUE) * val , int indent,
+int ml ) ;
 int X509V3_EXT_print(BIO *out, X509_EXTENSION *ext, unsigned long flag,
                      int indent);
 #ifndef OPENSSL_NO_STDIO
 int X509V3_EXT_print_fp(FILE *out, X509_EXTENSION *ext, int flag, int indent);
 #endif
 int X509V3_extensions_print(BIO *out, const char *title,
-                            const STACK_OF(X509_EXTENSION) *exts,
-                            unsigned long flag, int indent);
+                            const STACK_OF(X509_EXTENSION) * exts ,
+unsigned long flag,
+int indent ) ;
 
 int X509_check_ca(X509 *x);
 int X509_check_purpose(X509 *x, int id, int ca);
@@ -1009,7 +1053,7 @@ int X509_PURPOSE_get_unused_id(OSSL_LIB_CTX *libctx);
 int X509_PURPOSE_get_by_sname(const char *sname);
 int X509_PURPOSE_get_by_id(int id);
 int X509_PURPOSE_add(int id, int trust, int flags,
-                     int (*ck) (const X509_PURPOSE *, const X509 *, int),
+                     int (*ck)(const X509_PURPOSE *, const X509 *, int),
                      const char *name, const char *sname, void *arg);
 void X509_PURPOSE_cleanup(void);
 
@@ -1020,10 +1064,10 @@ char *X509_PURPOSE_get0_sname(const X509_PURPOSE *xp);
 int X509_PURPOSE_get_trust(const X509_PURPOSE *xp);
 int X509_PURPOSE_set(int *p, int purpose);
 
-STACK_OF(OPENSSL_STRING) *X509_get1_email(X509 *x);
-STACK_OF(OPENSSL_STRING) *X509_REQ_get1_email(X509_REQ *x);
-void X509_email_free(STACK_OF(OPENSSL_STRING) *sk);
-STACK_OF(OPENSSL_STRING) *X509_get1_ocsp(X509 *x);
+STACK_OF(OPENSSL_STRING) * X509_get1_email(X509 * x ) ;
+STACK_OF(OPENSSL_STRING) * X509_REQ_get1_email(X509_REQ * x ) ;
+void X509_email_free(STACK_OF(OPENSSL_STRING) * sk);
+STACK_OF(OPENSSL_STRING) * X509_get1_ocsp(X509 * x ) ;
 
 /* Flags for X509_check_* functions */
 
@@ -1048,21 +1092,30 @@ STACK_OF(OPENSSL_STRING) *X509_get1_ocsp(X509 *x);
  */
 # define _X509_CHECK_FLAG_DOT_SUBDOMAINS 0x8000
 
-int X509_check_host(X509 *x, const char *chk, size_t chklen,
-                    unsigned int flags, char **peername);
-int X509_check_email(X509 *x, const char *chk, size_t chklen,
-                     unsigned int flags);
-int X509_check_ip(X509 *x, const unsigned char *chk, size_t chklen,
-                  unsigned int flags);
-int X509_check_ip_asc(X509 *x, const char *ipasc, unsigned int flags);
+int X509_check_host(X509 * x,
+const char *chk, size_t
+chklen ,
+unsigned int flags,
+char **peername ) ;
+int X509_check_email(X509 * x,
+const char *chk, size_t
+chklen ,
+unsigned int flags ) ;
+int X509_check_ip(X509 * x,
+const unsigned char *chk, size_t
+chklen ,
+unsigned int flags ) ;
+int X509_check_ip_asc(X509 * x,
+const char *ipasc,
+unsigned int flags ) ;
 
 ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
 ASN1_OCTET_STRING *a2i_IPADDRESS_NC(const char *ipasc);
-int X509V3_NAME_from_section(X509_NAME *nm, STACK_OF(CONF_VALUE) *dn_sk,
-                             unsigned long chtype);
+int X509V3_NAME_from_section(X509_NAME *nm, STACK_OF(CONF_VALUE) * dn_sk ,
+unsigned long chtype ) ;
 
 void X509_POLICY_NODE_print(BIO *out, X509_POLICY_NODE *node, int indent);
-SKM_DEFINE_STACK_OF_INTERNAL(X509_POLICY_NODE, X509_POLICY_NODE, X509_POLICY_NODE)
+SKM_DEFINE_STACK_OF_INTERNAL(X509_POLICY_NODE, X509_POLICY_NODE, X509_POLICY_NODE )
 #define sk_X509_POLICY_NODE_num(sk) OPENSSL_sk_num(ossl_check_const_X509_POLICY_NODE_sk_type(sk))
 #define sk_X509_POLICY_NODE_value(sk, idx) ((X509_POLICY_NODE *)OPENSSL_sk_value(ossl_check_const_X509_POLICY_NODE_sk_type(sk), (idx)))
 #define sk_X509_POLICY_NODE_new(cmp) ((STACK_OF(X509_POLICY_NODE) *)OPENSSL_sk_new(ossl_check_X509_POLICY_NODE_compfunc_type(cmp)))
@@ -1090,7 +1143,6 @@ SKM_DEFINE_STACK_OF_INTERNAL(X509_POLICY_NODE, X509_POLICY_NODE, X509_POLICY_NOD
 #define sk_X509_POLICY_NODE_set_cmp_func(sk, cmp) ((sk_X509_POLICY_NODE_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_X509_POLICY_NODE_sk_type(sk), ossl_check_X509_POLICY_NODE_compfunc_type(cmp)))
 
 
-
 #ifndef OPENSSL_NO_RFC3779
 typedef struct ASRange_st {
     ASN1_INTEGER *min, *max;
@@ -1107,7 +1159,7 @@ typedef struct ASIdOrRange_st {
     } u;
 } ASIdOrRange;
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASIdOrRange, ASIdOrRange, ASIdOrRange)
+SKM_DEFINE_STACK_OF_INTERNAL(ASIdOrRange, ASIdOrRange, ASIdOrRange )
 #define sk_ASIdOrRange_num(sk) OPENSSL_sk_num(ossl_check_const_ASIdOrRange_sk_type(sk))
 #define sk_ASIdOrRange_value(sk, idx) ((ASIdOrRange *)OPENSSL_sk_value(ossl_check_const_ASIdOrRange_sk_type(sk), (idx)))
 #define sk_ASIdOrRange_new(cmp) ((STACK_OF(ASIdOrRange) *)OPENSSL_sk_new(ossl_check_ASIdOrRange_compfunc_type(cmp)))
@@ -1135,7 +1187,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(ASIdOrRange, ASIdOrRange, ASIdOrRange)
 #define sk_ASIdOrRange_set_cmp_func(sk, cmp) ((sk_ASIdOrRange_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ASIdOrRange_sk_type(sk), ossl_check_ASIdOrRange_compfunc_type(cmp)))
 
 
-typedef STACK_OF(ASIdOrRange) ASIdOrRanges;
+typedef STACK_OF(ASIdOrRange)
+ASIdOrRanges;
 
 # define ASIdentifierChoice_inherit              0
 # define ASIdentifierChoice_asIdsOrRanges        1
@@ -1172,7 +1225,7 @@ typedef struct IPAddressOrRange_st {
     } u;
 } IPAddressOrRange;
 
-SKM_DEFINE_STACK_OF_INTERNAL(IPAddressOrRange, IPAddressOrRange, IPAddressOrRange)
+SKM_DEFINE_STACK_OF_INTERNAL(IPAddressOrRange, IPAddressOrRange, IPAddressOrRange )
 #define sk_IPAddressOrRange_num(sk) OPENSSL_sk_num(ossl_check_const_IPAddressOrRange_sk_type(sk))
 #define sk_IPAddressOrRange_value(sk, idx) ((IPAddressOrRange *)OPENSSL_sk_value(ossl_check_const_IPAddressOrRange_sk_type(sk), (idx)))
 #define sk_IPAddressOrRange_new(cmp) ((STACK_OF(IPAddressOrRange) *)OPENSSL_sk_new(ossl_check_IPAddressOrRange_compfunc_type(cmp)))
@@ -1200,7 +1253,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(IPAddressOrRange, IPAddressOrRange, IPAddressOrRang
 #define sk_IPAddressOrRange_set_cmp_func(sk, cmp) ((sk_IPAddressOrRange_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_IPAddressOrRange_sk_type(sk), ossl_check_IPAddressOrRange_compfunc_type(cmp)))
 
 
-typedef STACK_OF(IPAddressOrRange) IPAddressOrRanges;
+typedef STACK_OF(IPAddressOrRange)
+IPAddressOrRanges;
 
 # define IPAddressChoice_inherit                 0
 # define IPAddressChoice_addressesOrRanges       1
@@ -1218,7 +1272,7 @@ typedef struct IPAddressFamily_st {
     IPAddressChoice *ipAddressChoice;
 } IPAddressFamily;
 
-SKM_DEFINE_STACK_OF_INTERNAL(IPAddressFamily, IPAddressFamily, IPAddressFamily)
+SKM_DEFINE_STACK_OF_INTERNAL(IPAddressFamily, IPAddressFamily, IPAddressFamily )
 #define sk_IPAddressFamily_num(sk) OPENSSL_sk_num(ossl_check_const_IPAddressFamily_sk_type(sk))
 #define sk_IPAddressFamily_value(sk, idx) ((IPAddressFamily *)OPENSSL_sk_value(ossl_check_const_IPAddressFamily_sk_type(sk), (idx)))
 #define sk_IPAddressFamily_new(cmp) ((STACK_OF(IPAddressFamily) *)OPENSSL_sk_new(ossl_check_IPAddressFamily_compfunc_type(cmp)))
@@ -1246,8 +1300,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(IPAddressFamily, IPAddressFamily, IPAddressFamily)
 #define sk_IPAddressFamily_set_cmp_func(sk, cmp) ((sk_IPAddressFamily_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_IPAddressFamily_sk_type(sk), ossl_check_IPAddressFamily_compfunc_type(cmp)))
 
 
-
-typedef STACK_OF(IPAddressFamily) IPAddrBlocks;
+typedef STACK_OF(IPAddressFamily)
+IPAddrBlocks;
 
 DECLARE_ASN1_FUNCTIONS(IPAddressRange)
 DECLARE_ASN1_FUNCTIONS(IPAddressOrRange)
@@ -1274,52 +1328,63 @@ DECLARE_ASN1_FUNCTIONS(IPAddressFamily)
  * since some of the encodings (particularly for IP address prefixes
  * and ranges) are a bit tedious to work with directly.
  */
-int X509v3_asid_add_inherit(ASIdentifiers *asid, int which);
-int X509v3_asid_add_id_or_range(ASIdentifiers *asid, int which,
-                                ASN1_INTEGER *min, ASN1_INTEGER *max);
-int X509v3_addr_add_inherit(IPAddrBlocks *addr,
-                            const unsigned afi, const unsigned *safi);
-int X509v3_addr_add_prefix(IPAddrBlocks *addr,
-                           const unsigned afi, const unsigned *safi,
-                           unsigned char *a, const int prefixlen);
-int X509v3_addr_add_range(IPAddrBlocks *addr,
-                          const unsigned afi, const unsigned *safi,
-                          unsigned char *min, unsigned char *max);
+int X509v3_asid_add_inherit(ASIdentifiers * asid, int
+which ) ;
+int X509v3_asid_add_id_or_range(ASIdentifiers * asid, int
+which ,
+ASN1_INTEGER *min, ASN1_INTEGER * max ) ;
+int X509v3_addr_add_inherit(IPAddrBlocks * addr,
+const unsigned afi,
+const unsigned *safi ) ;
+int X509v3_addr_add_prefix(IPAddrBlocks * addr,
+const unsigned afi,
+const unsigned *safi,
+unsigned char *a,
+const int prefixlen ) ;
+int X509v3_addr_add_range(IPAddrBlocks * addr,
+const unsigned afi,
+const unsigned *safi,
+unsigned char *min,
+unsigned char *max ) ;
 unsigned X509v3_addr_get_afi(const IPAddressFamily *f);
-int X509v3_addr_get_range(IPAddressOrRange *aor, const unsigned afi,
-                          unsigned char *min, unsigned char *max,
-                          const int length);
+int X509v3_addr_get_range(IPAddressOrRange * aor,
+const unsigned afi,
+unsigned char *min,
+unsigned char *max,
+const int length ) ;
 
 /*
  * Canonical forms.
  */
-int X509v3_asid_is_canonical(ASIdentifiers *asid);
-int X509v3_addr_is_canonical(IPAddrBlocks *addr);
-int X509v3_asid_canonize(ASIdentifiers *asid);
-int X509v3_addr_canonize(IPAddrBlocks *addr);
+int X509v3_asid_is_canonical(ASIdentifiers * asid);
+int X509v3_addr_is_canonical(IPAddrBlocks * addr);
+int X509v3_asid_canonize(ASIdentifiers * asid);
+int X509v3_addr_canonize(IPAddrBlocks * addr);
 
 /*
  * Tests for inheritance and containment.
  */
-int X509v3_asid_inherits(ASIdentifiers *asid);
-int X509v3_addr_inherits(IPAddrBlocks *addr);
-int X509v3_asid_subset(ASIdentifiers *a, ASIdentifiers *b);
-int X509v3_addr_subset(IPAddrBlocks *a, IPAddrBlocks *b);
+int X509v3_asid_inherits(ASIdentifiers * asid);
+int X509v3_addr_inherits(IPAddrBlocks * addr);
+int X509v3_asid_subset(ASIdentifiers * a, ASIdentifiers * b);
+int X509v3_addr_subset(IPAddrBlocks * a, IPAddrBlocks * b);
 
 /*
  * Check whether RFC 3779 extensions nest properly in chains.
  */
 int X509v3_asid_validate_path(X509_STORE_CTX *);
 int X509v3_addr_validate_path(X509_STORE_CTX *);
-int X509v3_asid_validate_resource_set(STACK_OF(X509) *chain,
-                                      ASIdentifiers *ext,
-                                      int allow_inheritance);
-int X509v3_addr_validate_resource_set(STACK_OF(X509) *chain,
-                                      IPAddrBlocks *ext, int allow_inheritance);
+int X509v3_asid_validate_resource_set(STACK_OF(X509) * chain,
+                                      ASIdentifiers * ext,
+                                      int
+allow_inheritance ) ;
+int X509v3_addr_validate_resource_set(STACK_OF(X509) * chain,
+                                      IPAddrBlocks * ext, int
+allow_inheritance ) ;
 
 #endif                         /* OPENSSL_NO_RFC3779 */
 
-SKM_DEFINE_STACK_OF_INTERNAL(ASN1_STRING, ASN1_STRING, ASN1_STRING)
+SKM_DEFINE_STACK_OF_INTERNAL(ASN1_STRING, ASN1_STRING, ASN1_STRING )
 #define sk_ASN1_STRING_num(sk) OPENSSL_sk_num(ossl_check_const_ASN1_STRING_sk_type(sk))
 #define sk_ASN1_STRING_value(sk, idx) ((ASN1_STRING *)OPENSSL_sk_value(ossl_check_const_ASN1_STRING_sk_type(sk), (idx)))
 #define sk_ASN1_STRING_new(cmp) ((STACK_OF(ASN1_STRING) *)OPENSSL_sk_new(ossl_check_ASN1_STRING_compfunc_type(cmp)))
@@ -1358,7 +1423,7 @@ DECLARE_ASN1_FUNCTIONS(NAMING_AUTHORITY)
 DECLARE_ASN1_FUNCTIONS(PROFESSION_INFO)
 DECLARE_ASN1_FUNCTIONS(ADMISSIONS)
 DECLARE_ASN1_FUNCTIONS(ADMISSION_SYNTAX)
-SKM_DEFINE_STACK_OF_INTERNAL(PROFESSION_INFO, PROFESSION_INFO, PROFESSION_INFO)
+SKM_DEFINE_STACK_OF_INTERNAL(PROFESSION_INFO, PROFESSION_INFO, PROFESSION_INFO )
 #define sk_PROFESSION_INFO_num(sk) OPENSSL_sk_num(ossl_check_const_PROFESSION_INFO_sk_type(sk))
 #define sk_PROFESSION_INFO_value(sk, idx) ((PROFESSION_INFO *)OPENSSL_sk_value(ossl_check_const_PROFESSION_INFO_sk_type(sk), (idx)))
 #define sk_PROFESSION_INFO_new(cmp) ((STACK_OF(PROFESSION_INFO) *)OPENSSL_sk_new(ossl_check_PROFESSION_INFO_compfunc_type(cmp)))
@@ -1384,7 +1449,7 @@ SKM_DEFINE_STACK_OF_INTERNAL(PROFESSION_INFO, PROFESSION_INFO, PROFESSION_INFO)
 #define sk_PROFESSION_INFO_dup(sk) ((STACK_OF(PROFESSION_INFO) *)OPENSSL_sk_dup(ossl_check_const_PROFESSION_INFO_sk_type(sk)))
 #define sk_PROFESSION_INFO_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(PROFESSION_INFO) *)OPENSSL_sk_deep_copy(ossl_check_const_PROFESSION_INFO_sk_type(sk), ossl_check_PROFESSION_INFO_copyfunc_type(copyfunc), ossl_check_PROFESSION_INFO_freefunc_type(freefunc)))
 #define sk_PROFESSION_INFO_set_cmp_func(sk, cmp) ((sk_PROFESSION_INFO_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_PROFESSION_INFO_sk_type(sk), ossl_check_PROFESSION_INFO_compfunc_type(cmp)))
-SKM_DEFINE_STACK_OF_INTERNAL(ADMISSIONS, ADMISSIONS, ADMISSIONS)
+SKM_DEFINE_STACK_OF_INTERNAL(ADMISSIONS, ADMISSIONS, ADMISSIONS )
 #define sk_ADMISSIONS_num(sk) OPENSSL_sk_num(ossl_check_const_ADMISSIONS_sk_type(sk))
 #define sk_ADMISSIONS_value(sk, idx) ((ADMISSIONS *)OPENSSL_sk_value(ossl_check_const_ADMISSIONS_sk_type(sk), (idx)))
 #define sk_ADMISSIONS_new(cmp) ((STACK_OF(ADMISSIONS) *)OPENSSL_sk_new(ossl_check_ADMISSIONS_compfunc_type(cmp)))
@@ -1411,65 +1476,68 @@ SKM_DEFINE_STACK_OF_INTERNAL(ADMISSIONS, ADMISSIONS, ADMISSIONS)
 #define sk_ADMISSIONS_deep_copy(sk, copyfunc, freefunc) ((STACK_OF(ADMISSIONS) *)OPENSSL_sk_deep_copy(ossl_check_const_ADMISSIONS_sk_type(sk), ossl_check_ADMISSIONS_copyfunc_type(copyfunc), ossl_check_ADMISSIONS_freefunc_type(freefunc)))
 #define sk_ADMISSIONS_set_cmp_func(sk, cmp) ((sk_ADMISSIONS_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_ADMISSIONS_sk_type(sk), ossl_check_ADMISSIONS_compfunc_type(cmp)))
 
-typedef STACK_OF(PROFESSION_INFO) PROFESSION_INFOS;
+typedef STACK_OF(PROFESSION_INFO)
+PROFESSION_INFOS;
 
 const ASN1_OBJECT *NAMING_AUTHORITY_get0_authorityId(
-    const NAMING_AUTHORITY *n);
+        const NAMING_AUTHORITY *n);
 const ASN1_IA5STRING *NAMING_AUTHORITY_get0_authorityURL(
-    const NAMING_AUTHORITY *n);
+        const NAMING_AUTHORITY *n);
 const ASN1_STRING *NAMING_AUTHORITY_get0_authorityText(
-    const NAMING_AUTHORITY *n);
-void NAMING_AUTHORITY_set0_authorityId(NAMING_AUTHORITY *n,
-    ASN1_OBJECT* namingAuthorityId);
-void NAMING_AUTHORITY_set0_authorityURL(NAMING_AUTHORITY *n,
-    ASN1_IA5STRING* namingAuthorityUrl);
-void NAMING_AUTHORITY_set0_authorityText(NAMING_AUTHORITY *n,
-    ASN1_STRING* namingAuthorityText);
+        const NAMING_AUTHORITY *n);
+void NAMING_AUTHORITY_set0_authorityId(NAMING_AUTHORITY * n,
+                                       ASN1_OBJECT * namingAuthorityId);
+void NAMING_AUTHORITY_set0_authorityURL(NAMING_AUTHORITY * n,
+                                        ASN1_IA5STRING * namingAuthorityUrl);
+void NAMING_AUTHORITY_set0_authorityText(NAMING_AUTHORITY * n,
+                                         ASN1_STRING * namingAuthorityText);
 
 const GENERAL_NAME *ADMISSION_SYNTAX_get0_admissionAuthority(
-    const ADMISSION_SYNTAX *as);
+        const ADMISSION_SYNTAX *as);
 void ADMISSION_SYNTAX_set0_admissionAuthority(
-    ADMISSION_SYNTAX *as, GENERAL_NAME *aa);
-const STACK_OF(ADMISSIONS) *ADMISSION_SYNTAX_get0_contentsOfAdmissions(
-    const ADMISSION_SYNTAX *as);
+        ADMISSION_SYNTAX * as, GENERAL_NAME * aa);
+const STACK_OF(ADMISSIONS) * ADMISSION_SYNTAX_get0_contentsOfAdmissions(
+        const ADMISSION_SYNTAX *as);
 void ADMISSION_SYNTAX_set0_contentsOfAdmissions(
-    ADMISSION_SYNTAX *as, STACK_OF(ADMISSIONS) *a);
+        ADMISSION_SYNTAX * as, STACK_OF(ADMISSIONS) * a);
 const GENERAL_NAME *ADMISSIONS_get0_admissionAuthority(const ADMISSIONS *a);
-void ADMISSIONS_set0_admissionAuthority(ADMISSIONS *a, GENERAL_NAME *aa);
+void ADMISSIONS_set0_admissionAuthority(ADMISSIONS * a, GENERAL_NAME * aa);
 const NAMING_AUTHORITY *ADMISSIONS_get0_namingAuthority(const ADMISSIONS *a);
-void ADMISSIONS_set0_namingAuthority(ADMISSIONS *a, NAMING_AUTHORITY *na);
+void ADMISSIONS_set0_namingAuthority(ADMISSIONS * a, NAMING_AUTHORITY * na);
 const PROFESSION_INFOS *ADMISSIONS_get0_professionInfos(const ADMISSIONS *a);
-void ADMISSIONS_set0_professionInfos(ADMISSIONS *a, PROFESSION_INFOS *pi);
+void ADMISSIONS_set0_professionInfos(ADMISSIONS * a, PROFESSION_INFOS * pi);
 const ASN1_OCTET_STRING *PROFESSION_INFO_get0_addProfessionInfo(
-    const PROFESSION_INFO *pi);
+        const PROFESSION_INFO *pi);
 void PROFESSION_INFO_set0_addProfessionInfo(
-    PROFESSION_INFO *pi, ASN1_OCTET_STRING *aos);
+        PROFESSION_INFO * pi, ASN1_OCTET_STRING * aos);
 const NAMING_AUTHORITY *PROFESSION_INFO_get0_namingAuthority(
-    const PROFESSION_INFO *pi);
+        const PROFESSION_INFO *pi);
 void PROFESSION_INFO_set0_namingAuthority(
-    PROFESSION_INFO *pi, NAMING_AUTHORITY *na);
-const STACK_OF(ASN1_STRING) *PROFESSION_INFO_get0_professionItems(
-    const PROFESSION_INFO *pi);
+        PROFESSION_INFO * pi, NAMING_AUTHORITY * na);
+const STACK_OF(ASN1_STRING) * PROFESSION_INFO_get0_professionItems(
+        const PROFESSION_INFO *pi);
 void PROFESSION_INFO_set0_professionItems(
-    PROFESSION_INFO *pi, STACK_OF(ASN1_STRING) *as);
-const STACK_OF(ASN1_OBJECT) *PROFESSION_INFO_get0_professionOIDs(
-    const PROFESSION_INFO *pi);
+        PROFESSION_INFO * pi, STACK_OF(ASN1_STRING) * as);
+const STACK_OF(ASN1_OBJECT) * PROFESSION_INFO_get0_professionOIDs(
+        const PROFESSION_INFO *pi);
 void PROFESSION_INFO_set0_professionOIDs(
-    PROFESSION_INFO *pi, STACK_OF(ASN1_OBJECT) *po);
+        PROFESSION_INFO * pi, STACK_OF(ASN1_OBJECT) * po);
 const ASN1_PRINTABLESTRING *PROFESSION_INFO_get0_registrationNumber(
-    const PROFESSION_INFO *pi);
+        const PROFESSION_INFO *pi);
 void PROFESSION_INFO_set0_registrationNumber(
-    PROFESSION_INFO *pi, ASN1_PRINTABLESTRING *rn);
+        PROFESSION_INFO * pi, ASN1_PRINTABLESTRING * rn);
 
 int OSSL_GENERAL_NAMES_print(BIO *out, GENERAL_NAMES *gens, int indent);
 
-typedef STACK_OF(X509_ATTRIBUTE) OSSL_ATTRIBUTES_SYNTAX;
+typedef STACK_OF(X509_ATTRIBUTE)
+OSSL_ATTRIBUTES_SYNTAX;
 DECLARE_ASN1_FUNCTIONS(OSSL_ATTRIBUTES_SYNTAX)
 
-typedef STACK_OF(USERNOTICE) OSSL_USER_NOTICE_SYNTAX;
+typedef STACK_OF(USERNOTICE)
+OSSL_USER_NOTICE_SYNTAX;
 DECLARE_ASN1_FUNCTIONS(OSSL_USER_NOTICE_SYNTAX)
 
-SKM_DEFINE_STACK_OF_INTERNAL(USERNOTICE, USERNOTICE, USERNOTICE)
+SKM_DEFINE_STACK_OF_INTERNAL(USERNOTICE, USERNOTICE, USERNOTICE )
 #define sk_USERNOTICE_num(sk) OPENSSL_sk_num(ossl_check_const_USERNOTICE_sk_type(sk))
 #define sk_USERNOTICE_value(sk, idx) ((USERNOTICE *)OPENSSL_sk_value(ossl_check_const_USERNOTICE_sk_type(sk), (idx)))
 #define sk_USERNOTICE_new(cmp) ((STACK_OF(USERNOTICE) *)OPENSSL_sk_new(ossl_check_USERNOTICE_compfunc_type(cmp)))
@@ -1506,7 +1574,7 @@ typedef struct OSSL_ROLE_SPEC_CERT_ID_st {
 
 DECLARE_ASN1_FUNCTIONS(OSSL_ROLE_SPEC_CERT_ID)
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ROLE_SPEC_CERT_ID, OSSL_ROLE_SPEC_CERT_ID, OSSL_ROLE_SPEC_CERT_ID)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ROLE_SPEC_CERT_ID, OSSL_ROLE_SPEC_CERT_ID, OSSL_ROLE_SPEC_CERT_ID )
 #define sk_OSSL_ROLE_SPEC_CERT_ID_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_ROLE_SPEC_CERT_ID_sk_type(sk))
 #define sk_OSSL_ROLE_SPEC_CERT_ID_value(sk, idx) ((OSSL_ROLE_SPEC_CERT_ID *)OPENSSL_sk_value(ossl_check_const_OSSL_ROLE_SPEC_CERT_ID_sk_type(sk), (idx)))
 #define sk_OSSL_ROLE_SPEC_CERT_ID_new(cmp) ((STACK_OF(OSSL_ROLE_SPEC_CERT_ID) *)OPENSSL_sk_new(ossl_check_OSSL_ROLE_SPEC_CERT_ID_compfunc_type(cmp)))
@@ -1534,7 +1602,8 @@ SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ROLE_SPEC_CERT_ID, OSSL_ROLE_SPEC_CERT_ID, OSS
 #define sk_OSSL_ROLE_SPEC_CERT_ID_set_cmp_func(sk, cmp) ((sk_OSSL_ROLE_SPEC_CERT_ID_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_OSSL_ROLE_SPEC_CERT_ID_sk_type(sk), ossl_check_OSSL_ROLE_SPEC_CERT_ID_compfunc_type(cmp)))
 
 
-typedef STACK_OF(OSSL_ROLE_SPEC_CERT_ID) OSSL_ROLE_SPEC_CERT_ID_SYNTAX;
+typedef STACK_OF(OSSL_ROLE_SPEC_CERT_ID)
+OSSL_ROLE_SPEC_CERT_ID_SYNTAX;
 
 DECLARE_ASN1_FUNCTIONS(OSSL_ROLE_SPEC_CERT_ID_SYNTAX)
 typedef struct OSSL_HASH_st {
@@ -1754,7 +1823,7 @@ DECLARE_ASN1_FUNCTIONS(OSSL_TIME_SPEC_TIME)
 DECLARE_ASN1_FUNCTIONS(OSSL_TIME_SPEC)
 DECLARE_ASN1_FUNCTIONS(OSSL_TIME_PERIOD)
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_TIME_PERIOD, OSSL_TIME_PERIOD, OSSL_TIME_PERIOD)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_TIME_PERIOD, OSSL_TIME_PERIOD, OSSL_TIME_PERIOD )
 #define sk_OSSL_TIME_PERIOD_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_TIME_PERIOD_sk_type(sk))
 #define sk_OSSL_TIME_PERIOD_value(sk, idx) ((OSSL_TIME_PERIOD *)OPENSSL_sk_value(ossl_check_const_OSSL_TIME_PERIOD_sk_type(sk), (idx)))
 #define sk_OSSL_TIME_PERIOD_new(cmp) ((STACK_OF(OSSL_TIME_PERIOD) *)OPENSSL_sk_new(ossl_check_OSSL_TIME_PERIOD_compfunc_type(cmp)))
@@ -1782,7 +1851,7 @@ SKM_DEFINE_STACK_OF_INTERNAL(OSSL_TIME_PERIOD, OSSL_TIME_PERIOD, OSSL_TIME_PERIO
 #define sk_OSSL_TIME_PERIOD_set_cmp_func(sk, cmp) ((sk_OSSL_TIME_PERIOD_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_OSSL_TIME_PERIOD_sk_type(sk), ossl_check_OSSL_TIME_PERIOD_compfunc_type(cmp)))
 
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_DAY_TIME_BAND, OSSL_DAY_TIME_BAND, OSSL_DAY_TIME_BAND)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_DAY_TIME_BAND, OSSL_DAY_TIME_BAND, OSSL_DAY_TIME_BAND )
 #define sk_OSSL_DAY_TIME_BAND_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_DAY_TIME_BAND_sk_type(sk))
 #define sk_OSSL_DAY_TIME_BAND_value(sk, idx) ((OSSL_DAY_TIME_BAND *)OPENSSL_sk_value(ossl_check_const_OSSL_DAY_TIME_BAND_sk_type(sk), (idx)))
 #define sk_OSSL_DAY_TIME_BAND_new(cmp) ((STACK_OF(OSSL_DAY_TIME_BAND) *)OPENSSL_sk_new(ossl_check_OSSL_DAY_TIME_BAND_compfunc_type(cmp)))
@@ -1837,14 +1906,15 @@ typedef struct ATTRIBUTE_MAPPING_st {
     } choice;
 } OSSL_ATTRIBUTE_MAPPING;
 
-typedef STACK_OF(OSSL_ATTRIBUTE_MAPPING) OSSL_ATTRIBUTE_MAPPINGS;
+typedef STACK_OF(OSSL_ATTRIBUTE_MAPPING)
+OSSL_ATTRIBUTE_MAPPINGS;
 DECLARE_ASN1_FUNCTIONS(OSSL_ATAV)
 DECLARE_ASN1_FUNCTIONS(OSSL_ATTRIBUTE_TYPE_MAPPING)
 DECLARE_ASN1_FUNCTIONS(OSSL_ATTRIBUTE_VALUE_MAPPING)
 DECLARE_ASN1_FUNCTIONS(OSSL_ATTRIBUTE_MAPPING)
 DECLARE_ASN1_FUNCTIONS(OSSL_ATTRIBUTE_MAPPINGS)
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ATTRIBUTE_MAPPING, OSSL_ATTRIBUTE_MAPPING, OSSL_ATTRIBUTE_MAPPING)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ATTRIBUTE_MAPPING, OSSL_ATTRIBUTE_MAPPING, OSSL_ATTRIBUTE_MAPPING )
 #define sk_OSSL_ATTRIBUTE_MAPPING_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_ATTRIBUTE_MAPPING_sk_type(sk))
 #define sk_OSSL_ATTRIBUTE_MAPPING_value(sk, idx) ((OSSL_ATTRIBUTE_MAPPING *)OPENSSL_sk_value(ossl_check_const_OSSL_ATTRIBUTE_MAPPING_sk_type(sk), (idx)))
 #define sk_OSSL_ATTRIBUTE_MAPPING_new(cmp) ((STACK_OF(OSSL_ATTRIBUTE_MAPPING) *)OPENSSL_sk_new(ossl_check_OSSL_ATTRIBUTE_MAPPING_compfunc_type(cmp)))
@@ -1888,13 +1958,14 @@ typedef struct ALLOWED_ATTRIBUTES_ITEM_st {
     GENERAL_NAME *holderDomain;
 } OSSL_ALLOWED_ATTRIBUTES_ITEM;
 
-typedef STACK_OF(OSSL_ALLOWED_ATTRIBUTES_ITEM) OSSL_ALLOWED_ATTRIBUTES_SYNTAX;
+typedef STACK_OF(OSSL_ALLOWED_ATTRIBUTES_ITEM)
+OSSL_ALLOWED_ATTRIBUTES_SYNTAX;
 
 DECLARE_ASN1_FUNCTIONS(OSSL_ALLOWED_ATTRIBUTES_CHOICE)
 DECLARE_ASN1_FUNCTIONS(OSSL_ALLOWED_ATTRIBUTES_ITEM)
 DECLARE_ASN1_FUNCTIONS(OSSL_ALLOWED_ATTRIBUTES_SYNTAX)
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ALLOWED_ATTRIBUTES_CHOICE, OSSL_ALLOWED_ATTRIBUTES_CHOICE, OSSL_ALLOWED_ATTRIBUTES_CHOICE)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ALLOWED_ATTRIBUTES_CHOICE, OSSL_ALLOWED_ATTRIBUTES_CHOICE, OSSL_ALLOWED_ATTRIBUTES_CHOICE )
 #define sk_OSSL_ALLOWED_ATTRIBUTES_CHOICE_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_ALLOWED_ATTRIBUTES_CHOICE_sk_type(sk))
 #define sk_OSSL_ALLOWED_ATTRIBUTES_CHOICE_value(sk, idx) ((OSSL_ALLOWED_ATTRIBUTES_CHOICE *)OPENSSL_sk_value(ossl_check_const_OSSL_ALLOWED_ATTRIBUTES_CHOICE_sk_type(sk), (idx)))
 #define sk_OSSL_ALLOWED_ATTRIBUTES_CHOICE_new(cmp) ((STACK_OF(OSSL_ALLOWED_ATTRIBUTES_CHOICE) *)OPENSSL_sk_new(ossl_check_OSSL_ALLOWED_ATTRIBUTES_CHOICE_compfunc_type(cmp)))
@@ -1922,7 +1993,7 @@ SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ALLOWED_ATTRIBUTES_CHOICE, OSSL_ALLOWED_ATTRIB
 #define sk_OSSL_ALLOWED_ATTRIBUTES_CHOICE_set_cmp_func(sk, cmp) ((sk_OSSL_ALLOWED_ATTRIBUTES_CHOICE_compfunc)OPENSSL_sk_set_cmp_func(ossl_check_OSSL_ALLOWED_ATTRIBUTES_CHOICE_sk_type(sk), ossl_check_OSSL_ALLOWED_ATTRIBUTES_CHOICE_compfunc_type(cmp)))
 
 
-SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ALLOWED_ATTRIBUTES_ITEM, OSSL_ALLOWED_ATTRIBUTES_ITEM, OSSL_ALLOWED_ATTRIBUTES_ITEM)
+SKM_DEFINE_STACK_OF_INTERNAL(OSSL_ALLOWED_ATTRIBUTES_ITEM, OSSL_ALLOWED_ATTRIBUTES_ITEM, OSSL_ALLOWED_ATTRIBUTES_ITEM )
 #define sk_OSSL_ALLOWED_ATTRIBUTES_ITEM_num(sk) OPENSSL_sk_num(ossl_check_const_OSSL_ALLOWED_ATTRIBUTES_ITEM_sk_type(sk))
 #define sk_OSSL_ALLOWED_ATTRIBUTES_ITEM_value(sk, idx) ((OSSL_ALLOWED_ATTRIBUTES_ITEM *)OPENSSL_sk_value(ossl_check_const_OSSL_ALLOWED_ATTRIBUTES_ITEM_sk_type(sk), (idx)))
 #define sk_OSSL_ALLOWED_ATTRIBUTES_ITEM_new(cmp) ((STACK_OF(OSSL_ALLOWED_ATTRIBUTES_ITEM) *)OPENSSL_sk_new(ossl_check_OSSL_ALLOWED_ATTRIBUTES_ITEM_compfunc_type(cmp)))

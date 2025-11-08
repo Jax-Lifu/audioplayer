@@ -1,7 +1,6 @@
 package com.qytech.audioplayer.extension
 
 
-import timber.log.Timber
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
@@ -90,7 +89,7 @@ fun ByteBuffer.getString(length: Int = 4, charset: Charset = Charsets.UTF_8): St
     }
     val bytes = ByteArray(length)
     this.get(bytes)
-    //Timber.d("getString: ${bytes.toHexString()}")
+    //Logger.d("getString: ${bytes.toHexString()}")
     return String(bytes, charset)
 }
 

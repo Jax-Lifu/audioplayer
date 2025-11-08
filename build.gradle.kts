@@ -48,11 +48,13 @@ android {
             version = "3.22.1"
         }
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
-
-//    implementation(project(":core"))
     compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     implementation(libs.qytech.core)
     implementation(libs.androidx.core.ktx)
@@ -64,19 +66,13 @@ dependencies {
     implementation(libs.commons.codec)
     implementation(libs.hilt.android)
     implementation(libs.icu4j)
-    implementation(libs.juniversalchardet)
-
     implementation(libs.okhttp3)
     ksp(libs.hilt.compiler)
-    implementation(libs.tidal.player)
-    implementation(libs.tidal.media3.datasource.okhttp)
-    implementation(libs.tidal.media3.exoplayer.hls)
-    implementation(libs.tidal.media3.effect)
-    implementation(libs.tidal.media3.extractor)
-
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.espresso.core)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.datasource.okhttp)
+    implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.effect)
+    implementation(libs.androidx.media3.extractor)
 }
 
 
@@ -86,7 +82,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.4.0"
+                version = "0.4.2"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])

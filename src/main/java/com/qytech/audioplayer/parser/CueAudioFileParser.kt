@@ -10,10 +10,10 @@ import java.io.File
  * @date 2025/7/7 16:05
  */
 class CueAudioFileParser(filePath: String) : StandardAudioFileParser(filePath) {
-    override suspend fun parse(): List<AudioInfo.Local>? {
+    override suspend fun parse(): List<AudioInfo.Local> {
         val cueAudioInfo = super.parse()?.firstOrNull() ?: return emptyList()
         // 获取当前当前音频对应的CUE文件
-        //Timber.d("parse: sourceId = $sourceId")
+        //Logger.d("parse: sourceId = $sourceId")
         val audioFile = File(sourceId)
         val cueFile = File(audioFile.parentFile, "${audioFile.nameWithoutExtension}.cue")
         if (!cueFile.exists()) {
