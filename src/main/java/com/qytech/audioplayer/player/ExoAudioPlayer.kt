@@ -205,6 +205,10 @@ class ExoAudioPlayer(
     }
 
 
+    override fun getDuration(): Long {
+        return player?.duration ?: 0L
+    }
+
     override fun getCurrentPosition(): Long {
         var position = player?.currentPosition ?: 0L
         if (needsCueSeek()) {
