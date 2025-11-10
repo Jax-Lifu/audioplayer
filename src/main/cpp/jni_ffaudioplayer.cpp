@@ -207,3 +207,12 @@ Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1setOnCompletionListener
     }
     onCompletionListener = env->NewGlobalRef(listener);
 }
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_qytech_audioplayer_player_FFAudioPlayer_native_1getAudioFormat(JNIEnv *env, jobject thiz) {
+    if (player == nullptr) {
+        return 0;
+    }
+    return player->getSampleFormat();
+}

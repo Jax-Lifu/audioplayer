@@ -111,7 +111,7 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
     duration = formatContext->duration / AV_TIME_BASE * 1000;
     channels = codecContext->ch_layout.nb_channels;
     timeBase = &formatContext->streams[audioStreamIndex]->time_base;
-    AVSampleFormat in_sample_fmt = codecContext->sample_fmt;
+    sampleFormat = codecContext->sample_fmt;
     outputFormat = (codecContext->sample_fmt == AV_SAMPLE_FMT_S32 ||
                     codecContext->sample_fmt == AV_SAMPLE_FMT_S32P ||
                     codecContext->sample_fmt == AV_SAMPLE_FMT_FLT ||
@@ -142,7 +142,7 @@ FFAudioPlayer::init(const char *filePath, const char *headers, int dsd_mode, int
 
             swr_alloc_set_opts2(&swrContext,
                                 &out_ch_layout, outputFormat, out_sample_rate,
-                                &in_ch_layout, in_sample_fmt, in_sample_rate,
+                                &in_ch_layout, sampleFormat, in_sample_rate,
                                 0, nullptr);
             if (swr_init(swrContext) < 0) return false;
             channels = 2;
@@ -247,6 +247,9 @@ int FFAudioPlayer::getChannelNumber() const { return channels; }
 
 long FFAudioPlayer::getDuration() const { return duration; }
 
+AVSampleFormat FFAudioPlayer::getSampleFormat() const {
+    return outputFormat;
+}
 bool FFAudioPlayer::openAudioFile(const char *filePath, const char *headers) {
     AVDictionary *options = nullptr;
     if (headers) av_dict_set(&options, "headers", headers, 0);

@@ -82,7 +82,7 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 groupId = "io.github.qytech"
                 artifactId = "audioplayer"
-                version = "0.4.2"
+                version = "0.4.3"
 
                 // 用于发布 Android 的 release 组件
                 // from(components["release"])

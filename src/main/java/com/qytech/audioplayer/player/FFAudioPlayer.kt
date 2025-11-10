@@ -210,7 +210,7 @@ class FFAudioPlayer(
     private fun initAudioTrack() = runCatching {
         SystemPropUtil.set("persist.vendor.dsd_mode", if (isDsd()) dsdPlayMode.name else "NULL")
         val encoding = if (!isDsd()) {
-            if (audioInfo.bitPreSample == 32 || audioInfo.bitPreSample == 24) {
+            if (native_getAudioFormat() == 2) {
                 AudioFormat.ENCODING_PCM_32BIT
             } else {
                 AudioFormat.ENCODING_PCM_16BIT
@@ -233,7 +233,6 @@ class FFAudioPlayer(
         }
         Logger.d("initAudioTrack: sampleRate=$sampleRate, encoding=$encoding bitPreSample ${audioInfo.bitPreSample}")
         val isI2s = SystemPropUtil.getBoolean("persist.sys.audio.i2s", false)
-        native_getChannels()
 
         val channelMask = when {
             // DSD + I2S 强制四声道
@@ -266,22 +265,6 @@ class FFAudioPlayer(
                         audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
                     ) {
                         audioTrack?.write(data, 0, data.size)
-                        /*if (isDsd()) {
-                            when (dsdPlayMode) {
-                                DSDMode.NATIVE -> {
-                                    dsdLoopbackDataCallback?.onDataReceived(data)
-                                }
-
-                                DSDMode.D2P -> {
-                                    dsdLoopbackDataCallback?.onDataReceived(data)
-                                }
-
-                                DSDMode.DOP -> {
-                                    val pcmData = DopToPcm.convert(data.copyOf(), sampleRate)
-                                    dsdLoopbackDataCallback?.onDataReceived(pcmData)
-                                }
-                            }
-                        }*/
                     }
                 }
             })
@@ -310,6 +293,7 @@ class FFAudioPlayer(
     external fun native_getSampleRate(): Int
     external fun native_getChannels(): Int
     external fun native_getDuration(): Long
+    external fun native_getAudioFormat(): Int
     external fun native_setCallback(callback: FFAudioPlayerCallback)
     external fun native_setOnCompletionListener(listener: OnCompletionListener)
     external fun native_init(

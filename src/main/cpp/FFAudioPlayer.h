@@ -80,6 +80,9 @@ public:
 
     [[nodiscard]] long getDuration() const;
 
+    // 获取音频sample_fmt 信息
+    [[nodiscard]] AVSampleFormat getSampleFormat() const;
+
 private:
     // FFmpeg 组件
     const AVCodec *codec = nullptr;
@@ -98,6 +101,7 @@ private:
     long duration = 0;
     long currentPosition = 0;
     int audioStreamIndex = -1;
+    AVSampleFormat sampleFormat = AV_SAMPLE_FMT_S16;
     bool isMSBF = false;
     AudioEncodingType encodingType = AudioEncodingType::Unknown;
 
