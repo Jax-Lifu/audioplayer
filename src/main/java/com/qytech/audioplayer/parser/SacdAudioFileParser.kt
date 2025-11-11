@@ -11,10 +11,12 @@ import com.qytech.audioplayer.sacd.SacdTrackOffset
 import com.qytech.audioplayer.sacd.SacdTrackText
 import com.qytech.audioplayer.sacd.SacdTrackTime
 import com.qytech.audioplayer.utils.AudioUtils
+import com.qytech.audioplayer.utils.Logger
 import com.qytech.core.extensions.getAbsoluteFolder
 import com.qytech.core.extensions.getFileName
 import com.qytech.core.extensions.toAudioCodec
 import timber.log.Timber
+import java.io.File
 import java.nio.ByteBuffer
 import java.util.Locale
 
@@ -47,6 +49,8 @@ class SacdAudioFileParser(
     private var trackTimeList: List<SacdTrackTime>? = null
     private var trackTextList: List<SacdTrackText>? = null
 
+    private var coverImage: File? = null
+
     override suspend fun parse(): List<AudioInfo>? {
         sacdSectorSize = detectSectorSize() ?: return null
         //Logger.d("SACD sector size detected: $sacdSectorSize")
@@ -57,7 +61,7 @@ class SacdAudioFileParser(
 
         toc = SacdToc.read(buffer)
         if (toc == null) {
-            Timber.e("Failed to read SACD TOC.")
+            Logger.e("Failed to read SACD TOC.")
             return null
         }
 
@@ -69,7 +73,8 @@ class SacdAudioFileParser(
             trackTimeList = readSacdTrackTimes()
             trackTextList = readSacdTrackTexts()
         }
-        println("SACD TOC: $toc\nalbumInfo $albumInfo\nareaToc $areaToc trackOffsetList $trackOffsetList\ntrackTimeList $trackTimeList\n trackTextList $trackTextList")
+        Logger.d("SACD TOC: $toc\nalbumInfo $albumInfo\nareaToc $areaToc trackOffsetList $trackOffsetList\ntrackTimeList $trackTimeList\n trackTextList $trackTextList")
+        coverImage = LocalCoverImage.findLocalCoverImage(File(folder))
         return generateTrackInfo()
     }
 
@@ -156,6 +161,7 @@ class SacdAudioFileParser(
                     album = album,
                     artist = trackText?.performer ?: "Unknown artist",
                     genre = genre,
+                    albumImageUrl = coverImage?.absolutePath,
                     date = date,
                     startOffset = startOffset,
                     endOffset = endOffset,

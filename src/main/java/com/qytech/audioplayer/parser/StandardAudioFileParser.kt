@@ -44,7 +44,7 @@ open class StandardAudioFileParser(
         val ffMediaInfo = FFprobe.probeFile(sourceId) ?: return emptyList()
         val fingerprint = FFprobe.getFingerprint(sourceId, 30)
         val albumCover = ffMediaInfo.image?.let { AudioUtils.saveCoverImage(it) }
-            ?: findLocalCoverImage(file.parentFile)?.absolutePath
+            ?: LocalCoverImage.findLocalCoverImage(file.parentFile)?.absolutePath
         return listOf(
             ffMediaInfo.toLocalAudioFileInfo(
                 path = file.absolutePath,
@@ -54,22 +54,5 @@ open class StandardAudioFileParser(
                 fingerprint = fingerprint,
             ) as AudioInfo.Local
         )
-    }
-
-    private fun findLocalCoverImage(directory: File?): File? {
-        if (directory?.exists() != true) {
-            return null
-        }
-        val images = directory.listFiles { file ->
-            // 常见的封面图片扩展名列表
-            file.isFile && file.extension.lowercase() in listOf("jpg", "jpeg", "png", "gif", "bmp")
-        } ?: return null
-        val priorityKeywords = listOf("cover", "folder", "front", "album")
-        for (keyword in priorityKeywords) {
-            val match =
-                images.firstOrNull { it.nameWithoutExtension.contains(keyword, ignoreCase = true) }
-            if (match != null) return match
-        }
-        return images.firstOrNull()
     }
 }

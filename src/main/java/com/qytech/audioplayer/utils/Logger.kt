@@ -26,9 +26,14 @@ object Logger {
         }
     }
 
+    fun e(msg: String) {
+        Timber.e(msg)
+    }
+
     fun e(t: Throwable? = null, msg: String) {
         Timber.e(t, msg)
     }
+
 
     fun v(msg: String) {
         if (ENABLE_LOG) {
