@@ -47,6 +47,7 @@ class DsdAudioPlayer(
     private var shouldCancelDstDecode = AtomicBoolean(false)
 
     override fun prepare() {
+        FFmpegDstDecoder.initDstDecoder()
         initializeAudioTrack()
     }
 
@@ -54,7 +55,6 @@ class DsdAudioPlayer(
         if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
             return
         }
-        FFmpegDstDecoder.initDstDecoder()
         stopped = false
         runCatching {
             audioTrack?.let {
@@ -69,7 +69,7 @@ class DsdAudioPlayer(
                 }
             }
         }.onFailure {
-            Timber.e(it, "play error")
+            Logger.e(it, "play error")
             onPlayerError(it)
         }
     }
@@ -85,7 +85,7 @@ class DsdAudioPlayer(
                 updateStateChange(PlaybackState.PAUSED)
             }
         }.onFailure {
-            Timber.e(it, "pause error")
+            Logger.e(it, "pause error")
             onPlayerError(it)
         }
     }
@@ -106,7 +106,7 @@ class DsdAudioPlayer(
                 updateProgress(0)
             }
         }.onFailure {
-            Timber.e(it, "stop error")
+            Logger.e(it, "stop error")
             onPlayerError(it)
         }
     }
@@ -130,7 +130,7 @@ class DsdAudioPlayer(
                 updateProgress(0)
             }
         }.onFailure {
-            Timber.e(it, "release error")
+            Logger.e(it, "release error")
             onPlayerError(it)
         }
     }
@@ -145,16 +145,18 @@ class DsdAudioPlayer(
         }
         runCatching {
             val startOffset = audioInfo.startOffset ?: return
+            val endOffset = audioInfo.endOffset ?: return
             shouldCancelDstDecode.set(true)
             lock.withLock {
                 val seconds = positionMs / 1000
                 currentPosition = seconds
                 currentOffset = startOffset + seconds * offsetPreSeconds
+                Logger.d("seek to currentPosition $currentPosition startOffset $startOffset currentOffset $currentOffset offsetPreSeconds $offsetPreSeconds compressionRate $compressionRate")
                 seeking = true
             }
 
         }.onFailure {
-            Timber.e(it, "seekTo error")
+            Logger.e(it, "seekTo error")
         }
     }
 
@@ -202,6 +204,8 @@ class DsdAudioPlayer(
         if (!isDsdCodec() && !isDstCodec()) {
             throw IllegalStateException("Codec is not DSD")
         }
+
+        Timber.d("init audio track $audioInfo")
 
         val sampleRate = if (isDstCodec()) {
             192000
@@ -261,9 +265,11 @@ class DsdAudioPlayer(
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
     }.onFailure {
-        Timber.e(it, "initializeAudioTrack error")
+        Logger.e(it, "initializeAudioTrack error")
         onPlayerError(it)
     }
+
+    var compressionRate = 1f
 
     //    private var testFile = File(context.filesDir, "test.pcm")
     private fun playDsd() = runCatching {
@@ -275,7 +281,7 @@ class DsdAudioPlayer(
         val dataByte = (audioInfo.dataLength ?: 0L) * 8f
         val srcData = ByteArray(bufferSize)
         val destData = ByteArray(if (dsdPlayMode == DSDMode.DOP) bufferSize * 2 else bufferSize)
-        val compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
+        compressionRate = (audioInfo.bitRate * getDuration() / 1000) / dataByte
         var position: Long
         currentOffset = startOffset
         coroutineScope.launch {
@@ -315,6 +321,7 @@ class DsdAudioPlayer(
                 if (position != currentPosition) {
                     if (previousOffset != -1L && offsetPreSeconds == -1L) {
                         offsetPreSeconds = currentOffset - previousOffset
+                        Timber.d("offsetPreSeconds $offsetPreSeconds")
                     }
                     updateProgress(position * 1000L)
                     currentPosition = position
@@ -327,7 +334,7 @@ class DsdAudioPlayer(
             updateStateChange(PlaybackState.COMPLETED)
         }
     }.onFailure {
-        Timber.e(it, "playDsd error")
+        Logger.e(it, "playDsd error")
         onPlayerError(it)
     }
 
@@ -375,7 +382,7 @@ class DsdAudioPlayer(
             audioTrack?.write(dataToWrite, 0, lengthToWrite)
         }
     }.onFailure {
-        Timber.e(it, "writeAudioData error")
+        Logger.e(it, "writeAudioData error")
         onPlayerError(it)
     }
 }

@@ -47,7 +47,7 @@ abstract class BaseAudioPlayer(
     protected fun updateStateChange(newState: PlaybackState) {
         Logger.d("updateStateChange: $newState $stateListener")
         state = newState
-        stateListener?.onPlaybackStateChanged(newState)
+        stateListener?.onPlaybackStateChanged(newState, audioInfo.sourceId, audioInfo.trackId)
     }
 
     @Deprecated("this method is deprecated, and will be removed in the future")

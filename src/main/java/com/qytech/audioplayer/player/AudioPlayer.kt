@@ -62,7 +62,7 @@ interface OnPlaybackStateChangeListener {
      * 当播放状态发生变化时调用
      * @param state 新的播放状态
      */
-    fun onPlaybackStateChanged(state: PlaybackState)
+    fun onPlaybackStateChanged(state: PlaybackState, source: String, track: Int)
 
     /**
      * 当播放发生错误时调用
