@@ -62,7 +62,7 @@
  * @def av_malloc_attrib
  * Function attribute denoting a malloc-like function.
  *
- * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-g_t_0040code_007bmalloc_007d-function-attribute-3251">Function attribute `malloc` in GCC's documentation</a>
+ * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#trackId-g_t_0040code_007bmalloc_007d-function-attribute-3251">Function attribute `malloc` in GCC's documentation</a>
  */
 
 #if AV_GCC_VERSION_AT_LEAST(3, 1)
@@ -83,7 +83,7 @@
  *
  * @param ... One or two parameter indexes, separated by a comma
  *
- * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-g_t_0040code_007balloc_005fsize_007d-function-attribute-3220">Function attribute `alloc_size` in GCC's documentation</a>
+ * @see <a href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#trackId-g_t_0040code_007balloc_005fsize_007d-function-attribute-3220">Function attribute `alloc_size` in GCC's documentation</a>
  */
 
 #if AV_GCC_VERSION_AT_LEAST(4, 3)

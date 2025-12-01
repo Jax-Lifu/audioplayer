@@ -1,217 +1,106 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
-import com.qytech.audioplayer.model.AudioInfo
-import com.qytech.audioplayer.parser.AudioFileParserFactory
-import com.qytech.audioplayer.parser.SacdAudioFileParser
-import com.qytech.audioplayer.parser.netstream.NetStreamFormat
-import com.qytech.audioplayer.parser.netstream.StreamFormatDetector
-import com.qytech.audioplayer.utils.Logger
-import com.qytech.audioplayer.utils.SystemPropUtil
-import com.qytech.core.extensions.isRemoteUrl
-import java.io.File
+import com.qytech.audioplayer.strategy.CueMediaSource
+import com.qytech.audioplayer.strategy.DefaultMediaSource
+import com.qytech.audioplayer.strategy.MediaSource
+import com.qytech.audioplayer.strategy.MediaSourceStrategy
+import com.qytech.audioplayer.strategy.SacdMediaSource
+import com.qytech.audioplayer.strategy.SonySelectMediaSource
+import com.qytech.audioplayer.strategy.StreamingMediaSource
+import com.qytech.audioplayer.utils.QYLogger
+import java.util.Locale
 
-
-enum class DSDMode(val value: Int) {
-    NATIVE(0),
-    D2P(1),
-    DOP(2);
-
-    companion object {
-        fun fromValue(value: Int) = DSDMode.entries.firstOrNull { it.value == value } ?: NATIVE
-    }
-}
-
-data class PlayerExtras(
-    val encryptedSecurityKey: String? = null,
-    val encryptedInitVector: String? = null,
-)
-
-@OptIn(UnstableApi::class)
 object AudioPlayerFactory {
 
-    private var simpleCache: SimpleCache? = null
-
-    val mediaPlayerCodecs = setOf(
-        "mp1", "mp2", "mp3", "aac", "ape",
-        "wmalossless", "wmapro", "wmav1", "wmav2", "adpcm_ima_qt",
-        "vorbis", "pcm_s16le", "pcm_s24le", "pcm_s32le", "flac"
-    )
-    val exoPlayerCodecs = setOf(
-        "opus", "pcm_mulaw", "pcm_alaw", "amrnb",
-        "amrwb", "ac3", "dca", "sonyselect"
-    )
-
-    suspend fun createAudioPlayer(
+    /**
+     * 对外统一创建入口
+     */
+    fun createAudioPlayer(
         context: Context,
         source: String,
-        trackId: Int = 0,
+        trackId: Int = -1,
+        dsdMode: DSDMode = DSDMode.NATIVE,
+        securityKey: String? = null,
+        initVector: String? = null,
+        headers: Map<String, String>? = null,
         clientId: String? = null,
         clientSecret: String? = null,
         credentialsKey: String? = null,
-        headers: Map<String, String> = emptyMap(),
-        playerExtras: PlayerExtras? = null,
     ): AudioPlayer? {
-        Logger.d("createAudioPlayer: $source")
-        //        // ====== 1️⃣ 特殊来源（Tidal） ======
-        //        if (clientId?.isNotEmpty() == true && clientSecret?.isNotEmpty() == true) {
-        //            val tidal = AudioInfo.Tidal(
-        //                productId = source,
-        //                clientId = clientId,
-        //                clientSecret = clientSecret,
-        //                credentialsKey = credentialsKey ?: "storage",
-        //            )
-        //            return createInternal(context, tidal, headers)
-        //        }
-        // ====== 2️⃣ 网络流处理 ======
-        if (source.isRemoteUrl()) {
-            val format = StreamFormatDetector.detect(source, headers)
-            Logger.d("Detected NetStream format = $format")
-            val audioInfo = when (format) {
-                NetStreamFormat.SACD -> {
-                    SacdAudioFileParser(source, headers).parse()?.getOrNull(trackId) ?: return null
-                }
+        QYLogger.d("Factory: Create from String path=$source trackId=$trackId")
+        val trackIndex = if (trackId > 0) trackId - 1 else -1
+        val mediaSource = MediaSourceStrategy.create(
+            uri = source,
+            trackIndex = trackIndex,
+            securityKey = securityKey,
+            initVector = initVector,
+            headers = headers
+        ) ?: return null
 
-                NetStreamFormat.DSD -> {
-                    AudioInfo.Remote(
-                        url = "",
-                        codecName = "",
-                        formatName = "",
-                        duration = 0,
-                        channels = 2,
-                        sampleRate = 44100 * 64,
-                        bitRate = 0,
-                        bitPreSample = -1,
-                        title = "",
-                        album = "",
-                        artist = "",
-                        genre = "",
-                        date = ""
-                    )
-                }
+        return buildPlayer(context, mediaSource, dsdMode)
+    }
 
-                else -> {
-                    if (playerExtras != null) {
-                        AudioInfo.Remote(
-                            url = source,
-                            sourceId = source,
-                            codecName = "",
-                            formatName = "",
-                            duration = 0,
-                            channels = 2,
-                            sampleRate = 44100,
-                            bitRate = 0,
-                            bitPreSample = -1,
-                            title = "",
-                            album = "",
-                            artist = "",
-                            genre = "",
-                            date = "",
-                            encryptedSecurityKey = playerExtras.encryptedSecurityKey,
-                            encryptedInitVector = playerExtras.encryptedInitVector,
-                        )
-                    } else {
-                        AudioInfo.Remote(
-                            url = source,
-                            sourceId = source,
-                            codecName = "",
-                            formatName = "",
-                            duration = 0,
-                            channels = 2,
-                            sampleRate = 44100,
-                            bitRate = 0,
-                            bitPreSample = -1,
-                            title = "",
-                            album = "",
-                            artist = "",
-                            genre = "",
-                            date = ""
-                        )
-                    }
+    /**
+     * 供 Manager 内部调用 (例如 FFPlayer 失败后，手动创建 StreamPlayer 进行重试)
+     */
+    fun createStreamPlayer(context: Context, source: MediaSource): AudioPlayer {
+        val player = StreamPlayer(context)
+        player.setMediaSource(source)
+        return player
+    }
+
+    /**
+     * 内部路由逻辑：决定用哪个播放器
+     */
+    private fun buildPlayer(
+        context: Context,
+        source: MediaSource,
+        dsdMode: DSDMode,
+    ): AudioPlayer {
+        val player = when (source) {
+            // SACD ISO -> 专用播放器
+            is SacdMediaSource -> {
+                QYLogger.d("Route: SACD Player")
+                SacdPlayer(context)
+            }
+
+            // Sony Select (加密) -> 只能用 ExoPlayer (StreamPlayer)
+            is SonySelectMediaSource -> {
+                QYLogger.d("Route: Stream Player (Sony Encrypted)")
+                StreamPlayer(context)
+            }
+
+            // 网络流 -> 分情况讨论
+            is StreamingMediaSource -> {
+                val lowerUri = source.uri.lowercase(Locale.getDefault())
+                // HLS (m3u8) -> 推荐用 ExoPlayer，FFmpeg 对 HLS 支持不如 Exo 完善
+                if (lowerUri.contains("m3u8") || lowerUri.contains("u3m8")) {
+                    QYLogger.d("Route: Stream Player (HLS)")
+                    StreamPlayer(context)
+                } else {
+                    // 普通 HTTP 流 (MP3/FLAC) -> 默认用 FFmpeg (Native)
+                    // 如果 FFmpeg 失败，Manager 层应捕获并切换到 StreamPlayer
+                    QYLogger.d("Route: FFmpeg Player (Network Stream)")
+                    FFPlayer(context)
                 }
             }
-            return createInternal(context, audioInfo, headers)
+
+            // CUE 分轨 -> FFmpeg (Native)
+            is CueMediaSource -> {
+                QYLogger.d("Route: FFmpeg Player (Segment/Cue)")
+                FFPlayer(context)
+            }
+
+            // 本地普通文件 -> FFmpeg (Native)
+            is DefaultMediaSource -> {
+                QYLogger.d("Route: FFmpeg Player (Default)")
+                FFPlayer(context)
+            }
         }
 
-        val parser = AudioFileParserFactory.createParser(source, headers) ?: return null
-        val index = if (trackId == 0) 0 else trackId - 1
-        val audioInfo = parser.parse()?.getOrNull(index) ?: return null
-        return createInternal(context, audioInfo, headers)
-    }
-
-    @Deprecated(
-        "Ued createAudioPlayer(context, source, trackId, headers) instead",
-        ReplaceWith("createAudioPlayer(context, source, trackId, headers)")
-    )
-    fun createAudioPlayer(
-        context: Context,
-        audioInfo: AudioInfo,
-        headers: Map<String, String> = emptyMap(),
-    ): AudioPlayer {
-        val headers = if (
-            audioInfo is AudioInfo.Remote &&
-            audioInfo.headers?.isNotEmpty() == true
-        ) {
-            audioInfo.headers
-        } else {
-            headers
-        }
-        return createInternal(context, audioInfo, headers)
-    }
-
-    private fun createInternal(
-        context: Context,
-        audioInfo: AudioInfo,
-        headers: Map<String, String> = emptyMap(),
-    ): AudioPlayer {
-        initCache(context)
-        SystemPropUtil.set("persist.vendor.dsd_mode", "NULL")
-        return when (audioInfo) {
-            is AudioInfo.Local -> buildLocalPlayer(context, audioInfo)
-            is AudioInfo.Remote -> buildRemotePlayer(context, audioInfo, headers)
-            is AudioInfo.Tidal -> TidalPlayer(context, audioInfo)
-        }
-    }
-
-    private fun buildLocalPlayer(context: Context, info: AudioInfo.Local): AudioPlayer {
-        //        val codec = info.codecName.lowercase()
-        val formatName = info.formatName.lowercase()
-        return when {
-            formatName == "sacd" -> DsdAudioPlayer(context, info)
-            // codec in exoPlayerCodecs -> ExoAudioPlayer(context, simpleCache, info)
-            else -> FFAudioPlayer(context, info)
-        }
-    }
-
-    private fun buildRemotePlayer(
-        context: Context,
-        info: AudioInfo.Remote,
-        headers: Map<String, String> = emptyMap(),
-    ): AudioPlayer {
-        val codec = info.codecName.lowercase()
-        val formatName = info.formatName.lowercase()
-        Logger.d("buildRemotePlayer: $codec $formatName")
-        if (formatName == "sacd") {
-            return DsdAudioPlayer(context, info, headers)
-        }
-        if (formatName == "dsf" || formatName == "dff" || formatName == "dsd") {
-            FFAudioPlayer(context, info, headers)
-        }
-        return ExoAudioPlayer(context, simpleCache, info, headers)
-    }
-
-    private fun initCache(context: Context) {
-        if (simpleCache == null) {
-            simpleCache = SimpleCache(
-                File(context.cacheDir, "media_cache"),
-                LeastRecentlyUsedCacheEvictor(500 * 1024 * 1024), // 500MB
-                StandaloneDatabaseProvider(context)
-            )
-        }
+        player.setDsdMode(dsdMode)
+        player.setMediaSource(source)
+        return player
     }
 }

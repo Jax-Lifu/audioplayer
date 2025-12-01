@@ -109,7 +109,7 @@ int av_parse_color(uint8_t *rgba_color, const char *color_string, int slen,
  * This function is meant to enumerate the color names recognized by
  * av_parse_color().
  *
- * @param color_idx index of the requested color, starting from 0
+ * @param color_idx trackId of the requested color, starting from 0
  * @param rgb      if not NULL, will point to a 3-elements array with the color value in RGB
  * @return the color name string or NULL if color_idx is not in the array
  */

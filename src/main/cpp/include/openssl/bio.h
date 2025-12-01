@@ -74,9 +74,9 @@ extern "C" {
 # define BIO_TYPE_DGRAM_PAIR     (26|BIO_TYPE_SOURCE_SINK)
 # define BIO_TYPE_DGRAM_MEM      (27|BIO_TYPE_SOURCE_SINK)
 
-/* Custom type starting index returned by BIO_get_new_index() */
+/* Custom type starting trackId returned by BIO_get_new_index() */
 #define BIO_TYPE_START           128
-/* Custom type maximum index that can be returned by BIO_get_new_index() */
+/* Custom type maximum trackId that can be returned by BIO_get_new_index() */
 #define BIO_TYPE_MASK            0xFF
 
 /*

@@ -59,7 +59,7 @@
  * always set by user for output.
  * @li an @ref AVFormatContext.streams "array" of AVStreams, which describe all
  * elementary streams stored in the file. AVStreams are typically referred to
- * using their index in this array.
+ * using their trackId in this array.
  * @li an @ref AVFormatContext.pb "I/O context". It is either opened by lavf or
  * set by user for input, always set by user for output (unless you are dealing
  * with an AVFMT_NOFILE format).
@@ -479,7 +479,7 @@ typedef struct AVProbeData {
 #define AVFMT_SHOW_IDS      0x0008 /**< Show format stream IDs numbers. */
 #define AVFMT_GLOBALHEADER  0x0040 /**< Format wants global header. */
 #define AVFMT_NOTIMESTAMPS  0x0080 /**< Format does not need / have any timestamps. */
-#define AVFMT_GENERIC_INDEX 0x0100 /**< Use generic index building code. */
+#define AVFMT_GENERIC_INDEX 0x0100 /**< Use generic trackId building code. */
 #define AVFMT_TS_DISCONT    0x0200 /**< Format allows timestamp discontinuities. Note, muxers always require valid (monotone) timestamps */
 #define AVFMT_VARIABLE_FPS  0x0400 /**< Format allows variable fps. */
 #define AVFMT_NODIMENSIONS  0x0800 /**< Format does not need width/height */
@@ -755,7 +755,7 @@ typedef struct AVStream {
      */
     const AVClass *av_class;
 
-    int index;    /**< stream index in AVFormatContext */
+    int index;    /**< stream trackId in AVFormatContext */
     /**
      * Format-specific stream ID.
      * decoding: set by libavformat
@@ -937,7 +937,7 @@ typedef struct AVStream {
  * @ref AVStreamGroupTileGrid.nb_tiles "nb_tiles" amount of tiles are placed in
  * the order they appear in the @ref AVStreamGroupTileGrid.offsets "offsets"
  * array, at the exact offset described for them. In particular, if two or more
- * tiles overlap, the image with higher index in the
+ * tiles overlap, the image with higher trackId in the
  * @ref AVStreamGroupTileGrid.offsets "offsets" array takes priority.
  * Note that a single image may be used multiple times, i.e. multiple entries
  * in @ref AVStreamGroupTileGrid.offsets "offsets" may have the same value of
@@ -1144,7 +1144,7 @@ typedef struct AVStreamGroup {
     void *priv_data;
 
     /**
-     * Group index in AVFormatContext.
+     * Group trackId in AVFormatContext.
      */
     unsigned int index;
 
@@ -1455,7 +1455,7 @@ typedef struct AVFormatContext {
      */
     int flags;
 #define AVFMT_FLAG_GENPTS       0x0001 ///< Generate missing pts even if it requires parsing future frames.
-#define AVFMT_FLAG_IGNIDX       0x0002 ///< Ignore index.
+#define AVFMT_FLAG_IGNIDX       0x0002 ///< Ignore trackId.
 #define AVFMT_FLAG_NONBLOCK     0x0004 ///< Do not block when reading packets from input.
 #define AVFMT_FLAG_IGNDTS       0x0008 ///< Ignore DTS on frames that contain both DTS & PTS
 #define AVFMT_FLAG_NOFILLIN     0x0010 ///< Do not infer any values from other values, just return what is stored in the container
@@ -1591,11 +1591,11 @@ typedef struct AVFormatContext {
     int max_streams;
 
     /**
-     * Maximum amount of memory in bytes to use for the index of each stream.
-     * If the index exceeds this size, entries will be discarded as
+     * Maximum amount of memory in bytes to use for the trackId of each stream.
+     * If the trackId exceeds this size, entries will be discarded as
      * needed to maintain a smaller size. This can lead to slower or less
      * accurate seeking (depends on demuxer).
-     * Demuxers for which a full in-memory index is mandatory will ignore
+     * Demuxers for which a full in-memory trackId is mandatory will ignore
      * this.
      * - muxing: unused
      * - demuxing: set by user
@@ -2348,7 +2348,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options);
  * @param ic    media file handle
  * @param last  the last found program, the search will start after this
  *              program, or from the beginning if it is NULL
- * @param s     stream index
+ * @param s     stream trackId
  *
  * @return the next program which belongs to s, NULL if no program is found or
  *         the last program is not among the programs of ic.
@@ -2453,7 +2453,7 @@ int av_seek_frame(AVFormatContext *s, int stream_index, int64_t timestamp,
  * If flags contain AVSEEK_FLAG_BACKWARD, it is ignored.
  *
  * @param s            media file handle
- * @param stream_index index of the stream which is used as time base reference
+ * @param stream_index trackId of the stream which is used as time base reference
  * @param min_ts       smallest acceptable timestamp
  * @param ts           target timestamp
  * @param max_ts       largest acceptable timestamp
@@ -2594,7 +2594,7 @@ int avformat_init_output(AVFormatContext *s, AVDictionary **options);
  *            output.
  *            <br>
  *            Packet's @ref AVPacket.stream_index "stream_index" field must be
- *            set to the index of the corresponding stream in @ref
+ *            set to the trackId of the corresponding stream in @ref
  *            AVFormatContext.streams "s->streams".
  *            <br>
  *            The timestamps (@ref AVPacket.pts "pts", @ref AVPacket.dts "dts")
@@ -2638,7 +2638,7 @@ int av_write_frame(AVFormatContext *s, AVPacket *pkt);
  *            flush the interleaving queues.
  *            <br>
  *            Packet's @ref AVPacket.stream_index "stream_index" field must be
- *            set to the index of the corresponding stream in @ref
+ *            set to the trackId of the corresponding stream in @ref
  *            AVFormatContext.streams "s->streams".
  *            <br>
  *            The timestamps (@ref AVPacket.pts "pts", @ref AVPacket.dts "dts")
@@ -2848,11 +2848,11 @@ int av_codec_get_tag2(const struct AVCodecTag *const *tags, enum AVCodecID id,
 int av_find_default_stream_index(AVFormatContext *s);
 
 /**
- * Get the index for a specific timestamp.
+ * Get the trackId for a specific timestamp.
  *
  * @param st        stream that the timestamp belongs to
- * @param timestamp timestamp to retrieve the index for
- * @param flags if AVSEEK_FLAG_BACKWARD then the returned index will correspond
+ * @param timestamp timestamp to retrieve the trackId for
+ * @param flags if AVSEEK_FLAG_BACKWARD then the returned trackId will correspond
  *                 to the timestamp which is <= the requested one, if backward
  *                 is 0, then it will be >=
  *              if AVSEEK_FLAG_ANY seek to any frame, only keyframes otherwise
@@ -2861,18 +2861,18 @@ int av_find_default_stream_index(AVFormatContext *s);
 int av_index_search_timestamp(AVStream *st, int64_t timestamp, int flags);
 
 /**
- * Get the index entry count for the given AVStream.
+ * Get the trackId entry count for the given AVStream.
  *
  * @param st stream
- * @return the number of index entries in the stream
+ * @return the number of trackId entries in the stream
  */
 int avformat_index_get_entries_count(const AVStream *st);
 
 /**
- * Get the AVIndexEntry corresponding to the given index.
+ * Get the AVIndexEntry corresponding to the given trackId.
  *
  * @param st          Stream containing the requested AVIndexEntry.
- * @param idx         The desired index.
+ * @param idx         The desired trackId.
  * @return A pointer to the requested AVIndexEntry if it exists, NULL otherwise.
  *
  * @note The pointer returned by this function is only guaranteed to be valid
@@ -2885,7 +2885,7 @@ const AVIndexEntry *avformat_index_get_entry(AVStream *st, int idx);
  * Get the AVIndexEntry corresponding to the given timestamp.
  *
  * @param st          Stream containing the requested AVIndexEntry.
- * @param wanted_timestamp   Timestamp to retrieve the index entry for.
+ * @param wanted_timestamp   Timestamp to retrieve the trackId entry for.
  * @param flags       If AVSEEK_FLAG_BACKWARD then the returned entry will correspond
  *                    to the timestamp which is <= the requested one, if backward
  *                    is 0, then it will be >=
@@ -2901,7 +2901,7 @@ const AVIndexEntry *avformat_index_get_entry_from_timestamp(AVStream *st,
                                                             int flags);
 
 /**
- * Add an index entry into a sorted list. Update the entry if the list
+ * Add an trackId entry into a sorted list. Update the entry if the list
  * already contains it.
  *
  * @param timestamp timestamp in the time base of the given stream
@@ -2943,7 +2943,7 @@ void av_url_split(char *proto, int proto_size,
  * codec and time base.
  *
  * @param ic        the context to analyze
- * @param index     index of the stream to dump information about
+ * @param index     trackId of the stream to dump information about
  * @param url       the URL to print, such as source or destination file
  * @param is_output Select whether the specified context is an input(0) or output(1)
  */

@@ -99,7 +99,7 @@ void UI_free(UI *ui);
    will be stored in the first byte of the result buffer.  No NUL will be
    added, so the result is *not* a string.
 
-   On success, the all return an index of the added information.  That index
+   On success, the all return an trackId of the added information.  That trackId
    is useful when retrieving results with UI_get0_result(). */
 int UI_add_input_string(UI *ui, const char *prompt, int flags,
                         char *result_buf, int minsize, int maxsize);
@@ -174,7 +174,7 @@ char *UI_construct_prompt(UI *ui_method,
  *
  * For callback purposes, this function makes a lot more sense than using
  * ex_data, since the latter requires that different parts of OpenSSL or
- * applications share the same ex_data index.
+ * applications share the same ex_data trackId.
  *
  * Note that the UI_OpenSSL() method completely ignores the user data. Other
  * methods may not, however.
@@ -189,7 +189,7 @@ int UI_dup_user_data(UI *ui, void *user_data);
 /* We need a user data retrieving function as well.  */
 void *UI_get0_user_data(UI *ui);
 
-/* Return the result associated with a prompt given with the index i. */
+/* Return the result associated with a prompt given with the trackId i. */
 const char *UI_get0_result(UI *ui, int i);
 int UI_get_result_length(UI *ui, int i);
 

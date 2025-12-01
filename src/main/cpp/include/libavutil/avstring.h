@@ -402,7 +402,7 @@ int av_utf8_decode(int32_t *codep, const uint8_t **bufp, const uint8_t *buf_end,
 
 /**
  * Check if a name is in a list.
- * @returns 0 if not found, or the 1 based index where it has been found in the
+ * @returns 0 if not found, or the 1 based trackId where it has been found in the
  *            list.
  */
 int av_match_list(const char *name, const char *list, char separator);

@@ -1,6 +1,6 @@
 package com.qytech.audioplayer.stream.netstream
 
-import com.qytech.audioplayer.utils.Logger
+import com.qytech.audioplayer.utils.QYLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,7 +57,7 @@ class BufferedHttpStream(
             }
 
             if (data.isEmpty()) {
-                Logger.d("HTTP 数据读取完毕")
+                QYLogger.d("HTTP 数据读取完毕")
                 break
             }
 
@@ -123,7 +123,7 @@ class BufferedHttpStream(
      * 支持 seek 到任意位置，会清空缓存并重新下载
      */
     fun seek(offset: Long) {
-        Logger.d("执行 seek($offset)，清空缓存")
+        QYLogger.d("执行 seek($offset)，清空缓存")
 
         lock.withLock {
             streamOffset = offset
@@ -136,7 +136,7 @@ class BufferedHttpStream(
     }
 
     override fun close() {
-        Logger.d("关闭 BufferedHttpStream")
+        QYLogger.d("关闭 BufferedHttpStream")
         closed = true
         fetcher.cancel()
         lock.withLock {

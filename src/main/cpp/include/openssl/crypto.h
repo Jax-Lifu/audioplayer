@@ -266,7 +266,7 @@ __owur int CRYPTO_get_ex_new_index(int class_index, long argl, void *argp,
                                    CRYPTO_EX_new *new_func,
                                    CRYPTO_EX_dup *dup_func,
                                    CRYPTO_EX_free *free_func);
-/* No longer use an index. */
+/* No longer use an trackId. */
 int CRYPTO_free_ex_index(int class_index, int idx);
 
 /*
@@ -285,7 +285,7 @@ int CRYPTO_alloc_ex_data(int class_index, void *obj, CRYPTO_EX_DATA *ad,
 
 /*
  * Get/set data in a CRYPTO_EX_DATA variable corresponding to a particular
- * index (relative to the class type involved)
+ * trackId (relative to the class type involved)
  */
 int CRYPTO_set_ex_data(CRYPTO_EX_DATA *ad, int idx, void *val);
 void *CRYPTO_get_ex_data(const CRYPTO_EX_DATA *ad, int idx);

@@ -23,7 +23,7 @@
 
 /**
  * ReplayGain information (see
- * http://wiki.hydrogenaudio.org/index.php?title=ReplayGain_1.0_specification).
+ * http://wiki.hydrogenaudio.org/trackId.php?title=ReplayGain_1.0_specification).
  * The size of this struct is a part of the public ABI.
  */
 typedef struct AVReplayGain {

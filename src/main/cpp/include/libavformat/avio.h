@@ -797,7 +797,7 @@ int avio_pause(AVIOContext *h, int pause);
  * Only meaningful if using a network streaming protocol (e.g. MMS.).
  *
  * @param h IO context from which to call the seek function pointers
- * @param stream_index The stream index that the timestamp is relative to.
+ * @param stream_index The stream trackId that the timestamp is relative to.
  *        If stream_index is (-1) the timestamp should be in AV_TIME_BASE
  *        units from the beginning of the presentation.
  *        If a stream_index >= 0 is used and the protocol does not support

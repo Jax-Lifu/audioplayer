@@ -1,18 +1,74 @@
 package com.qytech.audioplayer.player
 
-import com.qytech.audioplayer.model.AudioInfo
+import com.qytech.audioplayer.strategy.MediaSource
 
-enum class PlaybackState {
-    IDLE,           // 空闲状态
-    PREPARING,      // 准备中
-    PLAYING,        // 播放中
-    PAUSED,         // 暂停
-    COMPLETED,      // 播放完成
-    STOPPED,        // 停止
-    BUFFERING,      // 缓冲中 (用于网络流媒体)
-    ERROR           // 发生错误
+/**
+ * 播放器抽象接口，类似 ExoPlayer
+ */
+interface AudioPlayer {
+    fun setMediaSource(mediaSource: MediaSource)
+    fun setDsdMode(mode: DSDMode)
+    fun setD2pSampleRate(sampleRate: D2pSampleRate)
+
+    fun prepare()
+    fun play()
+    fun pause()
+    fun stop()
+    fun release()
+
+    fun seekTo(positionMs: Long)
+    fun getDuration(): Long
+    fun getPosition(): Long
+
+    fun getState(): PlaybackState
+
+    /** 回调事件监听，如错误、状态变化、结束等 */
+    fun addListener(listener: PlayerListener)
+    fun removeListener(listener: PlayerListener)
+
+    fun isPlaying() = getState() == PlaybackState.PLAYING
+
+    @Deprecated("Use PlayerListener instead")
+    fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener)
+
+    @Deprecated("Use PlayerListener instead")
+    fun setOnProgressListener(listener: OnProgressListener)
 }
 
+/**
+ * 播放器事件监听接口
+ */
+interface PlayerListener {
+    fun onPrepared()
+    fun onProgress(track: Int, current: Long, total: Long, progress: Float)
+    fun onError(code: Int, msg: String)
+    fun onComplete()
+
+    fun onStateChanged(state: PlaybackState)
+}
+
+
+enum class PlaybackState(
+    val value: Int,
+) {
+    IDLE(0),
+    PREPARING(1),
+    PREPARED(2),
+    PLAYING(3),
+    PAUSED(4),
+    STOPPED(5),
+    COMPLETED(6),
+    ERROR(7),
+    BUFFERING(8);
+
+    companion object {
+        fun fromValue(value: Int): PlaybackState {
+            return PlaybackState.entries.firstOrNull { it.value == value } ?: IDLE
+        }
+    }
+}
+
+@Deprecated("Use PlayerListener instead")
 data class PlaybackProgress(
     val currentPosition: Long,     // 当前播放进度（秒）
     val progress: Float,           // 播放进度百分比 (0.0 - 1.0)
@@ -25,30 +81,7 @@ data class PlaybackProgress(
     fun isAvailable(): Boolean = currentPosition >= 0 && duration > 0 && progress in 0f..1f
 }
 
-
-enum class D2pSampleRate(val hz: Int) {
-    // 自动匹配，根据输入 DSD 速率选择合适的 PCM 速率
-    AUTO(0),
-
-    // 基于 44.1kHz 倍频
-    PCM_44100(44100),
-    PCM_88200(88200),
-    PCM_176400(176400),
-    PCM_352800(352800),
-    PCM_705600(705600),
-
-    // 基于 48kHz 倍频
-    PCM_48000(48000),
-    PCM_96000(96000),
-    PCM_192000(192000),
-    PCM_384000(384000),
-    PCM_768000(768000),
-}
-
-interface DsdLoopbackDataCallback {
-    fun onDataReceived(data: ByteArray)
-}
-
+@Deprecated("Use PlayerListener instead")
 interface OnProgressListener {
     /**
      * 当播放进度更新时调用
@@ -57,6 +90,7 @@ interface OnProgressListener {
     fun onProgress(progress: PlaybackProgress)
 }
 
+@Deprecated("Use PlayerListener instead")
 interface OnPlaybackStateChangeListener {
     /**
      * 当播放状态发生变化时调用
@@ -69,39 +103,4 @@ interface OnPlaybackStateChangeListener {
      * @param errorMessage 错误信息
      */
     fun onPlayerError(errorMessage: String)
-}
-
-/**
- * @author Administrator
- * @date 2025/7/5 16:40
- */
-interface AudioPlayer {
-    val audioInfo: AudioInfo
-
-    @Deprecated("this method is deprecated, and will be removed in the future")
-    fun setMediaItem(mediaItem: AudioInfo)
-
-    fun prepare()
-    fun play()
-    fun pause()
-    fun stop()
-    fun release()
-
-    fun seekTo(positionMs: Long)
-    fun fastForward(ms: Long)
-    fun fastRewind(ms: Long)
-
-    fun getDuration(): Long
-    fun getCurrentPosition(): Long
-    fun setPlaybackSpeed(speed: Float)
-    fun getPlaybackSpeed(): Float
-    fun isPlaying(): Boolean
-
-    fun setOnPlaybackStateChangeListener(listener: OnPlaybackStateChangeListener)
-    fun setOnProgressListener(listener: OnProgressListener)
-
-    fun setDsdMode(dsdMode: DSDMode)
-    fun setDsdLoopbackCallback(callback: DsdLoopbackDataCallback?)
-
-    fun setD2pSampleRate(sampleRate: D2pSampleRate)
 }

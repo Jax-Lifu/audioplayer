@@ -345,7 +345,7 @@ typedef struct AVDeviceInfo {
 typedef struct AVDeviceInfoList {
     AVDeviceInfo **devices;              /**< list of autodetected devices */
     int nb_devices;                      /**< number of autodetected devices */
-    int default_device;                  /**< index of default device or -1 if no default */
+    int default_device;                  /**< trackId of default device or -1 if no default */
 } AVDeviceInfoList;
 
 /**

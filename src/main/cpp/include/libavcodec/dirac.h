@@ -90,16 +90,16 @@ typedef struct AVDiracSeqHeader {
     uint8_t interlaced;
     uint8_t top_field_first;
 
-    uint8_t frame_rate_index;       ///< index into dirac_frame_rate[]
-    uint8_t aspect_ratio_index;     ///< index into dirac_aspect_ratio[]
+    uint8_t frame_rate_index;       ///< trackId into dirac_frame_rate[]
+    uint8_t aspect_ratio_index;     ///< trackId into dirac_aspect_ratio[]
 
     uint16_t clean_width;
     uint16_t clean_height;
     uint16_t clean_left_offset;
     uint16_t clean_right_offset;
 
-    uint8_t pixel_range_index;      ///< index into dirac_pixel_range_presets[]
-    uint8_t color_spec_index;       ///< index into dirac_color_spec_presets[]
+    uint8_t pixel_range_index;      ///< trackId into dirac_pixel_range_presets[]
+    uint8_t color_spec_index;       ///< trackId into dirac_color_spec_presets[]
 
     int profile;
     int level;

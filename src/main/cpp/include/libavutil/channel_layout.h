@@ -45,7 +45,7 @@
  */
 
 enum AVChannel {
-    ///< Invalid channel index
+    ///< Invalid channel trackId
     AV_CHAN_NONE = -1,
     AV_CHAN_FRONT_LEFT,
     AV_CHAN_FRONT_RIGHT,
@@ -98,7 +98,7 @@ enum AVChannel {
      * AV_CHAN_AMBISONIC_END represent Ambisonic components using the ACN system.
      *
      * Given a channel id `<i>` between AV_CHAN_AMBISONIC_BASE and
-     * AV_CHAN_AMBISONIC_END (inclusive), the ACN index of the channel `<n>` is
+     * AV_CHAN_AMBISONIC_END (inclusive), the ACN trackId of the channel `<n>` is
      * `<n> = <i> - AV_CHAN_AMBISONIC_BASE`.
      *
      * @note these values are only used for AV_CHANNEL_ORDER_CUSTOM channel
@@ -136,7 +136,7 @@ enum AVChannelOrder {
      * component. Channels are ordered according to ACN (Ambisonic Channel
      * Number).
      *
-     * The channel with the index n in the stream contains the spherical
+     * The channel with the trackId n in the stream contains the spherical
      * harmonic of degree l and order m given by
      * @code{.unparsed}
      *   l   = floor(sqrt(n)),
@@ -144,7 +144,7 @@ enum AVChannelOrder {
      * @endcode
      *
      * Conversely given a spherical harmonic of degree l and order m, the
-     * corresponding channel index n is given by
+     * corresponding channel trackId n is given by
      * @code{.unparsed}
      *   n = l * (l + 1) + m.
      * @endcode
@@ -359,7 +359,7 @@ typedef struct AVChannelLayout {
          *
          * When map[i].id is in the range between AV_CHAN_AMBISONIC_BASE and
          * AV_CHAN_AMBISONIC_END (inclusive), the channel contains an ambisonic
-         * component with ACN index (as defined above)
+         * component with ACN trackId (as defined above)
          * n = map[i].id - AV_CHAN_AMBISONIC_BASE.
          *
          * map[i].name may be filled with a 0-terminated string, in which case
@@ -606,11 +606,11 @@ int av_channel_layout_describe_bprint(const AVChannelLayout *channel_layout,
                                       struct AVBPrint *bp);
 
 /**
- * Get the channel with the given index in a channel layout.
+ * Get the channel with the given trackId in a channel layout.
  *
  * @param channel_layout input channel layout
- * @param idx index of the channel
- * @return channel with the index idx in channel_layout on success or
+ * @param idx trackId of the channel
+ * @return channel with the trackId idx in channel_layout on success or
  *         AV_CHAN_NONE on failure (if idx is not valid or the channel order is
  *         unspecified)
  */
@@ -618,27 +618,27 @@ enum AVChannel
 av_channel_layout_channel_from_index(const AVChannelLayout *channel_layout, unsigned int idx);
 
 /**
- * Get the index of a given channel in a channel layout. In case multiple
+ * Get the trackId of a given channel in a channel layout. In case multiple
  * channels are found, only the first match will be returned.
  *
  * @param channel_layout input channel layout
- * @param channel the channel whose index to obtain
- * @return index of channel in channel_layout on success or a negative number if
+ * @param channel the channel whose trackId to obtain
+ * @return trackId of channel in channel_layout on success or a negative number if
  *         channel is not present in channel_layout.
  */
 int av_channel_layout_index_from_channel(const AVChannelLayout *channel_layout,
                                          enum AVChannel channel);
 
 /**
- * Get the index in a channel layout of a channel described by the given string.
+ * Get the trackId in a channel layout of a channel described by the given string.
  * In case multiple channels are found, only the first match will be returned.
  *
  * This function accepts channel names in the same format as
  * @ref av_channel_from_string().
  *
  * @param channel_layout input channel layout
- * @param name string describing the channel whose index to obtain
- * @return a channel index described by the given string, or a negative AVERROR
+ * @param name string describing the channel whose trackId to obtain
+ * @return a channel trackId described by the given string, or a negative AVERROR
  *         value.
  */
 int av_channel_layout_index_from_string(const AVChannelLayout *channel_layout,

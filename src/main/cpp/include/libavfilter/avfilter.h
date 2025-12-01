@@ -82,8 +82,8 @@ typedef struct AVFilterChannelLayouts AVFilterChannelLayouts;
  * Get the name of an AVFilterPad.
  *
  * @param pads an array of AVFilterPads
- * @param pad_idx index of the pad in the array; it is the caller's
- *                responsibility to ensure the index is valid
+ * @param pad_idx trackId of the pad in the array; it is the caller's
+ *                responsibility to ensure the trackId is valid
  *
  * @return name of the pad_idx'th pad in pads
  */
@@ -93,8 +93,8 @@ const char *avfilter_pad_get_name(const AVFilterPad *pads, int pad_idx);
  * Get the type of an AVFilterPad.
  *
  * @param pads an array of AVFilterPads
- * @param pad_idx index of the pad in the array; it is the caller's
- *                responsibility to ensure the index is valid
+ * @param pad_idx trackId of the pad in the array; it is the caller's
+ *                responsibility to ensure the trackId is valid
  *
  * @return type of the pad_idx'th pad in pads
  */
@@ -641,9 +641,9 @@ struct AVFilterLink {
  * Link two filters together.
  *
  * @param src    the source filter
- * @param srcpad index of the output pad on the source filter
+ * @param srcpad trackId of the output pad on the source filter
  * @param dst    the destination filter
- * @param dstpad index of the input pad on the destination filter
+ * @param dstpad trackId of the input pad on the destination filter
  * @return       zero on success
  */
 int avfilter_link(AVFilterContext *src, unsigned srcpad,
@@ -763,7 +763,7 @@ const AVClass *avfilter_get_class(void);
  * @param ctx the filter context the job belongs to
  * @param arg an opaque parameter passed through from @ref
  *            AVFilterGraph.execute
- * @param jobnr the index of the job being executed
+ * @param jobnr the trackId of the job being executed
  * @param nb_jobs the total number of jobs
  *
  * @return 0 on success, a negative AVERROR on error
@@ -932,7 +932,7 @@ void avfilter_graph_free(AVFilterGraph **graph);
  * where it is used to communicate open (unlinked) inputs and outputs from and
  * to the caller.
  * This struct specifies, per each not connected pad contained in the graph, the
- * filter context and the pad index required for establishing a link.
+ * filter context and the pad trackId required for establishing a link.
  */
 typedef struct AVFilterInOut {
     /** unique name for this input/output in the list */
@@ -941,7 +941,7 @@ typedef struct AVFilterInOut {
     /** filter context associated to this input/output */
     AVFilterContext *filter_ctx;
 
-    /** index of the filt_ctx pad to use for linking */
+    /** trackId of the filt_ctx pad to use for linking */
     int pad_idx;
 
     /** next input/input in the list, NULL if this is the last */

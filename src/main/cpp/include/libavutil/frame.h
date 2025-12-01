@@ -951,7 +951,7 @@ int av_frame_copy_props(AVFrame *dst, const AVFrame *src);
  * Get the buffer reference a given data plane is stored in.
  *
  * @param frame the frame to get the plane's buffer from
- * @param plane index of the data plane of interest in frame->extended_data.
+ * @param plane trackId of the data plane of interest in frame->extended_data.
  *
  * @return the buffer reference that contains the plane or NULL if the input
  * frame is not valid.

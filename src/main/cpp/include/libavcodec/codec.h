@@ -370,7 +370,7 @@ typedef struct AVCodecHWConfig {
 /**
  * Retrieve supported hardware configurations for a codec.
  *
- * Values of index from zero to some maximum return the indexed configuration
+ * Values of trackId from zero to some maximum return the indexed configuration
  * descriptor; all other values return NULL.  If the codec does not support
  * any hardware configurations then it will always return NULL.
  */

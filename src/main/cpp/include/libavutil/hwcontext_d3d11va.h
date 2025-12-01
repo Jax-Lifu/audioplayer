@@ -119,7 +119,7 @@ typedef struct AVD3D11FrameDescriptor {
     ID3D11Texture2D *texture;
 
     /**
-     * The index into the array texture element representing the frame, or 0
+     * The trackId into the array texture element representing the frame, or 0
      * if the texture is not an array texture.
      *
      * Normally stored in AVFrame.data[1] (cast from intptr_t).

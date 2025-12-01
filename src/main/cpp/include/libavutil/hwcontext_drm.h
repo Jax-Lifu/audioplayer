@@ -126,8 +126,8 @@ typedef struct AVDRMLayerDescriptor {
  * to import it.)
  *
  * The total number of planes must not exceed AV_DRM_MAX_PLANES, and
- * the order of the planes by increasing layer index followed by
- * increasing plane index must be the same as the order which would
+ * the order of the planes by increasing layer trackId followed by
+ * increasing plane trackId must be the same as the order which would
  * be used for the data pointers in the equivalent software format.
  */
 typedef struct AVDRMFrameDescriptor {

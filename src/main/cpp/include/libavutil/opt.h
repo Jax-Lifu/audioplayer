@@ -513,9 +513,9 @@ typedef struct AVOptionRanges {
      * Following describes multi-component option types:
      *
      * AV_OPT_TYPE_IMAGE_SIZE:
-     * component index 0: range of pixel count (width * height).
-     * component index 1: range of width.
-     * component index 2: range of height.
+     * component trackId 0: range of pixel count (width * height).
+     * component trackId 1: range of width.
+     * component trackId 2: range of height.
      *
      * @note To obtain multi-component version of this structure, user must
      *       provide AV_OPT_MULTI_COMPONENT_RANGE to av_opt_query_ranges or
@@ -1034,7 +1034,7 @@ int av_opt_get_array_size(void *obj, const char *name, int search_flags,
 /**
  * For an array-type option, retrieve the values of one or more array elements.
  *
- * @param start_elem index of the first array element to retrieve
+ * @param start_elem trackId of the first array element to retrieve
  * @param nb_elems number of array elements to retrieve; start_elem+nb_elems
  *                 must not be larger than array size as returned by
  *                 av_opt_get_array_size()

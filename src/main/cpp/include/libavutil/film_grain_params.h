@@ -99,7 +99,7 @@ typedef struct AVFilmGrainAOMParams {
     int grain_scale_shift;
 
     /**
-     * Specifies the luma/chroma multipliers for the index to the component
+     * Specifies the luma/chroma multipliers for the trackId to the component
      * scaling function.
      */
     int uv_mult[2 /* cb, cr */];

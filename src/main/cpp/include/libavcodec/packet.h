@@ -129,7 +129,7 @@ enum AVPacketSideDataType {
     AV_PKT_DATA_QUALITY_STATS,
 
     /**
-     * This side data contains an integer value representing the stream index
+     * This side data contains an integer value representing the stream trackId
      * of a "fallback" track.  A fallback track indicates an alternate
      * track to use when the current track can not be decoded for some reason.
      * e.g. no decoder available for codec.
