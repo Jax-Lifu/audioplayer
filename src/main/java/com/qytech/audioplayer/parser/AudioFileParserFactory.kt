@@ -119,7 +119,7 @@ class DefaultParserStrategy(
     }
 }
 
-@Deprecated("Use createParser instead")
+@Deprecated("Use AudioProbe instead")
 object AudioFileParserFactory {
 
     fun createParser(

@@ -23,6 +23,7 @@ import com.qytech.audioplayer.strategy.CueMediaSource
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.strategy.SonySelectMediaSource
 import com.qytech.audioplayer.strategy.StreamingMediaSource
+import com.qytech.audioplayer.utils.QYLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,7 +31,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import timber.log.Timber
 import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
 import androidx.media3.exoplayer.source.MediaSource as ExoMediaSource
@@ -129,7 +129,7 @@ class StreamPlayer(
 
         override fun onPlayerError(error: PlaybackException) {
             stopProgressJob()
-            Timber.e(error, "ExoPlayer Error")
+            QYLogger.e(error, "ExoPlayer Error")
             listeners.forEach {
                 it.onError(error.errorCode, error.message ?: "ExoPlayer Internal Error")
             }
@@ -235,7 +235,7 @@ class StreamPlayer(
             exoPlayer?.setMediaSource(finalSource)
 
         } catch (e: Exception) {
-            Timber.e(e, "StreamPlayer: Failed to create MediaSource")
+            QYLogger.e(e, "StreamPlayer: Failed to create MediaSource")
             listeners.forEach {
                 it.onError(
                     PlaybackException.ERROR_CODE_UNSPECIFIED,
@@ -334,11 +334,11 @@ class StreamPlayer(
 
 
     override fun setDsdMode(mode: DSDMode) {
-        Timber.d("DSD mode ignored in StreamPlayer: $mode")
+        QYLogger.d("DSD mode ignored in StreamPlayer: $mode")
     }
 
     override fun setD2pSampleRate(sampleRate: D2pSampleRate) {
-        Timber.d("D2P sample rate ignored in StreamPlayer: $sampleRate")
+        QYLogger.d("D2P sample rate ignored in StreamPlayer: $sampleRate")
     }
 
     private fun startProgressJob() {

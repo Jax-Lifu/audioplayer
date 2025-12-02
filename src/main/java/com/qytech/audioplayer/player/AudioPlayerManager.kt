@@ -12,7 +12,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import kotlin.system.measureTimeMillis
 
 class AudioPlayerManager private constructor(private val context: Context) {
@@ -119,7 +118,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
                 newPlayer.play()
                 activeTransition?.fadeIn()
             }
-            Timber.d("Transition time: $time ms")
+            QYLogger.d("Transition time: $time ms")
         }
 
     }

@@ -4,7 +4,7 @@ import com.qytech.audioplayer.parser.model.AudioMetadata
 
 object AudioProbe {
     init {
-        System.loadLibrary("audioplayer") // 替换为你的库名
+        System.loadLibrary("audioplayer")
     }
 
     fun probeFile(
