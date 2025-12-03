@@ -45,11 +45,16 @@ public:
         env->DeleteLocalRef(clazz);
     }
 
-    ~JniCallback() {
+    ~JniCallback() override {
         JNIEnv *env = getEnv();
         if (env && javaCallbackObj) {
             env->DeleteGlobalRef(javaCallbackObj);
+            javaCallbackObj = nullptr;
         }
+    }
+
+    bool isValid() {
+        return javaCallbackObj != nullptr;
     }
 
     void onPrepared() override {
@@ -58,18 +63,26 @@ public:
 
     void onProgress(int trackIndex, long currentMs, long totalMs, float progress) override {
         JNIEnv *env = getEnv();
-        if (env) {
+        if (env && isValid()) {
             env->CallVoidMethod(javaCallbackObj, jmid_onProgress, trackIndex, (jlong) currentMs,
                                 (jlong) totalMs, progress);
+        }
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
         }
     }
 
     void onError(int code, const char *msg) override {
         JNIEnv *env = getEnv();
-        if (env) {
-            jstring jMsg = env->NewStringUTF(msg);
+        if (env && isValid()) {
+            jstring jMsg = safeNewStringUTF(env, msg);
             env->CallVoidMethod(javaCallbackObj, jmid_onError, (jint) code, jMsg);
             env->DeleteLocalRef(jMsg);
+        }
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
         }
     }
 
@@ -79,12 +92,15 @@ public:
 
     void onAudioData(uint8_t *data, int size) override {
         JNIEnv *env = getEnv();
-        if (env) {
+        if (env && isValid()) {
             jbyteArray jData = env->NewByteArray(size);
             env->SetByteArrayRegion(jData, 0, size, (jbyte *) data);
 
             env->CallVoidMethod(javaCallbackObj, jmid_onAudioData, jData, (jint) size);
-
+            if (env->ExceptionCheck()) {
+                env->ExceptionDescribe();
+                env->ExceptionClear();
+            }
             env->DeleteLocalRef(jData);
         }
     }
@@ -97,7 +113,7 @@ private:
     jmethodID jmid_onComplete;
     jmethodID jmid_onAudioData;
 
-    JNIEnv *getEnv() {
+    static JNIEnv *getEnv() {
         JNIEnv *env;
         int res = getJVM()->GetEnv((void **) &env, JNI_VERSION_1_6);
         if (res != JNI_OK) {
@@ -115,7 +131,11 @@ private:
 
     void callVoidMethod(jmethodID mid) {
         JNIEnv *env = getEnv();
-        if (env) env->CallVoidMethod(javaCallbackObj, mid);
+        if (env && isValid()) env->CallVoidMethod(javaCallbackObj, mid);
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+        }
     }
 };
 
@@ -131,6 +151,9 @@ struct PlayerContext {
     PlayerType type;
     void *playerInstance;
     JniCallback *callback;
+    std::mutex ctxMutex;
+    bool isReleased = false;
+
 
     PlayerContext(PlayerType t, void *p, JniCallback *cb) : type(t), playerInstance(p),
                                                             callback(cb) {}
@@ -154,6 +177,11 @@ static PlayerContext *getContext(jlong handle) {
     return reinterpret_cast<PlayerContext *>(handle);
 }
 
+#define LOCK_CONTEXT(ctx) \
+    if (!ctx) return; \
+    std::lock_guard<std::mutex> lock(ctx->ctxMutex); \
+    if (ctx->isReleased) return;
+
 // 1. Init
 static jlong native_init(JNIEnv *env, jobject thiz, jint type, jobject jCallback) {
     auto *callback = new JniCallback(env, jCallback);
@@ -173,7 +201,7 @@ static jlong native_init(JNIEnv *env, jobject thiz, jint type, jobject jCallback
 static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring path, jstring headers,
                              jint trackIndex, jlong startPos, jlong endPos) {
     auto *ctx = getContext(handle);
-    if (!ctx) return;
+    LOCK_CONTEXT(ctx); // 加锁保护
 
     const char *cPath = env->GetStringUTFChars(path, nullptr);
     const char *cHeaders = headers ? env->GetStringUTFChars(headers, nullptr) : "";
@@ -191,6 +219,7 @@ static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring pa
 // 3. Prepare
 static void native_prepare(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->prepare();
     else ((SacdPlayer *) ctx->playerInstance)->prepare();
 }
@@ -198,6 +227,7 @@ static void native_prepare(JNIEnv *env, jobject thiz, jlong handle) {
 // 4. Play
 static void native_play(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->play();
     else ((SacdPlayer *) ctx->playerInstance)->play();
 }
@@ -205,12 +235,14 @@ static void native_play(JNIEnv *env, jobject thiz, jlong handle) {
 // 5. Pause
 static void native_pause(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->pause();
     else ((SacdPlayer *) ctx->playerInstance)->pause();
 }
 
 static void native_resume(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->resume();
     else ((SacdPlayer *) ctx->playerInstance)->resume();
 }
@@ -218,6 +250,7 @@ static void native_resume(JNIEnv *env, jobject thiz, jlong handle) {
 // 6. Stop
 static void native_stop(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->stop();
     else ((SacdPlayer *) ctx->playerInstance)->stop();
 }
@@ -225,6 +258,7 @@ static void native_stop(JNIEnv *env, jobject thiz, jlong handle) {
 // 7. Seek
 static void native_seek(JNIEnv *env, jobject thiz, jlong handle, jlong ms) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->seek(ms);
     else ((SacdPlayer *) ctx->playerInstance)->seek(ms);
 }
@@ -232,6 +266,14 @@ static void native_seek(JNIEnv *env, jobject thiz, jlong handle, jlong ms) {
 // 8. Release
 static void native_release(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    if (!ctx) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(ctx->ctxMutex);
+        if (ctx->isReleased) return; // 防止重复 release
+        ctx->isReleased = true;
+    }
     delete ctx; // 会触发析构，释放 player 和 callback
 }
 
@@ -239,6 +281,7 @@ static void native_release(JNIEnv *env, jobject thiz, jlong handle) {
 static void
 native_setDsdConfig(JNIEnv *env, jobject thiz, jlong handle, jint mode, jint sampleRate) {
     auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx); // 加锁保护
     if (ctx->type == TYPE_FFMPEG) {
         ((FFPlayer *) ctx->playerInstance)->setDsdConfig((DsdMode) mode, sampleRate);
     } else {

@@ -48,7 +48,7 @@ static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHe
     if (!meta.coverData.empty()) {
         std::string savedPath = ProbeUtils::saveCoverAuto(meta.uri, meta.coverData);
         if (!savedPath.empty()) {
-            jCoverPath = env->NewStringUTF(savedPath.c_str());
+            jCoverPath = safeNewStringUTF(env, savedPath.c_str());
         }
     }
 
@@ -70,12 +70,12 @@ static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHe
         // 核心修复：防止循环引用溢出
         env->PushLocalFrame(32);
 
-        jstring ti = env->NewStringUTF(t.title.c_str());
-        jstring ar = env->NewStringUTF(t.artist.c_str());
-        jstring al = env->NewStringUTF(t.album.c_str());
-        jstring ge = t.genre.empty() ? nullptr : env->NewStringUTF(t.genre.c_str());
-        jstring pa = env->NewStringUTF(t.path.c_str());
-        jstring fmt = t.format.empty() ? nullptr : env->NewStringUTF(t.format.c_str());
+        jstring ti = safeNewStringUTF(env, t.title.c_str());
+        jstring ar = safeNewStringUTF(env, t.artist.c_str());
+        jstring al = safeNewStringUTF(env, t.album.c_str());
+        jstring ge = t.genre.empty() ? nullptr : safeNewStringUTF(env, t.genre.c_str());
+        jstring pa = safeNewStringUTF(env, t.path.c_str());
+        jstring fmt = t.format.empty() ? nullptr : safeNewStringUTF(env, t.format.c_str());
 
         jobject item = env->NewObject(clsTrack, ctorTrack,
                                       t.trackId, ti, ar, al, ge, pa,
@@ -87,12 +87,12 @@ static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHe
         env->PopLocalFrame(nullptr);
     }
 
-    jstring jUri = env->NewStringUTF(meta.uri.c_str());
-    jstring jAlb = env->NewStringUTF(meta.albumTitle.c_str());
-    jstring jArt = env->NewStringUTF(meta.albumArtist.c_str());
-    jstring jGen = meta.genre.empty() ? nullptr : env->NewStringUTF(meta.genre.c_str());
-    jstring jDat = meta.date.empty() ? nullptr : env->NewStringUTF(meta.date.c_str());
-    jstring jLyr = meta.lyrics.empty() ? nullptr : env->NewStringUTF(meta.lyrics.c_str());
+    jstring jUri = safeNewStringUTF(env, meta.uri.c_str());
+    jstring jAlb = safeNewStringUTF(env, meta.albumTitle.c_str());
+    jstring jArt = safeNewStringUTF(env, meta.albumArtist.c_str());
+    jstring jGen = meta.genre.empty() ? nullptr : safeNewStringUTF(env, meta.genre.c_str());
+    jstring jDat = meta.date.empty() ? nullptr : safeNewStringUTF(env, meta.date.c_str());
+    jstring jLyr = meta.lyrics.empty() ? nullptr : safeNewStringUTF(env, meta.lyrics.c_str());
 
     jobject result = env->NewObject(clsMeta, ctorMeta,
                                     jUri, jAlb, jArt, jGen, jDat, jCoverPath, jTracks, jLyr

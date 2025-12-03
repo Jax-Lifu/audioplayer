@@ -5,18 +5,11 @@
 
 FFPlayer::FFPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
     initFFmpeg();
-    // 初始分配
-    outBuffer = (uint8_t *) av_malloc(DEFAULT_BUFFER_SIZE);
-    outBufferSize = DEFAULT_BUFFER_SIZE;
+    outBuffer.resize(DEFAULT_BUFFER_SIZE);
 }
 
 FFPlayer::~FFPlayer() {
     releaseInternal();
-    // 释放输出缓冲区
-    if (outBuffer) {
-        av_free(outBuffer);
-        outBuffer = nullptr;
-    }
 }
 
 void FFPlayer::setDataSource(const char *path, const char *headers, int64_t startPositon,
@@ -34,6 +27,7 @@ void FFPlayer::prepare() {
             LOGE("FFPlayer::prepare: player is not idle or stopped");
             return;
         }
+        mIsExit.store(false);
         mState = STATE_PREPARING;
 
         int ret = 0;
@@ -48,6 +42,15 @@ void FFPlayer::prepare() {
 
         // 2. 打开输入流
         fmtCtx = avformat_alloc_context();
+        if (!fmtCtx) {
+            LOGE("FFPlayer::prepare: avformat_alloc_context failed");
+            if (mCallback) mCallback->onError(-1, "avformat_alloc_context failed");
+            goto error;
+        }
+
+        fmtCtx->interrupt_callback.callback = interrupt_cb;
+        fmtCtx->interrupt_callback.opaque = this;
+
         if ((ret = avformat_open_input(&fmtCtx, mUrl.c_str(), nullptr, &options)) != 0) {
             LOGE("Open input %s failed: %d ", mUrl.c_str(), ret);
             if (mCallback) mCallback->onError(-1, "Open input failed");
@@ -122,7 +125,12 @@ void FFPlayer::prepare() {
             }
         }
         mState = STATE_PREPARED;
-        mIsExit = false;
+        mIsExit.store(false);
+    }
+
+    if (mIsExit.load()){
+        LOGW("FFPlayer::prepare: exit before success");
+        goto error;
     }
 
     if (mCallback) {
@@ -167,19 +175,6 @@ int FFPlayer::initSwrContext() {
     return 0;
 }
 
-void FFPlayer::checkOutputBufferSize(int requiredSize) {
-    if (requiredSize > outBufferSize) {
-        outBufferSize = requiredSize + 4096;
-        uint8_t *newBuffer = (uint8_t *) av_realloc(outBuffer, outBufferSize);
-        if (newBuffer) {
-            outBuffer = newBuffer;
-            LOGD("Buffer resized to %d bytes", outBufferSize);
-        } else {
-            LOGE("Buffer realloc failed! OOM risk.");
-        }
-    }
-}
-
 void FFPlayer::play() {
     if (mState == STATE_PREPARED || mState == STATE_PAUSED || mState == STATE_COMPLETED) {
         {
@@ -187,7 +182,7 @@ void FFPlayer::play() {
             mState = STATE_PLAYING;
         }
         if (!decodeThread) {
-            mIsExit = false;
+            mIsExit.store(false);
             decodeThread = new std::thread(&FFPlayer::decodingLoop, this);
         } else {
             stateCond.notify_all();
@@ -211,18 +206,23 @@ void FFPlayer::resume() {
 }
 
 void FFPlayer::stop() {
-    mIsExit = true;
+    mIsExit.store(true); // 1. 先设置退出标志，让线程循环能跳出
+
     {
         std::lock_guard<std::mutex> lock(mStateMutex);
-        if (mState == STATE_STOPPED) return;
         mState = STATE_STOPPED;
         stateCond.notify_all();
     }
-
-    if (decodeThread && decodeThread->joinable()) {
-        decodeThread->join();
-        delete decodeThread;
-        decodeThread = nullptr;
+    try {
+        if (decodeThread) {
+            if (decodeThread->joinable()) {
+                decodeThread->join();
+            }
+            delete decodeThread;
+            decodeThread = nullptr;
+        }
+    } catch (const std::exception &e) {
+        LOGE("stop: %s", e.what());
     }
 }
 
@@ -231,9 +231,13 @@ void FFPlayer::release() {
 }
 
 void FFPlayer::releaseInternal() {
-    stop();
-    releaseFFmpeg();
-    mState = STATE_IDLE;
+    try {
+        stop();
+        releaseFFmpeg();
+        mState = STATE_IDLE;
+    } catch (const std::exception &e) {
+        LOGE("releaseInternal: %s", e.what());
+    }
 }
 
 void FFPlayer::seek(long ms) {
@@ -304,17 +308,21 @@ AVSampleFormat FFPlayer::getOutputSampleFormat(AVSampleFormat inputFormat) {
 
 
 void FFPlayer::releaseFFmpeg() {
-    if (swrCtx) {
-        swr_free(&swrCtx);
-        swrCtx = nullptr;
-    }
-    if (codecCtx) {
-        avcodec_free_context(&codecCtx);
-        codecCtx = nullptr;
-    }
-    if (fmtCtx) {
-        avformat_close_input(&fmtCtx);
-        fmtCtx = nullptr;
+    try {
+        if (swrCtx) {
+            swr_free(&swrCtx);
+            swrCtx = nullptr;
+        }
+        if (codecCtx) {
+            avcodec_free_context(&codecCtx);
+            codecCtx = nullptr;
+        }
+        if (fmtCtx) {
+            avformat_close_input(&fmtCtx);
+            fmtCtx = nullptr;
+        }
+    } catch (const std::exception &e) {
+        LOGE("releaseFFmpeg: %s", e.what());
     }
 }
 
@@ -349,165 +357,207 @@ void FFPlayer::extractAudioInfo() {
 void FFPlayer::decodingLoop() {
     AVPacket *packet = av_packet_alloc();
     AVFrame *frame = av_frame_alloc();
+    try {
+        while (!mIsExit) {
+            // 1. 处理暂停等待
+            if (mState == STATE_PAUSED) {
+                std::unique_lock<std::mutex> lock(mStateMutex);
+                stateCond.wait(lock, [this] {
+                    return mState == STATE_PLAYING || mState == STATE_STOPPED || mIsExit;
+                });
+            }
+            if (mIsExit || mState == STATE_STOPPED) break;
 
-    while (!mIsExit) {
-        // 1. 处理暂停等待
-        if (mState == STATE_PAUSED) {
-            std::unique_lock<std::mutex> lock(mStateMutex);
-            stateCond.wait(lock, [this] {
-                return mState == STATE_PLAYING || mState == STATE_STOPPED || mIsExit;
-            });
-        }
-        if (mIsExit || mState == STATE_STOPPED) break;
+            // 2. 处理 Seek
+            if (mIsSeeking) {
+                long target = -1;
+                {
+                    std::lock_guard<std::mutex> lock(mSeekMutex);
+                    if (mIsSeeking) {
+                        target = mSeekTargetMs;
+                        mIsSeeking = false;
+                        mSeekTargetMs = -1;
+                    }
+                }
 
-        // 2. 处理 Seek
-        if (mIsSeeking) {
-            long target = -1;
-            {
-                std::lock_guard<std::mutex> lock(mSeekMutex);
-                if (mIsSeeking) {
-                    target = mSeekTargetMs;
-                    mIsSeeking = false;
-                    mSeekTargetMs = -1;
+                if (target >= 0) {
+                    int64_t timestamp = target / 1000.0 / av_q2d(*timeBase);
+                    if (av_seek_frame(fmtCtx, audioStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD) >=
+                        0) {
+                        if (codecCtx) avcodec_flush_buffers(codecCtx);
+                        LOGD("Seek success to %ld ms", target);
+                    }
                 }
             }
 
-            if (target >= 0) {
-                int64_t timestamp = target / 1000.0 / av_q2d(*timeBase);
-                if (av_seek_frame(fmtCtx, audioStreamIndex, timestamp, AVSEEK_FLAG_BACKWARD) >= 0) {
-                    if (codecCtx) avcodec_flush_buffers(codecCtx);
-                    LOGD("Seek success to %ld ms", target);
+            // 3. 读取 Packet
+            int ret = av_read_frame(fmtCtx, packet);
+            if (ret < 0) {
+                if (ret == AVERROR_EOF) {
+                    LOGD("Decode loop EOF");
+                    // 播放完成，退出循环
+                    break;
+                } else {
+                    // 读取出错（网络抖动等），稍微 sleep 一下重试，避免 CPU 100%
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
                 }
             }
-        }
 
-        // 3. 读取 Packet
-        int ret = av_read_frame(fmtCtx, packet);
-        if (ret < 0) {
-            if (ret == AVERROR_EOF) {
-                LOGD("Decode loop EOF");
-                // 播放完成，退出循环
-                break;
-            } else {
-                // 读取出错（网络抖动等），稍微 sleep 一下重试，避免 CPU 100%
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (packet->stream_index != audioStreamIndex) {
+                av_packet_unref(packet);
                 continue;
             }
-        }
 
-        if (packet->stream_index != audioStreamIndex) {
+            // 4. 更新时间戳与 CUE 检查
+            if (packet->pts != AV_NOPTS_VALUE) {
+                mCurrentPositionMs = packet->pts * av_q2d(*timeBase) * 1000;
+            }
+
+            if (mEndTimeMs > 0 && mCurrentPositionMs >= mEndTimeMs) {
+                LOGD("Reached CUE end time. Stopping.");
+                av_packet_unref(packet);
+                break;
+            }
+
+            updateProgress();
+
+            // 5. 解码处理
+            if (mIsSourceDsd && mDsdMode != DSD_MODE_D2P) {
+                handleDsdAudioPacket(packet, frame);
+            } else {
+                handlePcmAudioPacket(packet, frame);
+            }
+
             av_packet_unref(packet);
-            continue;
         }
 
-        // 4. 更新时间戳与 CUE 检查
-        if (packet->pts != AV_NOPTS_VALUE) {
-            mCurrentPositionMs = packet->pts * av_q2d(*timeBase) * 1000;
+        // 循环结束清理
+        av_frame_free(&frame);
+        av_packet_free(&packet);
+
+        // 只有非手动停止且未出错的情况下，才回调 onComplete
+        if (!mIsExit && mState != STATE_STOPPED && mState != STATE_ERROR) {
+            mState = STATE_COMPLETED;
+            if (mCallback) mCallback->onComplete();
         }
-
-        if (mEndTimeMs > 0 && mCurrentPositionMs >= mEndTimeMs) {
-            LOGD("Reached CUE end time. Stopping.");
-            av_packet_unref(packet);
-            break;
-        }
-
-        updateProgress();
-
-        // 5. 解码处理
-        if (mIsSourceDsd && mDsdMode != DSD_MODE_D2P) {
-            handleDsdAudioPacket(packet, frame);
-        } else {
-            handlePcmAudioPacket(packet, frame);
-        }
-
-        av_packet_unref(packet);
-    }
-
-    // 循环结束清理
-    av_frame_free(&frame);
-    av_packet_free(&packet);
-
-    // 只有非手动停止且未出错的情况下，才回调 onComplete
-    if (!mIsExit && mState != STATE_STOPPED && mState != STATE_ERROR) {
-        mState = STATE_COMPLETED;
-        if (mCallback) mCallback->onComplete();
+    } catch (const std::exception &e) {
+        LOGE("decodingLoop: %s", e.what());
     }
 }
 
 void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
-    int ret = avcodec_send_packet(codecCtx, packet);
-    if (ret < 0) {
-        if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) LOGE("Send packet error");
-        return;
-    }
-
-    while (ret >= 0) {
-        ret = avcodec_receive_frame(codecCtx, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+    try {
+        if (!codecCtx) {
+            LOGE("handlePcmAudioPacket: codecCtx is null, skipping");
+            return;
+        }
+        if (!packet) {
+            LOGE("handlePcmAudioPacket: packet is null, skipping");
+            return;
+        }
+        if (!frame) {
+            LOGE("handlePcmAudioPacket: frame is null, skipping");
+            return;
+        }
+        int ret = avcodec_send_packet(codecCtx, packet);
         if (ret < 0) {
-            LOGE("Receive frame error");
-            break;
+            if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) LOGE("Send packet error");
+            return;
         }
 
-        if (swrCtx) {
-            // 1. 计算输出采样数 (包含 buffer 中的延迟数据)
-            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : codecCtx->sample_rate;
-            // 这是一个估算上界
-            int out_samples = av_rescale_rnd(
-                    swr_get_delay(swrCtx, codecCtx->sample_rate) + frame->nb_samples,
-                    actualOutRate,
-                    codecCtx->sample_rate,
-                    AV_ROUND_UP
-            );
+        while (ret >= 0) {
+            ret = avcodec_receive_frame(codecCtx, frame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+            if (ret < 0) {
+                LOGE("Receive frame error");
+                break;
+            }
 
-            if (out_samples > 0) {
-                // 2. 计算所需字节数，确保缓冲区安全
-                int outSampleSize = av_get_bytes_per_sample(outputSampleFormat);
-                int channels = 2; // 我们在 initSwrContext 设置了输出是 Stereo
-                int requiredBufferSize = out_samples * outSampleSize * channels;
+            if (swrCtx) {
+                // 1. 计算输出采样数 (包含 buffer 中的延迟数据)
+                int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : codecCtx->sample_rate;
+                // 这是一个估算上界
+                int out_samples = av_rescale_rnd(
+                        swr_get_delay(swrCtx, codecCtx->sample_rate) + frame->nb_samples,
+                        actualOutRate,
+                        codecCtx->sample_rate,
+                        AV_ROUND_UP
+                );
 
-                // **关键修复：检查并扩容**
-                checkOutputBufferSize(requiredBufferSize);
+                if (out_samples > 0) {
+                    // 2. 计算所需字节数，确保缓冲区安全
+                    int outSampleSize = av_get_bytes_per_sample(outputSampleFormat);
+                    int channels = 2; // 我们在 initSwrContext 设置了输出是 Stereo
+                    int requiredBufferSize = out_samples * outSampleSize * channels;
+                    ensureBufferCapacity(requiredBufferSize);
+                    if (outBuffer.empty()) return; // alloc failed
+                    auto *rawBuffer = outBuffer.data();
+                    uint8_t *outData[2] = {rawBuffer, nullptr};
 
-                if (!outBuffer) return; // alloc failed
+                    // 3. 执行转换
+                    int convertedSamples = swr_convert(swrCtx,
+                                                       outData,
+                                                       out_samples,
+                                                       (const uint8_t **) frame->data,
+                                                       frame->nb_samples);
 
-                uint8_t *outData[2] = {outBuffer, nullptr};
-
-                // 3. 执行转换
-                int convertedSamples = swr_convert(swrCtx,
-                                                   outData,
-                                                   out_samples,
-                                                   (const uint8_t **) frame->data,
-                                                   frame->nb_samples);
-
-                if (convertedSamples > 0) {
-                    int size = convertedSamples * outSampleSize * channels;
-                    if (mCallback) {
-                        mCallback->onAudioData(outBuffer, size);
+                    if (convertedSamples > 0) {
+                        int size = convertedSamples * outSampleSize * channels;
+                        if (mCallback) {
+                            mCallback->onAudioData(rawBuffer, size);
+                        }
                     }
                 }
             }
         }
+    } catch (const std::exception &e) {
+        LOGE("handlePcmAudioPacket: %s", e.what());
     }
 }
 
 void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
-    checkOutputBufferSize(packet->size * 2);
+    try {
 
-    int outputSize = 0;
-    if (mDsdMode == DSD_MODE_NATIVE) {
-        if (is4ChannelSupported) {
-            outputSize = DsdUtils::pack4ChannelNative(isMsbf, packet->data, packet->size,
-                                                      outBuffer);
-        } else {
-            outputSize = DsdUtils::packNative(isMsbf, packet->data, packet->size, outBuffer);
+        if (!codecCtx) {
+            LOGE("handleDsdAudioPacket: codecCtx is null, skipping");
+            return;
         }
-    } else if (mDsdMode == DSD_MODE_DOP) {
-        outputSize = DsdUtils::packDoP(isMsbf, packet->data, packet->size, outBuffer);
-    }
+        if (!packet) {
+            LOGE("handleDsdAudioPacket: packet is null, skipping");
+            return;
+        }
+        if (!frame) {
+            LOGE("handleDsdAudioPacket: frame is null, skipping");
+            return;
+        }
+        ensureBufferCapacity(frame->nb_samples * 4);
 
-    if (outputSize > 0 && mCallback) {
-        mCallback->onAudioData(outBuffer, outputSize);
+        int outputSize = 0;
+        uint8_t *rawBuffer = outBuffer.data();
+
+        if (mDsdMode == DSD_MODE_NATIVE) {
+            if (is4ChannelSupported) {
+                outputSize = DsdUtils::pack4ChannelNative(isMsbf, packet->data, packet->size,
+                                                          rawBuffer);
+            } else {
+                outputSize = DsdUtils::packNative(isMsbf, packet->data, packet->size, rawBuffer);
+            }
+        } else if (mDsdMode == DSD_MODE_DOP) {
+            outputSize = DsdUtils::packDoP(isMsbf, packet->data, packet->size, rawBuffer);
+        }
+
+        if (outputSize > 0 && mCallback) {
+            if (outputSize > outBuffer.size()) {
+                LOGD("DSD output size %d exceeds buffer size %d, truncating", outputSize,
+                     outBuffer.size());
+                outputSize = outBuffer.size();
+            }
+
+            mCallback->onAudioData(rawBuffer, outputSize);
+        }
+    } catch (const std::exception &e) {
+        LOGE("handleDsdAudioPacket: %s", e.what());
     }
 }
 
@@ -524,5 +574,26 @@ void FFPlayer::updateProgress() {
     // 降低回调频率，或者交给上层去限频，这里直接回调
     if (mCallback) {
         mCallback->onProgress(0, relativePosition, virtualDuration, progress);
+    }
+}
+
+bool FFPlayer::isExit() const {
+    return mIsExit.load();
+}
+
+int FFPlayer::interrupt_cb(void *ctx) {
+    auto *player = (FFPlayer *) ctx;
+    // 如果返回 1，FFmpeg 会立即中断当前操作并返回错误
+    if (player && player->isExit()) {
+        return 1;
+    }
+    return 0;
+}
+
+void FFPlayer::ensureBufferCapacity(size_t requiredSize) {
+    size_t safeSize = requiredSize + AV_INPUT_BUFFER_PADDING_SIZE;
+    if (safeSize > outBuffer.size()) {
+        size_t newSize = std::max(safeSize, outBuffer.size() * 3 / 2);
+        outBuffer.resize(newSize);
     }
 }

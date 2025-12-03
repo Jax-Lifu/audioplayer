@@ -294,15 +294,39 @@ static const char *genreStr(int g) {
     return "Unknown";
 }
 
-static InternalMetadata probeSacd(const std::string &path) {
+static InternalMetadata
+probeSacd(const std::string &path, const std::map<std::string, std::string> &headers) {
     InternalMetadata meta;
     meta.uri = path;
-    if (path.find("http") == 0) return meta;
-
     std::lock_guard<std::mutex> lock(sacd_mutex);
 
-    sacd_reader_t *reader = sacd_open(path.c_str());
-    if (!reader) return meta;
+    sacd_reader_t *reader = nullptr;
+    FFmpegNetworkStream *netStream = nullptr;
+    bool isNetwork = (path.find("http") == 0 || path.find("https") == 0);
+
+    if (isNetwork) {
+        netStream = new FFmpegNetworkStream();
+        if (!netStream->open(path, headers)) {
+            delete netStream;
+            return meta;
+        }
+        sacd_io_callbacks_t cb;
+        cb.context = netStream;
+        cb.read = FFmpegNetworkStream::read_cb;
+        cb.seek = FFmpegNetworkStream::seek_cb;
+        cb.tell = FFmpegNetworkStream::tell_cb;
+        cb.get_size = FFmpegNetworkStream::get_size_cb;
+        reader = sacd_open_callbacks(&cb);
+    } else {
+        reader = sacd_open(path.c_str());
+    }
+
+    if (!reader) {
+        if (netStream) {
+            delete netStream;
+        }
+        return meta;
+    }
     scarletbook_handle_t *handle = scarletbook_open(reader);
     if (!handle) {
         sacd_close(reader);
@@ -368,6 +392,33 @@ static InternalMetadata probeSacd(const std::string &path) {
     return meta;
 }
 
+static bool isIsoFormat(const std::string &path, const std::map<std::string, std::string> &headers) {
+    // 1. 如果有明确后缀，直接返回 true (性能优化)
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    // 移除 URL 参数部分再判断后缀 (针对 ...file?token=xxx 这种情况)
+    size_t qPos = lower.find('?');
+    std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
+    if (endsWith(pathNoQuery, ".iso")) return true;
+
+    // 2. 如果没有后缀，通过网络读取头部特征码 (Magic Number)
+    // ISO 9660 标准：在 0x8000 (32768) 偏移处有 "CD001"
+    FFmpegNetworkStream stream;
+    if (!stream.open(path, headers)) return false;
+
+    uint8_t magic[5] = {0};
+    // Seek 到 32768
+    if (stream.readAt(32768, magic, 5) == 5) {
+        // 检查 CD001
+        if (memcmp(magic, "CD001", 5) == 0) {
+            LOGD("Detected ISO format by Magic Number at %s", path.c_str());
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // ==========================================
 // 4. 入口分发
 // ==========================================
@@ -376,11 +427,21 @@ AudioProbe::probe(JNIEnv *env, const std::string &path,
                   const std::map<std::string, std::string> &headers) {
     std::string lower = path;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    size_t qPos = lower.find('?');
+    std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
 
-    if (endsWith(lower, ".iso")) {
-        return probeSacd(path);
-    } else if (endsWith(lower, ".cue")) {
-        return probeCue(env, path, headers); // 传递 env
+    if (endsWith(pathNoQuery, ".cue")) {
+        return probeCue(env, path, headers);
     }
+
+    // 2. SACD ISO 处理 (包含 后缀判断 + 魔法数字嗅探)
+    // 对于长链接，这里会发起一个轻量级的 HEAD/Range 请求去检查 0x8000 位置
+    if (isIsoFormat(path, headers)) {
+        return probeSacd(path, headers);
+    }
+
+    // 3. 其他情况交给 FFmpeg 标准探测
     return probeStandard(path, headers);
 }
+
+

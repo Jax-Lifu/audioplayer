@@ -46,31 +46,41 @@
 #include <pb_encode.h>
 #include <pb_decode.h>
 #include <charset.h>
+#include <strings.h>
 
 #include "scarletbook.h"
 #include "sacd_input.h"
 #include "sacd_pb_stream.h"
 #include "sacd_ripper.pb.h"
 
-sacd_input_t (*sacd_input_open)         (const char *);
-int          (*sacd_input_close)        (sacd_input_t);
-uint32_t     (*sacd_input_read)         (sacd_input_t, uint32_t, uint32_t, void *);
-char *       (*sacd_input_error)        (sacd_input_t);
-int          (*sacd_input_authenticate) (sacd_input_t);
-int          (*sacd_input_decrypt)      (sacd_input_t, uint8_t *, uint32_t);
-uint32_t     (*sacd_input_total_sectors)(sacd_input_t);
+sacd_input_t (*sacd_input_open)(const char *);
 
-struct sacd_input_s
-{
-    int                 fd;
-    uint8_t            *input_buffer;
+int (*sacd_input_close)(sacd_input_t);
+
+uint32_t (*sacd_input_read)(sacd_input_t, uint32_t, uint32_t, void *);
+
+char *(*sacd_input_error)(sacd_input_t);
+
+int (*sacd_input_authenticate)(sacd_input_t);
+
+int (*sacd_input_decrypt)(sacd_input_t, uint8_t *, uint32_t);
+
+uint32_t (*sacd_input_total_sectors)(sacd_input_t);
+
+struct sacd_input_s {
+    int fd;
+    uint8_t *input_buffer;
 #if defined(__lv2ppu__)
     device_info_t       device_info;
 #endif
+
+    /* ================= ADDED FOR CUSTOM NETWORK STREAMING ================= */
+    sacd_io_callbacks_t callbacks;
+    int is_callback_mode;
+    /* ====================================================================== */
 };
 
-static int sacd_dev_input_authenticate(sacd_input_t dev)
-{
+static int sacd_dev_input_authenticate(sacd_input_t dev) {
 #if defined(__lv2ppu__)
     int ret = create_sac_accessor();
     if (ret != 0)
@@ -96,8 +106,7 @@ static int sacd_dev_input_authenticate(sacd_input_t dev)
     return 0;
 }
 
-static int sacd_dev_input_decrypt(sacd_input_t dev, uint8_t *buffer,uint32_t blocks)
-{
+static int sacd_dev_input_decrypt(sacd_input_t dev, uint8_t *buffer, uint32_t blocks) {
 #if defined(__lv2ppu__)
     uint32_t ret, block_number = 0;
     while(block_number < blocks)
@@ -135,14 +144,12 @@ static int sacd_dev_input_decrypt(sacd_input_t dev, uint8_t *buffer,uint32_t blo
 /**
  * initialize and open a SACD device or file.
  */
-static sacd_input_t sacd_dev_input_open(const char *target)
-{
+static sacd_input_t sacd_dev_input_open(const char *target) {
     sacd_input_t dev;
 
     /* Allocate the library structure */
     dev = (sacd_input_t) calloc(sizeof(*dev), 1);
-    if (dev == NULL)
-    {
+    if (dev == NULL) {
         fprintf(stderr, "libsacdread: Could not allocate memory.\n");
         return NULL;
     }
@@ -150,7 +157,7 @@ static sacd_input_t sacd_dev_input_open(const char *target)
     /* Open the device */
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
     wchar_t *wide_filename;  
-	wide_filename = (wchar_t *)charset_convert(target, strlen(target),"UTF-8",  "UCS-2-INTERNAL" );
+    wide_filename = (wchar_t *)charset_convert(target, strlen(target),"UTF-8",  "UCS-2-INTERNAL" );
     dev->fd = _wopen(wide_filename, O_RDONLY | O_BINARY);   
     free(wide_filename);
 #elif defined(__lv2ppu__)
@@ -199,14 +206,13 @@ static sacd_input_t sacd_dev_input_open(const char *target)
 #endif
 
 
-    if (dev->fd < 0)
-    {
+    if (dev->fd < 0) {
         goto error;
     }
 
     return dev;
 
-error:
+    error:
 
     free(dev);
 
@@ -216,8 +222,7 @@ error:
 /**
  * return the last error message
  */
-static char *sacd_dev_input_error(sacd_input_t dev)
-{
+static char *sacd_dev_input_error(sacd_input_t dev) {
     /* use strerror(errno)? */
     return (char *) "unknown error";
 }
@@ -225,8 +230,7 @@ static char *sacd_dev_input_error(sacd_input_t dev)
 /**
  * read data from the device.
  */
-static uint32_t sacd_dev_input_read(sacd_input_t dev,  uint32_t pos,  uint32_t blocks, void *buffer)
-{
+static uint32_t sacd_dev_input_read(sacd_input_t dev, uint32_t pos, uint32_t blocks, void *buffer) {
 #if defined(__lv2ppu__)
     int      ret;
     uint32_t sectors_read;
@@ -240,10 +244,10 @@ static uint32_t sacd_dev_input_read(sacd_input_t dev,  uint32_t pos,  uint32_t b
     size_t len;
     ssize_t ret;
 
-    ret_lseek = lseek(dev->fd, (off_t)pos * (off_t)SACD_LSN_SIZE, SEEK_SET);
+    ret_lseek = lseek(dev->fd, (off_t) pos * (off_t) SACD_LSN_SIZE, SEEK_SET);
     if (ret_lseek < 0)  // -1 on error
     {
-		LOGE("Error in sacd_dev_input_read: lseek(..pos..); pos=%ld\n",pos);
+        LOGE("Error in sacd_dev_input_read: lseek(..pos..); pos=%ld\n", pos);
         return 0;
     }
 
@@ -260,9 +264,8 @@ static uint32_t sacd_dev_input_read(sacd_input_t dev,  uint32_t pos,  uint32_t b
 
         return 0;
     }
-    
-    if((size_t)ret < len)
-    {
+
+    if ((size_t) ret < len) {
 
         /*       Nothing more to read.  Return all of the whole blocks, if any.
              * Adjust the file position back to the previous block boundary.            
@@ -272,20 +275,19 @@ static uint32_t sacd_dev_input_read(sacd_input_t dev,  uint32_t pos,  uint32_t b
             actually available right now (maybe because we were close to end-of-
             file, or because we are reading from a pipe, or from a terminal), or
             because read() was interrupted by a signal. */
-        return ((uint32_t)ret) / SACD_LSN_SIZE;
+        return ((uint32_t) ret) / SACD_LSN_SIZE;
     }
 
     // read with succes
     return blocks;
-    
+
 #endif
 }
 
 /**
  * close the SACD device and clean up.
  */
-static int sacd_dev_input_close(sacd_input_t dev)
-{
+static int sacd_dev_input_close(sacd_input_t dev) {
     int ret;
 
 #if defined(__lv2ppu__)
@@ -311,8 +313,7 @@ static int sacd_dev_input_close(sacd_input_t dev)
     return ret;
 }
 
-static uint32_t sacd_dev_input_total_sectors(sacd_input_t dev)
-{
+static uint32_t sacd_dev_input_total_sectors(sacd_input_t dev) {
     if (!dev)
         return 0;
 
@@ -321,7 +322,7 @@ static uint32_t sacd_dev_input_total_sectors(sacd_input_t dev)
 #else
     {
         struct stat file_stat;
-        if(fstat(dev->fd, &file_stat) < 0)    
+        if (fstat(dev->fd, &file_stat) < 0)
             return 0;
 
         return (uint32_t) (file_stat.st_size / SACD_LSN_SIZE);
@@ -329,11 +330,88 @@ static uint32_t sacd_dev_input_total_sectors(sacd_input_t dev)
 #endif
 }
 
+/* ============================================================================== */
+/* ================= NEW CALLBACK IMPLEMENTATIONS (HTTP/FFMPEG) ================= */
+/* ============================================================================== */
+
+static char *sacd_cb_input_error(sacd_input_t dev) {
+    return (char *) "callback stream error";
+}
+
+static uint32_t sacd_cb_input_read(sacd_input_t dev, uint32_t pos, uint32_t blocks, void *buffer) {
+    if (!dev || !dev->is_callback_mode) return 0;
+
+    // 1. Calculate byte offset
+    long offset = (long) pos * SACD_LSN_SIZE;
+
+    // 2. Seek
+    if (dev->callbacks.seek(dev->callbacks.context, offset, SEEK_SET) != 0) {
+        return 0;
+    }
+
+    // 3. Read
+    long request_bytes = (long) blocks * SACD_LSN_SIZE;
+    long read_bytes = dev->callbacks.read(dev->callbacks.context, buffer, request_bytes);
+
+    if (read_bytes < 0) return 0;
+
+    // 4. Return sectors
+    return (uint32_t) (read_bytes / SACD_LSN_SIZE);
+}
+
+static int sacd_cb_input_close(sacd_input_t dev) {
+    if (dev) {
+        // We do not free the context, it belongs to the caller (C++)
+        free(dev);
+    }
+    return 0;
+}
+
+static uint32_t sacd_cb_input_total_sectors(sacd_input_t dev) {
+    if (!dev || !dev->is_callback_mode) return 0;
+    long total_bytes = dev->callbacks.get_size(dev->callbacks.context);
+    return (uint32_t) (total_bytes / SACD_LSN_SIZE);
+}
+
+static int sacd_cb_input_authenticate(sacd_input_t dev) { return 1; }
+
+static int sacd_cb_input_decrypt(sacd_input_t dev, uint8_t *buf, uint32_t blocks) { return 0; }
+
+// Function to open input with callbacks directly
+sacd_input_t sacd_input_open_callbacks(sacd_io_callbacks_t *callbacks) {
+    sacd_input_t dev;
+
+    if (!callbacks) return NULL;
+
+    dev = (sacd_input_t) calloc(sizeof(struct sacd_input_s), 1);
+    if (dev == NULL) {
+        fprintf(stderr, "libsacdread: Could not allocate memory.\n");
+        return NULL;
+    }
+
+    dev->callbacks = *callbacks;
+    dev->is_callback_mode = 1;
+    dev->fd = -1; // No file descriptor
+
+    // Override global pointers for this session
+    // WARNING: This makes the library not thread-safe for mixed usage
+    sacd_input_read = sacd_cb_input_read;
+    sacd_input_close = sacd_cb_input_close;
+    sacd_input_total_sectors = sacd_cb_input_total_sectors;
+    sacd_input_error = sacd_cb_input_error;
+    sacd_input_authenticate = sacd_cb_input_authenticate;
+    sacd_input_decrypt = sacd_cb_input_decrypt;
+    sacd_input_open = NULL; // Cannot open via path in this mode
+
+    return dev;
+}
+
+/* ============================================================================== */
+
 /**
  * initialize and open a SACD device or file.
  */
-static sacd_input_t sacd_net_input_open(const char *target)
-{
+static sacd_input_t sacd_net_input_open(const char *target) {
     ServerRequest request;
     ServerResponse response;
     sacd_input_t dev = 0;
@@ -345,43 +423,39 @@ static sacd_input_t sacd_net_input_open(const char *target)
 
     /* Allocate the library structure */
     dev = (sacd_input_t) calloc(sizeof(*dev), 1);
-    if (dev == NULL)
-    {
+    if (dev == NULL) {
         fprintf(stderr, "libsacdread: Could not allocate memory.\n");
         return NULL;
     }
 
     dev->input_buffer = (uint8_t *) malloc(MAX_PROCESSING_BLOCK_SIZE * SACD_LSN_SIZE + 1024);
-    if (dev->input_buffer == NULL)
-    {
+    if (dev->input_buffer == NULL) {
         fprintf(stderr, "libsacdread: Could not allocate memory.\n");
         goto error;
     }
 
     socket_open();
 
-    socket_create((p_socket)&dev->fd, AF_INET, SOCK_STREAM, 0);
-    socket_setblocking((p_socket)&dev->fd);
+    socket_create((p_socket) &dev->fd, AF_INET, SOCK_STREAM, 0);
+    socket_setblocking((p_socket) &dev->fd);
 
     timeout_markstart(&tm);
-    err = inet_tryconnect((p_socket)&dev->fd,
+    err = inet_tryconnect((p_socket) &dev->fd,
                           substr(target, 0, strchr(target, ':') - target),
                           atoi(strchr(target, ':') + 1), &tm);
-    if (err)
-    {
+    if (err) {
         fprintf(stderr, "Failed to connect\n");
         goto error;
     }
-    socket_setblocking((p_socket)&dev->fd);
+    socket_setblocking((p_socket) &dev->fd);
 
-    input = pb_istream_from_socket((p_socket)&dev->fd);
+    input = pb_istream_from_socket((p_socket) &dev->fd);
 
-    output = pb_ostream_from_socket((p_socket)&dev->fd);
+    output = pb_ostream_from_socket((p_socket) &dev->fd);
 
     request.type = ServerRequest_Type_DISC_OPEN;
 
-    if (!pb_encode(&output, ServerRequest_fields, &request))
-    {
+    if (!pb_encode(&output, ServerRequest_fields, &request)) {
         fprintf(stderr, "Failed to encode request\n");
         goto error;
     }
@@ -389,21 +463,19 @@ static sacd_input_t sacd_net_input_open(const char *target)
     /* We signal the end of request with a 0 tag. */
     pb_write(&output, &zero, 1);
 
-    if (!pb_decode(&input, ServerResponse_fields, &response))
-    {
+    if (!pb_decode(&input, ServerResponse_fields, &response)) {
         fprintf(stderr, "Failed to decode response\n");
         goto error;
     }
 
-    if (response.result != 0 || response.type != ServerResponse_Type_DISC_OPENED)
-    {
+    if (response.result != 0 || response.type != ServerResponse_Type_DISC_OPENED) {
         fprintf(stderr, "Response result non-zero or disc opened\n");
         goto error;
     }
 
     return dev;
 
-error:
+    error:
 
     sacd_input_close(dev);
 
@@ -413,47 +485,38 @@ error:
 /**
  * close the SACD device and clean up.
  */
-static int sacd_net_input_close(sacd_input_t dev)
-{
-    if (!dev)
-    {
+static int sacd_net_input_close(sacd_input_t dev) {
+    if (!dev) {
         return 0;
-    }
-    else
-    {
+    } else {
         ServerRequest request;
         ServerResponse response;
-        pb_istream_t input = pb_istream_from_socket((p_socket)&dev->fd);
-        pb_ostream_t output = pb_ostream_from_socket((p_socket)&dev->fd);
+        pb_istream_t input = pb_istream_from_socket((p_socket) &dev->fd);
+        pb_ostream_t output = pb_ostream_from_socket((p_socket) &dev->fd);
         uint8_t zero = 0;
 
         request.type = ServerRequest_Type_DISC_CLOSE;
-        if (!pb_encode(&output, ServerRequest_fields, &request))
-        {
+        if (!pb_encode(&output, ServerRequest_fields, &request)) {
             goto error;
         }
 
         pb_write(&output, &zero, 1);
 
-        if (!pb_decode(&input, ServerResponse_fields, &response))
-        {
+        if (!pb_decode(&input, ServerResponse_fields, &response)) {
             goto error;
         }
 
-        if (response.result == 0 || response.type != ServerResponse_Type_DISC_CLOSED)
-        {
+        if (response.result == 0 || response.type != ServerResponse_Type_DISC_CLOSED) {
             goto error;
         }
     }
 
-error:
+    error:
 
-    if(dev)
-    {
-        socket_destroy((p_socket)&dev->fd);
+    if (dev) {
+        socket_destroy((p_socket) &dev->fd);
         socket_close();
-        if (dev->input_buffer)
-        {
+        if (dev->input_buffer) {
             free(dev->input_buffer);
             dev->input_buffer = 0;
         }
@@ -463,37 +526,30 @@ error:
     return 0;
 }
 
-static uint32_t sacd_net_input_total_sectors(sacd_input_t dev)
-{
-    if (!dev)
-    {
+static uint32_t sacd_net_input_total_sectors(sacd_input_t dev) {
+    if (!dev) {
         return 0;
-    }
-    else
-    {
+    } else {
         ServerRequest request;
         ServerResponse response;
-        pb_istream_t input = pb_istream_from_socket((p_socket)&dev->fd);
-        pb_ostream_t output = pb_ostream_from_socket((p_socket)&dev->fd);
+        pb_istream_t input = pb_istream_from_socket((p_socket) &dev->fd);
+        pb_ostream_t output = pb_ostream_from_socket((p_socket) &dev->fd);
         uint8_t zero = 0;
 
         request.type = ServerRequest_Type_DISC_SIZE;
 
-        if (!pb_encode(&output, ServerRequest_fields, &request))
-        {
+        if (!pb_encode(&output, ServerRequest_fields, &request)) {
             return 0;
         }
 
         /* We signal the end of request with a 0 tag. */
         pb_write(&output, &zero, 1);
 
-        if (!pb_decode(&input, ServerResponse_fields, &response))
-        {
+        if (!pb_decode(&input, ServerResponse_fields, &response)) {
             return 0;
         }
 
-        if (response.type != ServerResponse_Type_DISC_SIZE)
-        {
+        if (response.type != ServerResponse_Type_DISC_SIZE) {
             return 0;
         }
 
@@ -501,27 +557,22 @@ static uint32_t sacd_net_input_total_sectors(sacd_input_t dev)
     }
 }
 
-static uint32_t sacd_net_input_read(sacd_input_t dev, uint32_t pos, uint32_t blocks, void *buffer)
-{
-    if (!dev)
-    {
+static uint32_t sacd_net_input_read(sacd_input_t dev, uint32_t pos, uint32_t blocks, void *buffer) {
+    if (!dev) {
         return 0;
-    }
-    else
-    {
+    } else {
         uint8_t output_buf[16];
         ServerRequest request;
         ServerResponse response;
         pb_ostream_t output = pb_ostream_from_buffer(output_buf, sizeof(output_buf));
-        pb_istream_t input = pb_istream_from_socket((p_socket)&dev->fd);
+        pb_istream_t input = pb_istream_from_socket((p_socket) &dev->fd);
         uint8_t zero = 0;
 
         request.type = ServerRequest_Type_DISC_READ;
         request.sector_offset = pos;
         request.sector_count = blocks;
 
-        if (!pb_encode(&output, ServerRequest_fields, &request))
-        {
+        if (!pb_encode(&output, ServerRequest_fields, &request)) {
             return 0;
         }
 
@@ -532,7 +583,8 @@ static uint32_t sacd_net_input_read(sacd_input_t dev, uint32_t pos, uint32_t blo
         {
             bool ret;
             size_t written;
-            ret = (socket_send((p_socket)&dev->fd, (char *)output_buf, output.bytes_written, &written, 0, 0) == IO_DONE && written == output.bytes_written);
+            ret = (socket_send((p_socket) &dev->fd, (char *) output_buf, output.bytes_written,
+                               &written, 0, 0) == IO_DONE && written == output.bytes_written);
 
             if (!ret)
                 return 0;
@@ -563,18 +615,15 @@ static uint32_t sacd_net_input_read(sacd_input_t dev, uint32_t pos, uint32_t blo
         }
 #else
         response.data.bytes = buffer;
-        if (!pb_decode(&input, ServerResponse_fields, &response))
-        {
+        if (!pb_decode(&input, ServerResponse_fields, &response)) {
             return 0;
         }
 #endif
-        if (response.type != ServerResponse_Type_DISC_READ)
-        {
+        if (response.type != ServerResponse_Type_DISC_READ) {
             return 0;
         }
 
-        if (response.has_data)
-        {
+        if (response.has_data) {
             return (uint32_t) response.result;
         }
     }
@@ -587,41 +636,62 @@ static uint32_t sacd_net_input_read(sacd_input_t dev, uint32_t pos, uint32_t blo
  */
 int sacd_input_setup(const char* path)
 {
-    int net_conn = 0;
-    {
-        // TODO: replace this F*(&^*($#^(&*#^$GLY hack to detect IP
-        int i = 0;
-        const char *c = path;
-        while ((c = strchr(c + 1, '.')))
-        {
-            if (++i == 3 && strchr(c + 1, ':'))
-            {
-                net_conn = 1;
-                break;
+    int is_http = 0;
+    int is_legacy_net = 0;
+
+    if (path) {
+        // 1. Check for HTTP/HTTPS (Custom Callback Logic)
+        if (strncasecmp(path, "http://", 7) == 0 || strncasecmp(path, "https://", 8) == 0) {
+            is_http = 1;
+        }
+            // 2. Check for legacy IP:PORT (PS3 Logic)
+        else {
+            int i = 0;
+            const char *c = path;
+            while ((c = strchr(c + 1, '.'))) {
+                if (++i == 3 && strchr(c + 1, ':')) {
+                    is_legacy_net = 1;
+                    break;
+                }
             }
         }
     }
 
-    if (net_conn)
-    {
-        sacd_input_open = sacd_net_input_open;
-        sacd_input_close = sacd_net_input_close;
-        sacd_input_read = sacd_net_input_read;
-        sacd_input_error = sacd_dev_input_error;
+    // CASE 1: HTTP/HTTPS -> Use Custom Callbacks
+    if (is_http) {
+        sacd_input_read          = sacd_cb_input_read;
+        sacd_input_close         = sacd_cb_input_close;
+        sacd_input_error         = sacd_cb_input_error;
+        sacd_input_authenticate  = sacd_cb_input_authenticate;
+        sacd_input_decrypt       = sacd_cb_input_decrypt;
+        sacd_input_total_sectors = sacd_cb_input_total_sectors;
+        // sacd_input_open is NULL because you must use sacd_open_callbacks()
+        sacd_input_open          = NULL;
+
+        return 1;
+    }
+
+    // CASE 2: Legacy PS3 Network
+    if (is_legacy_net) {
+        sacd_input_open          = sacd_net_input_open;
+        sacd_input_close         = sacd_net_input_close;
+        sacd_input_read          = sacd_net_input_read;
+        sacd_input_error         = sacd_dev_input_error;
         sacd_input_authenticate  = sacd_dev_input_authenticate;
-        sacd_input_decrypt = sacd_dev_input_decrypt;
+        sacd_input_decrypt       = sacd_dev_input_decrypt;
         sacd_input_total_sectors = sacd_net_input_total_sectors;
 
         return 1;
-    } 
+    }
 
-    sacd_input_open = sacd_dev_input_open;
-    sacd_input_close = sacd_dev_input_close;
-    sacd_input_read = sacd_dev_input_read;
-    sacd_input_error = sacd_dev_input_error;
+    // CASE 3: Local File / Device
+    sacd_input_open          = sacd_dev_input_open;
+    sacd_input_close         = sacd_dev_input_close;
+    sacd_input_read          = sacd_dev_input_read;
+    sacd_input_error         = sacd_dev_input_error;
     sacd_input_authenticate  = sacd_dev_input_authenticate;
-    sacd_input_decrypt = sacd_dev_input_decrypt;
+    sacd_input_decrypt       = sacd_dev_input_decrypt;
     sacd_input_total_sectors = sacd_dev_input_total_sectors;
 
     return 0;
-} 
+}

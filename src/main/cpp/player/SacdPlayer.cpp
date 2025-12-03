@@ -28,9 +28,6 @@ SacdPlayer::SacdPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
 
 SacdPlayer::~SacdPlayer() {
     releaseInternal();
-    if (!outBuffer.empty()) {
-        outBuffer.clear();
-    }
 }
 
 void SacdPlayer::setDataSource(const std::string &_isoPath, int track_index) {

@@ -58,6 +58,13 @@ typedef struct sacd_reader_s   sacd_reader_t;
  */
 sacd_reader_t *sacd_open(const char *);
 
+/* ================= ADDED FOR CUSTOM NETWORK STREAMING START ================= */
+/**
+ * Opens a SACD reader using custom IO callbacks instead of a file path.
+ */
+sacd_reader_t *sacd_open_callbacks(sacd_io_callbacks_t *callbacks);
+/* ================= ADDED FOR CUSTOM NETWORK STREAMING END ================= */
+
 /**
  * Closes and cleans up the SACD reader object.
  *

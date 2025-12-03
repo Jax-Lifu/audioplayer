@@ -6,6 +6,7 @@
 #define QYPLAYER_JNI_AUDIOPLAYER_H
 
 #include <jni.h>
+#include "StringUtils.h"
 
 int register_audioplayer_methods(JavaVM *vm, JNIEnv *env);
 

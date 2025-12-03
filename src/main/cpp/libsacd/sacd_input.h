@@ -59,16 +59,39 @@
 //   -D_FILE_OFFSET_BITS=64
 // #define _FILE_OFFSET_BITS 64
 
-typedef struct sacd_input_s * sacd_input_t;
+typedef struct sacd_input_s *sacd_input_t;
 
-extern sacd_input_t (*sacd_input_open)         (const char *);
-extern int          (*sacd_input_close)        (sacd_input_t);
-extern uint32_t     (*sacd_input_read)         (sacd_input_t, uint32_t, uint32_t, void *);
-extern char *       (*sacd_input_error)        (sacd_input_t);
-extern int          (*sacd_input_authenticate) (sacd_input_t);
-extern int          (*sacd_input_decrypt)      (sacd_input_t, uint8_t *, uint32_t);
-extern uint32_t     (*sacd_input_total_sectors)(sacd_input_t);
+/* ================= ADDED FOR CUSTOM NETWORK STREAMING START ================= */
+/**
+ * IO Callbacks structure to allow custom reading (e.g., from FFmpeg/Network)
+ */
+typedef struct {
+    void *context;                                       // Context pointer (e.g. C++ Player Object)
+    long (*read)(void *context, void *buffer, long size); // Read bytes
+    long (*seek)(void *context, long offset, int origin); // Seek (SEEK_SET, etc)
+    long (*tell)(void *context);                          // Tell position
+    long (*get_size)(void *context);                      // Get Total Size
+} sacd_io_callbacks_t;
 
-int sacd_input_setup(const char *); 
+// Open input using callbacks
+sacd_input_t sacd_input_open_callbacks(sacd_io_callbacks_t *callbacks);
+
+/* ================= ADDED FOR CUSTOM NETWORK STREAMING END ================= */
+
+extern sacd_input_t (*sacd_input_open)(const char *);
+
+extern int (*sacd_input_close)(sacd_input_t);
+
+extern uint32_t (*sacd_input_read)(sacd_input_t, uint32_t, uint32_t, void *);
+
+extern char *(*sacd_input_error)(sacd_input_t);
+
+extern int (*sacd_input_authenticate)(sacd_input_t);
+
+extern int (*sacd_input_decrypt)(sacd_input_t, uint8_t *, uint32_t);
+
+extern uint32_t (*sacd_input_total_sectors)(sacd_input_t);
+
+int sacd_input_setup(const char *);
 
 #endif /* SACD_INPUT_H_INCLUDED */

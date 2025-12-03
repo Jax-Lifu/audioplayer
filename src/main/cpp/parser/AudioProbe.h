@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <jni.h> // 引入 JNI 头文件
+#include "FFmpegNetworkStream.h"
 
 // 保持结构体定义不变
 struct InternalTrack {
@@ -44,7 +45,8 @@ struct InternalMetadata {
 class AudioProbe {
 public:
     // 修改：增加 JNIEnv* 参数
-    static InternalMetadata probe(JNIEnv* env, const std::string& path, const std::map<std::string, std::string>& headers);
+    static InternalMetadata
+    probe(JNIEnv *env, const std::string &path, const std::map<std::string, std::string> &headers);
 };
 
 #endif // AUDIO_PLAYER_AUDIOPROBE_H

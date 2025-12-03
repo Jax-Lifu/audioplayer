@@ -6,13 +6,14 @@ import com.qytech.audioplayer.utils.QYLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.system.measureTimeMillis
+import kotlin.coroutines.cancellation.CancellationException
 
 class AudioPlayerManager private constructor(private val context: Context) {
 
@@ -81,46 +82,56 @@ class AudioPlayerManager private constructor(private val context: Context) {
         }
     }
 
-    // ==========================================
-    // 1. 切歌核心流程
-    // ==========================================
     private suspend fun processPlayRequest(request: PlayRequest) {
         currentTransitionJob?.cancelAndJoin()
 
-
-        val oldPlayer = currentPlayer
-
-        val newPlayer = withContext(Dispatchers.IO) {
-            createPlayerInternal(request)
-        }
-
-        if (newPlayer == null) {
-            return
-        }
-        newPlayer.addListener(proxyListener)
-        activeTransition = request.transition
-        currentPlayer = newPlayer
-
-        try {
-            newPlayer.prepare()
-        } catch (e: Exception) {
-            newPlayer.release()
-            return
-        }
-
-        // 4. 启动过渡任务
         currentTransitionJob = scope.launch {
-            val time = measureTimeMillis {
+            val oldPlayer = currentPlayer
+            var newPlayer: AudioPlayer? = null
+
+            try {
+                newPlayer = withContext(Dispatchers.IO) {
+                    createPlayerInternal(request)
+                } ?: return@launch // 创建失败直接退出
+
+                newPlayer.addListener(proxyListener)
+
+                activeTransition = request.transition
+
+                newPlayer.prepare()
+
                 activeTransition?.fadeOut()
-                oldPlayer?.stop()
-                oldPlayer?.release()
 
-                newPlayer.play()
+                withContext(NonCancellable) {
+                    try {
+                        oldPlayer?.stop()
+                        oldPlayer?.release()
+                    } catch (e: Exception) {
+                        QYLogger.e(e, "Error releasing old player")
+                    }
+
+                    currentPlayer = newPlayer
+
+                    newPlayer.play()
+                }
+
                 activeTransition?.fadeIn()
-            }
-            QYLogger.d("Transition time: $time ms")
-        }
 
+            } catch (e: CancellationException) {
+                QYLogger.d("Play request cancelled for: ${request.sourcePath}")
+
+                withContext(NonCancellable) {
+                    newPlayer?.release()
+                }
+                throw e
+            } catch (e: Exception) {
+                QYLogger.e(e, "Play fatal error")
+
+                withContext(NonCancellable) {
+                    newPlayer?.release()
+                }
+            }
+        }
     }
 
     // ==========================================

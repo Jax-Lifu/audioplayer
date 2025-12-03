@@ -96,11 +96,13 @@ interface OnPlaybackStateChangeListener {
      * 当播放状态发生变化时调用
      * @param state 新的播放状态
      */
+    @Deprecated("Use PlayerListener instead")
     fun onPlaybackStateChanged(state: PlaybackState, source: String, track: Int)
 
     /**
      * 当播放发生错误时调用
      * @param errorMessage 错误信息
      */
+    @Deprecated("Use PlayerListener instead")
     fun onPlayerError(errorMessage: String)
 }

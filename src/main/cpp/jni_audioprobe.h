@@ -7,6 +7,7 @@
 
 
 #include <jni.h>
+#include "StringUtils.h"
 
 int register_audioprobe_methods(JavaVM *vm, JNIEnv *env);
 

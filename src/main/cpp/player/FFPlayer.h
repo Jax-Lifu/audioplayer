@@ -52,33 +52,47 @@ public:
 
     bool isDsd() const override;
 
+    bool isExit() const;
+
 private:
     // 内部资源释放
     void releaseInternal();
+
     // 初始化 FFmpeg 网络模块
     void initFFmpeg();
+
     // 释放 FFmpeg 上下文
     void releaseFFmpeg();
+
     // 初始化重采样器
     int initSwrContext();
+
     // 提取音频信息
     void extractAudioInfo();
-    // 检查并扩容输出缓冲区
-    void checkOutputBufferSize(int requiredSize);
 
     // 解码线程函数
     void decodingLoop();
+
     // 处理 PCM 包
     void handlePcmAudioPacket(AVPacket *packet, AVFrame *frame);
+
     // 处理 DSD 包
     void handleDsdAudioPacket(AVPacket *packet, AVFrame *frame);
+
     // 更新进度
     void updateProgress();
 
     // 辅助函数
     static bool isDsdCodec(AVCodecID id);
+
     static bool isMsbfCodec(AVCodecID id);
+
     static AVSampleFormat getOutputSampleFormat(AVSampleFormat inputFormat);
+
+    static int interrupt_cb(void *ctx);
+
+    void ensureBufferCapacity(size_t requiredSize);
+
 
 private:
     // 成员变量
@@ -104,9 +118,7 @@ private:
     std::condition_variable stateCond;
 
     // 缓冲区
-    uint8_t *outBuffer = nullptr;
-    int outBufferSize = 0; // 记录当前缓冲区大小
-
+    std::vector<uint8_t> outBuffer;
 };
 
 #endif //QYPLAYER_FFPLAYER_H

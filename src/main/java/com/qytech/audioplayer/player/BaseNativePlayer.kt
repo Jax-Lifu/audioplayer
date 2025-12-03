@@ -30,6 +30,8 @@ abstract class BaseNativePlayer(
     @Deprecated("Use PlayerListener instead")
     private var onPlaybackStateChangeListener: OnPlaybackStateChangeListener? = null
     protected var currentTrackRef: AudioTrack? = null
+    private var trackSessionId: Long = -1
+
 
     private var dsdMode: DSDMode? = null
     private var mediaSource: MediaSource? = null
@@ -135,8 +137,9 @@ abstract class BaseNativePlayer(
         engine.release()
 
         // 调用管理器的软释放，不销毁 AudioTrack 硬件资源
-        GlobalAudioTrackManager.softRelease()
+        GlobalAudioTrackManager.softRelease(trackSessionId)
         currentTrackRef = null
+        trackSessionId = -1
         listeners.clear()
     }
 
@@ -182,10 +185,13 @@ abstract class BaseNativePlayer(
 
             try {
                 // 尝试复用 AudioTrack
-                currentTrackRef = GlobalAudioTrackManager.acquireAudioTrack(
+                val result = GlobalAudioTrackManager.acquireAudioTrack(
                     sampleRate,
                     targetEncoding
                 )
+                currentTrackRef = result.first
+                trackSessionId = result.second
+
                 mediaSource?.let { source ->
                     listeners.forEach { it.onPrepared() }
                     onPlaybackStateChangeListener?.onPlaybackStateChanged(
@@ -226,9 +232,14 @@ abstract class BaseNativePlayer(
         override fun onAudioData(data: ByteArray, size: Int) {
             currentTrackRef?.let { track ->
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
-                    val ret = track.write(data, 0, size)
-                    if (ret < 0) {
-                        QYLogger.e("AudioTrack write error: $ret")
+                    // 为了防止出现 AudioTrack 已经释放了，此时写数据的回调还在写数据出现的异常
+                    try {
+                        val ret = track.write(data, 0, size)
+                        if (ret < 0) {
+                            QYLogger.e("AudioTrack write error: $ret")
+                        }
+                    } catch (e: Exception) {
+                        QYLogger.e("AudioTrack write error", e)
                     }
                 }
             }

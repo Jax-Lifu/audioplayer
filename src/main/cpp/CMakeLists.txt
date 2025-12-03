@@ -50,6 +50,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         player/SacdPlayer.cpp
         player/FFmpegD2pDecoder.cpp
         utils/DsdUtils.cpp
+        utils/FFmpegNetworkStream.cpp
         jni_audioprobe.cpp
         jni_audioplayer.cpp
         jni_main.cpp)
@@ -94,6 +95,6 @@ target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
         "-Wl,-z,common-page-size=16384"
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+#if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DDEBUG)
-endif ()
+#endif ()
