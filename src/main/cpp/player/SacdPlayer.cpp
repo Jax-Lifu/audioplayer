@@ -23,6 +23,7 @@ static void scarletbook_progress_callback(
 }
 
 SacdPlayer::SacdPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
+    setCpuAffinity(2);
     outBuffer.resize(705600);
 }
 

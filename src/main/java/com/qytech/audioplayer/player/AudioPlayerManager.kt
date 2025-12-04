@@ -6,14 +6,13 @@ import com.qytech.audioplayer.utils.QYLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.cancellation.CancellationException
+import timber.log.Timber
 
 class AudioPlayerManager private constructor(private val context: Context) {
 
@@ -83,54 +82,20 @@ class AudioPlayerManager private constructor(private val context: Context) {
     }
 
     private suspend fun processPlayRequest(request: PlayRequest) {
+        // 1. 取消上一次的转场任务，防止冲突
         currentTransitionJob?.cancelAndJoin()
-
         currentTransitionJob = scope.launch {
-            val oldPlayer = currentPlayer
-            var newPlayer: AudioPlayer? = null
-
-            try {
-                newPlayer = withContext(Dispatchers.IO) {
-                    createPlayerInternal(request)
-                } ?: return@launch // 创建失败直接退出
-
-                newPlayer.addListener(proxyListener)
-
-                activeTransition = request.transition
-
-                newPlayer.prepare()
-
-                activeTransition?.fadeOut()
-
-                withContext(NonCancellable) {
-                    try {
-                        oldPlayer?.stop()
-                        oldPlayer?.release()
-                    } catch (e: Exception) {
-                        QYLogger.e(e, "Error releasing old player")
-                    }
-
-                    currentPlayer = newPlayer
-
-                    newPlayer.play()
-                }
-
-                activeTransition?.fadeIn()
-
-            } catch (e: CancellationException) {
-                QYLogger.d("Play request cancelled for: ${request.sourcePath}")
-
-                withContext(NonCancellable) {
-                    newPlayer?.release()
-                }
-                throw e
-            } catch (e: Exception) {
-                QYLogger.e(e, "Play fatal error")
-
-                withContext(NonCancellable) {
-                    newPlayer?.release()
-                }
-            }
+            request.transition?.fadeOut()
+            Timber.d("processPlayRequest fadeOut ----")
+            currentPlayer?.stop()
+            currentPlayer?.release()
+            delay(100)
+            currentPlayer = createPlayerInternal(request)
+            currentPlayer?.addListener(proxyListener)
+            currentPlayer?.prepare()
+            currentPlayer?.play()
+            request.transition?.fadeIn()
+            Timber.d("processPlayRequest fadeIn ++++")
         }
     }
 

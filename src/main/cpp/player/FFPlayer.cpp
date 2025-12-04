@@ -5,6 +5,7 @@
 #define DSD_BATCH_SIZE  16384
 
 FFPlayer::FFPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
+    setCpuAffinity(1);
     initFFmpeg();
     outBuffer.reserve(DEFAULT_BUFFER_SIZE);
     outBuffer.resize(DEFAULT_BUFFER_SIZE);

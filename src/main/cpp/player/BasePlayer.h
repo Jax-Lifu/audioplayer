@@ -17,7 +17,6 @@
 class BasePlayer {
 public:
     explicit BasePlayer(IPlayerCallback *callback) : mCallback(callback) {
-        setCpuAffinity();
     }
 
     virtual ~BasePlayer() = default;

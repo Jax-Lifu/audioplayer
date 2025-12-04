@@ -116,6 +116,7 @@ abstract class BaseNativePlayer(
             try {
                 currentTrackRef?.pause()
                 currentTrackRef?.flush()
+                currentTrackRef?.stop()
             } catch (e: Exception) {
                 QYLogger.e("AudioTrack stop failed", e)
             }
