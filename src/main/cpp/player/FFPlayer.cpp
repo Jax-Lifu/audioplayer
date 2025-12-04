@@ -1,10 +1,12 @@
 #include "FFPlayer.h"
 
 // 默认缓冲区大小，不足时会自动扩容
-#define DEFAULT_BUFFER_SIZE 705600
+#define DEFAULT_BUFFER_SIZE 2 * 1024 * 1024
+#define DSD_BATCH_SIZE  16384
 
 FFPlayer::FFPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
     initFFmpeg();
+    outBuffer.reserve(DEFAULT_BUFFER_SIZE);
     outBuffer.resize(DEFAULT_BUFFER_SIZE);
 }
 
@@ -39,6 +41,8 @@ void FFPlayer::prepare() {
         }
         // 增加网络超时设置 (5秒 = 5000000微秒)
         av_dict_set(&options, "timeout", "5000000", 0);
+        av_dict_set(&options, "buffer_size", "4194304", 0); // 4MB
+
 
         // 2. 打开输入流
         fmtCtx = avformat_alloc_context();
@@ -128,7 +132,7 @@ void FFPlayer::prepare() {
         mIsExit.store(false);
     }
 
-    if (mIsExit.load()){
+    if (mIsExit.load()) {
         LOGW("FFPlayer::prepare: exit before success");
         goto error;
     }
@@ -546,8 +550,11 @@ void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
         } else if (mDsdMode == DSD_MODE_DOP) {
             outputSize = DsdUtils::packDoP(isMsbf, packet->data, packet->size, rawBuffer);
         }
+        if (outputSize <= 0) {
+            return;
+        }
 
-        if (outputSize > 0 && mCallback) {
+        if (mCallback) {
             if (outputSize > outBuffer.size()) {
                 LOGD("DSD output size %d exceeds buffer size %d, truncating", outputSize,
                      outBuffer.size());
@@ -594,6 +601,8 @@ void FFPlayer::ensureBufferCapacity(size_t requiredSize) {
     size_t safeSize = requiredSize + AV_INPUT_BUFFER_PADDING_SIZE;
     if (safeSize > outBuffer.size()) {
         size_t newSize = std::max(safeSize, outBuffer.size() * 3 / 2);
+        LOGD("ensureBufferCapacity: requiredSize %d, safeSize %d, newSize %d", requiredSize,
+             safeSize, newSize);
         outBuffer.resize(newSize);
     }
 }
