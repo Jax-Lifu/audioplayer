@@ -92,6 +92,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
             delay(100)
             currentPlayer = createPlayerInternal(request)
             currentPlayer?.addListener(proxyListener)
+            activeTransition = request.transition
             currentPlayer?.prepare()
             currentPlayer?.play()
             request.transition?.fadeIn()

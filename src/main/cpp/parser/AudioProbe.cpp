@@ -136,7 +136,15 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
         track.bitDepth = (p->bits_per_raw_sample > 0) ? p->bits_per_raw_sample : 16;
         const AVCodecDescriptor *desc = avcodec_descriptor_get(p->codec_id);
         track.format = desc ? desc->name : "unknown";
-        if (track.format.find("dsd") != std::string::npos) track.bitDepth = 1;
+        if (track.format.find("pcm") != std::string::npos) {
+            track.format = "pcm";
+        } else if (track.format.find("dsd") != std::string::npos) {
+            track.format = "DSD" + std::to_string(p->sample_rate * 8 / 44100);
+            track.bitDepth = 1;
+            track.sampleRate = p->sample_rate * 8;
+        }
+        LOGD("format: %s, bitDepth: %d, sampleRate: %d", track.format.c_str(), track.bitDepth,
+             track.sampleRate);
     }
 
     meta.tracks.push_back(track);
@@ -155,10 +163,8 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
     InternalMetadata meta;
     meta.uri = path;
 
-    // 核心修复：传入 env
     std::string content = ProbeUtils::readContent(env, path, headers);
     if (content.empty()) return meta;
-
     std::stringstream ss(content);
     std::string line;
 
@@ -198,7 +204,7 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
         ls >> cmd;
         std::getline(ls, val);
         val = unquote(val);
-
+        LOGD("line %s, cmd %s, val %s", line.c_str(), cmd.c_str(), val.c_str());
         if (cmd == "TITLE") { if (curNum == 0) meta.albumTitle = val; else curTitle = val; }
         else if (cmd == "PERFORMER") {
             if (curNum == 0)
@@ -208,13 +214,23 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
         else if (cmd == "REM" && val.find("DATE") == 0) meta.date = val.substr(5);
         else if (cmd == "REM" && val.find("COMMENT") == 0) meta.description = val.substr(8);
         else if (cmd == "FILE") {
-            size_t sp = val.find_last_of(' ');
-            if (sp != std::string::npos) {
-                std::string type = val.substr(sp + 1);
-                if (type == "WAVE" || type == "MP3" || type == "BINARY" || type == "AIFF")
-                    val = val.substr(0, sp);
+            std::string tempFile = val;
+            LOGD("FILE value %s", val.c_str());
+            size_t lastSpace = val.find_last_of(' ');
+            if (lastSpace != std::string::npos) {
+                std::string possibleType = val.substr(lastSpace + 1);
+                bool isType = false;
+                if (possibleType == "WAVE" || possibleType == "MP3" || possibleType == "BINARY" ||
+                    possibleType == "AIFF" || possibleType == "FLAC" || possibleType == "APE" ||
+                    possibleType == "DSD" || possibleType == "MOTOROLA") {
+                    isType = true;
+                }
+                if (isType) {
+                    tempFile = val.substr(0, lastSpace);
+                    LOGD("tempFile %s", tempFile.c_str());
+                }
+                curFile = unquote(tempFile);
             }
-            curFile = unquote(val);
         } else if (cmd == "TRACK") {
             if (curNum > 0) temps.push_back({curNum, curTitle, curPerf, curFile, curStart});
             sscanf(val.c_str(), "%d", &curNum);
@@ -237,6 +253,7 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
 
     for (size_t i = 0; i < temps.size(); ++i) {
         std::string absPath = ProbeUtils::resolvePath(path, temps[i].file);
+        LOGD("absPath: %s", absPath.c_str());
 
         if (fileCache.find(absPath) == fileCache.end()) {
             fileCache[absPath] = probeStandard(absPath, headers);
@@ -392,7 +409,8 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
     return meta;
 }
 
-static bool isIsoFormat(const std::string &path, const std::map<std::string, std::string> &headers) {
+static bool
+isIsoFormat(const std::string &path, const std::map<std::string, std::string> &headers) {
     // 1. 如果有明确后缀，直接返回 true (性能优化)
     std::string lower = path;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
