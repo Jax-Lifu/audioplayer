@@ -179,6 +179,7 @@ abstract class BaseNativePlayer(
         override fun onPrepared() {
             DsdPlaybackProperty.setDsdPlaybackMode(if (engine.isDsd()) dsdMode else null)
             val sampleRate = engine.getSampleRate()
+            val channel = engine.getChannelCount()
             val bitPerSample = engine.getBitPerSample()
             val targetEncoding = getAudioEncoding(bitPerSample)
 
@@ -188,7 +189,8 @@ abstract class BaseNativePlayer(
                 // 尝试复用 AudioTrack
                 val result = GlobalAudioTrackManager.acquireAudioTrack(
                     sampleRate,
-                    targetEncoding
+                    targetEncoding,
+                    channel
                 )
                 currentTrackRef = result.first
                 trackSessionId = result.second

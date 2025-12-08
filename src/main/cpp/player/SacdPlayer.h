@@ -4,6 +4,7 @@
 #include "BasePlayer.h"
 #include <vector>
 #include "FFmpegD2pDecoder.h"
+#include "SystemProperties.h"
 
 extern "C" {
 // sacd 头文件

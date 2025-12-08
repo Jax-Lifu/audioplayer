@@ -16,6 +16,7 @@ object GlobalAudioTrackManager {
     // 记录当前 AudioTrack 的参数
     private var currentSampleRate = 0
     private var currentEncoding = 0
+    private var currentChannel = 2
 
     // [关键修复] 当前活跃的会话 ID
     // 每次 acquire 成功后自增，用于区分不同的播放请求
@@ -26,7 +27,11 @@ object GlobalAudioTrackManager {
      * @return Pair<AudioTrack, Long> -> (AudioTrack实例, 本次分配的SessionId)
      */
     @Synchronized
-    fun acquireAudioTrack(sampleRate: Int, encoding: Int): Pair<AudioTrack, Long> {
+    fun acquireAudioTrack(
+        sampleRate: Int,
+        encoding: Int,
+        channel: Int,
+    ): Pair<AudioTrack, Long> {
         // 1. 生成新的 Session ID (代表“新一代”的播放请求)
         currentSessionId++
         val newSessionId = currentSessionId
@@ -37,7 +42,8 @@ object GlobalAudioTrackManager {
         if (track != null &&
             track.state == AudioTrack.STATE_INITIALIZED &&
             currentSampleRate == sampleRate &&
-            currentEncoding == encoding
+            currentEncoding == encoding &&
+            currentChannel == channel
         ) {
             QYLogger.i("GlobalAudioTrackManager: >>> Reuse Hit! (SR: $sampleRate, Session: $newSessionId) <<<")
             try {
@@ -58,12 +64,13 @@ object GlobalAudioTrackManager {
         // 销毁旧的 AudioTrack 对象
         destroyInternal()
 
-        val newTrack = createTrack(sampleRate, encoding)
+        val newTrack = createTrack(sampleRate, encoding, channel)
 
         // 更新全局状态
         audioTrack = newTrack
         currentSampleRate = sampleRate
         currentEncoding = encoding
+        currentChannel = channel
 
         // 立即启动
         try {
@@ -83,8 +90,10 @@ object GlobalAudioTrackManager {
     fun softRelease(callerSessionId: Long) {
         // [关键修复] 只有 Session ID 匹配，才允许操作 AudioTrack
         if (callerSessionId != currentSessionId) {
-            QYLogger.w("GlobalAudioTrackManager: Ignored stale release request. " +
-                    "CallerSession: $callerSessionId, CurrentSession: $currentSessionId")
+            QYLogger.w(
+                "GlobalAudioTrackManager: Ignored stale release request. " +
+                        "CallerSession: $callerSessionId, CurrentSession: $currentSessionId"
+            )
             return
         }
 
@@ -110,6 +119,7 @@ object GlobalAudioTrackManager {
         destroyInternal()
         currentSampleRate = 0
         currentEncoding = 0
+        currentChannel = 2
         currentSessionId = 0 // 重置 ID
     }
 
@@ -128,8 +138,9 @@ object GlobalAudioTrackManager {
         audioTrack = null
     }
 
-    private fun createTrack(sampleRate: Int, encoding: Int): AudioTrack {
-        val channelConfig = AudioFormat.CHANNEL_OUT_STEREO
+    private fun createTrack(sampleRate: Int, encoding: Int, channel: Int): AudioTrack {
+        val channelConfig =
+            if (channel == 4) AudioFormat.CHANNEL_OUT_QUAD else AudioFormat.CHANNEL_OUT_STEREO
         val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding)
         // 适当增大 Buffer 以防止高码率 DSD 播放卡顿
         val bufferSize = if (minBufferSize > 0) minBufferSize * 4 else sampleRate * 4

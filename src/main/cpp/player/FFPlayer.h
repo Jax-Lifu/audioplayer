@@ -110,9 +110,6 @@ private:
 
     int audioStreamIndex = -1;
     bool isMsbf = true;
-    bool is4ChannelSupported = false;
-
-
     // 线程与同步 (FFPlayer 特有的)
     std::thread *decodeThread = nullptr;
     std::condition_variable stateCond;

@@ -62,6 +62,7 @@ void SacdPlayer::prepare() {
             d2pDecoder = new FFmpegD2pDecoder();
             d2pDecoder->initFFmpegD2pDecoder(mTargetD2pSampleRate);
         }
+        is4ChannelSupported = SystemProperties::is4ChannelSupported();
 
         mState = STATE_PREPARED;
         mIsExit = false;
@@ -209,6 +210,9 @@ int SacdPlayer::getSampleRate() const {
 }
 
 int SacdPlayer::getChannelCount() const {
+    if (mDsdMode == DSD_MODE_NATIVE && is4ChannelSupported) {
+        return 4;
+    }
     return mChannelCount;
 }
 
@@ -223,7 +227,13 @@ int SacdPlayer::onDecodeData(uint8_t *data, size_t size, int track_index) {
     int out_size = 0;
     switch (mDsdMode) {
         case DSD_MODE_NATIVE:
-            out_size = DsdUtils::packNative(true, data, size, outBuffer.data());
+            if (is4ChannelSupported) {
+                out_size = DsdUtils::pack4ChannelNative(true, data, size,
+                                                        outBuffer.data());
+            } else {
+                out_size = DsdUtils::packNative(true, data, size,
+                                                outBuffer.data());
+            }
             break;
         case DSD_MODE_D2P:
             out_size = d2pDecoder->decodeD2pData(data, size, outBuffer.data());

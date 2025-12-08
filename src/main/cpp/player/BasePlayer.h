@@ -85,6 +85,8 @@ protected:
     // DSD 配置
     DsdMode mDsdMode = DSD_MODE_NATIVE;
     int mTargetD2pSampleRate = 192000;
+
+    bool is4ChannelSupported = false;
 };
 
 #endif //QYPLAYER_BASEPLAYER_H

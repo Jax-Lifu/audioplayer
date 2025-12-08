@@ -276,6 +276,9 @@ int FFPlayer::getSampleRate() const {
 }
 
 int FFPlayer::getChannelCount() const {
+    if (mDsdMode == DSD_MODE_NATIVE && is4ChannelSupported) {
+        return 4;
+    }
     return mChannelCount;
 }
 
