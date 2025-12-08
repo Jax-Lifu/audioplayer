@@ -44,21 +44,13 @@ class AudioPlayerManager private constructor(private val context: Context) {
     // ==========================================
     // 核心成员
     // ==========================================
-    // 1. CONFLATED 通道：自动丢弃积压的请求，只保留最新的，实现“防抖”
     private val actionChannel = Channel<PlayRequest>(Channel.CONFLATED)
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // 2. 任务控制：控制所有过渡动画（切歌、暂停、恢复共用一个 Job，实现互斥）
     private var currentTransitionJob: Job? = null
-
-    // 3. 播放器引用
     private var currentPlayer: AudioPlayer? = null
-
-    // 4. 当前生效的策略 (用于 Pause/Resume)
     private var activeTransition: AudioTransition? = null
-
-    // 5. 重试相关
     private var lastPlayRequest: PlayRequest? = null
 
     @Volatile
@@ -66,9 +58,9 @@ class AudioPlayerManager private constructor(private val context: Context) {
 
     private var uiListener: PlayerListener? = null
 
-    // ==========================================
-    // 初始化：启动消费者循环
-    // ==========================================
+    @Volatile
+    private var internalState: PlaybackState = PlaybackState.IDLE
+
     init {
         scope.launch {
             for (request in actionChannel) {
@@ -82,31 +74,52 @@ class AudioPlayerManager private constructor(private val context: Context) {
     }
 
     private suspend fun processPlayRequest(request: PlayRequest) {
-        // 1. 取消上一次的转场任务，防止冲突
+        lastPlayRequest = request // 记录请求以便重试
+        Timber.d("processPlayRequest $request")
         currentTransitionJob?.cancelAndJoin()
         currentTransitionJob = scope.launch {
+            // 切歌开始，先处理淡出
             request.transition?.fadeOut()
             Timber.d("processPlayRequest fadeOut ----")
+
             currentPlayer?.stop()
             currentPlayer?.release()
+
+            // 状态重置
+            internalState = PlaybackState.IDLE
+
             delay(100)
+
             currentPlayer = createPlayerInternal(request)
             currentPlayer?.addListener(proxyListener)
+
             activeTransition = request.transition
+
+            // 准备和播放
             currentPlayer?.prepare()
             currentPlayer?.play()
+
+            // 注意：play() 调用后，State通常会很快变为 PLAYING，由 proxyListener 更新 internalState
+
             request.transition?.fadeIn()
             Timber.d("processPlayRequest fadeIn ++++")
         }
     }
 
     // ==========================================
-    // 2. 暂停流程
+    // 2. 暂停流程 
     // ==========================================
     fun pause() {
         val player = currentPlayer ?: return
 
-        // 抢占：取消正在进行的动画
+        // 防止重复调用
+        // 如果当前不是 播放中 或 缓冲中，说明已经暂停或停止了，无需再次操作（避免重复 FadeOut）
+        if (internalState != PlaybackState.PLAYING && internalState != PlaybackState.BUFFERING) {
+            Timber.w("忽略重复/无效的 Pause 请求。当前状态: $internalState")
+            return
+        }
+
+        // 抢占：取消正在进行的动画（比如正在 FadeIn 还没结束，立刻打断）
         currentTransitionJob?.cancel()
         currentTransitionJob = scope.launch {
             try {
@@ -121,10 +134,15 @@ class AudioPlayerManager private constructor(private val context: Context) {
     }
 
     // ==========================================
-    // 3. 恢复流程
+    // 3. 恢复流程 
     // ==========================================
     fun resume() {
         val player = currentPlayer ?: return
+
+        if (internalState != PlaybackState.PAUSED) {
+            Timber.w("忽略无效的 Resume 请求。当前状态: $internalState")
+            return
+        }
 
         currentTransitionJob?.cancel()
         currentTransitionJob = scope.launch {
@@ -136,10 +154,15 @@ class AudioPlayerManager private constructor(private val context: Context) {
     }
 
     // ==========================================
-    // 4. 停止流程
+    // 4. 停止流程 
     // ==========================================
     fun stop() {
         val player = currentPlayer ?: return
+
+        if (internalState == PlaybackState.IDLE || internalState == PlaybackState.STOPPED) {
+            return
+        }
+
         currentTransitionJob?.cancel()
         currentTransitionJob = scope.launch {
             try {
@@ -158,14 +181,14 @@ class AudioPlayerManager private constructor(private val context: Context) {
         sourcePath: String,
         trackIndex: Int = 0,
         dsdMode: DSDMode = DSDMode.NATIVE,
-        transition: AudioTransition? = null, // 用户可以在这里传入 Crossfade
+        transition: AudioTransition? = null,
         listener: PlayerListener? = null,
         securityKey: String? = null,
         initVector: String? = null,
         headers: Map<String, String>? = null,
     ) {
         this.uiListener = listener
-
+        Timber.d("play sourcePath: $sourcePath, trackIndex: $trackIndex, dsdMode: $dsdMode, transition: $transition, securityKey: $securityKey, initVector: $initVector, headers: $headers")
         actionChannel.trySend(
             PlayRequest(
                 sourcePath, trackIndex, dsdMode, transition,
@@ -195,6 +218,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
                 player.setDsdMode(request.dsdMode)
                 player
             } else {
+                Timber.d("createPlayerInternal sourcePath: ${request.sourcePath}, trackId: ${request.trackIndex}, dsdMode: ${request.dsdMode}, securityKey: ${request.securityKey}, initVector: ${request.initVector}, headers: ${request.headers}")
                 AudioPlayerFactory.createAudioPlayer(
                     context = context,
                     source = request.sourcePath,
@@ -213,6 +237,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
 
     private val proxyListener = object : PlayerListener {
         override fun onPrepared() {
+            // 状态更新逻辑在 onStateChanged 中处理，这里只做透传
             uiListener?.onPrepared()
         }
 
@@ -225,11 +250,15 @@ class AudioPlayerManager private constructor(private val context: Context) {
         }
 
         override fun onStateChanged(state: PlaybackState) {
+            // 实时同步内部状态
+            internalState = state
             uiListener?.onStateChanged(state)
         }
 
         override fun onError(code: Int, msg: String) {
             QYLogger.e("Player Error: $code, $msg")
+            internalState = PlaybackState.ERROR // 标记错误状态
+
             if (shouldRetry()) {
                 triggerRetry()
             } else {
@@ -249,7 +278,6 @@ class AudioPlayerManager private constructor(private val context: Context) {
         QYLogger.w("Triggering Retry with StreamPlayer...")
         hasRetriedWithStreamPlayer = true
 
-        // 重试时，通常强制使用 Gapless 策略以确保快速响应，避免复杂的淡入淡出干扰排查
         val retryReq = lastReq.copy(
             forceStreamPlayer = true,
         )
