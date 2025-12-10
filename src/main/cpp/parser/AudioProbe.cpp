@@ -210,10 +210,15 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
             if (curNum == 0)
                 meta.albumArtist = val;
             else curPerf = val;
-        } else if (cmd == "REM" && val.find("GENRE") == 0) meta.genre = val.substr(6);
-        else if (cmd == "REM" && val.find("DATE") == 0) meta.date = val.substr(5);
-        else if (cmd == "REM" && val.find("COMMENT") == 0) meta.description = val.substr(8);
-        else if (cmd == "FILE") {
+        } else if (cmd == "REM") {
+            if (val.find("GENRE") == 0 && val.length() >= 6) {
+                meta.genre = val.substr(6);
+            } else if (val.find("DATE") == 0 && val.length() >= 5) {
+                meta.date = val.substr(5);
+            } else if (val.find("COMMENT") == 0 && val.length() >= 8) {
+                meta.description = val.substr(8);
+            }
+        } else if (cmd == "FILE") {
             std::string tempFile = val;
             LOGD("FILE value %s", val.c_str());
             size_t lastSpace = val.find_last_of(' ');
@@ -443,23 +448,38 @@ isIsoFormat(const std::string &path, const std::map<std::string, std::string> &h
 InternalMetadata
 AudioProbe::probe(JNIEnv *env, const std::string &path,
                   const std::map<std::string, std::string> &headers) {
-    std::string lower = path;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    size_t qPos = lower.find('?');
-    std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
+    InternalMetadata meta; // 默认失败状态
+    meta.uri = path;
 
-    if (endsWith(pathNoQuery, ".cue")) {
-        return probeCue(env, path, headers);
+    try {
+        std::string lower = path;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        size_t qPos = lower.find('?');
+        std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
+
+        if (endsWith(pathNoQuery, ".cue")) {
+            return probeCue(env, path, headers);
+        }
+
+        // 2. SACD ISO 处理
+        if (isIsoFormat(path, headers)) {
+            return probeSacd(path, headers);
+        }
+
+        // 3. 其他情况交给 FFmpeg 标准探测
+        return probeStandard(path, headers);
+
+    } catch (const std::exception &e) {
+        // 捕获所有标准 C++ 异常 (包括 out_of_range, bad_alloc 等)
+        LOGE("Native crash prevented inside AudioProbe::probe: %s", e.what());
+        meta.success = false;
+        return meta;
+    } catch (...) {
+        // 捕获所有其他未知异常
+        LOGE("Native crash prevented inside AudioProbe::probe: unknown exception");
+        meta.success = false;
+        return meta;
     }
-
-    // 2. SACD ISO 处理 (包含 后缀判断 + 魔法数字嗅探)
-    // 对于长链接，这里会发起一个轻量级的 HEAD/Range 请求去检查 0x8000 位置
-    if (isIsoFormat(path, headers)) {
-        return probeSacd(path, headers);
-    }
-
-    // 3. 其他情况交给 FFmpeg 标准探测
-    return probeStandard(path, headers);
 }
 
 
