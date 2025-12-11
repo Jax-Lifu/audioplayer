@@ -10,7 +10,13 @@
 static jobject
 nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHeaders, jstring jFilename,
             jstring jAudioSourceUrl) {
-    const char *path = env->GetStringUTFChars(jPath, nullptr);
+    const char *path = nullptr;
+    if (jPath) {
+        path = env->GetStringUTFChars(jPath, nullptr);
+    } else {
+        return nullptr;
+    }
+
     auto headers = jmapToStdMap(env, jHeaders);
 
     // 处理原始文件名
@@ -31,20 +37,28 @@ nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHeaders, jstring 
             strAudioUrl = audioUrl;
         }
     }
+
     // 解析并返回元数据
     InternalMetadata meta = AudioProbe::probe(env, path, headers, strFilename, strAudioUrl);
 
-    // 释放字符串资源
-    env->ReleaseStringUTFChars(jPath, path);
+    // === 释放字符串资源 (修复部分) ===
+
+    // 释放 path
+    if (jPath && path) {
+        env->ReleaseStringUTFChars(jPath, path);
+    }
+
+    // 释放 filename
     if (jFilename != nullptr && filename != nullptr) {
         env->ReleaseStringUTFChars(jFilename, filename);
     }
+
+    // 释放 audioUrl
     if (jAudioSourceUrl != nullptr && audioUrl != nullptr) {
         env->ReleaseStringUTFChars(jAudioSourceUrl, audioUrl);
     }
-    if (jFilename != nullptr && filename != nullptr) {
-        env->ReleaseStringUTFChars(jFilename, filename);
-    }
+
+    // === 结束释放 ===
 
     // 解析结果处理
     jstring jCoverPath = nullptr;
