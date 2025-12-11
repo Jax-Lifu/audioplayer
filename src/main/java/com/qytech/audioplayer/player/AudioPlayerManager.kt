@@ -42,8 +42,10 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         val transition: AudioTransition?,
         val securityKey: String?,
         val initVector: String?,
-        val originalFileName: String? = null,
         val headers: Map<String, String>?,
+        val filename: String? = null,
+        val startPosition: Long? = null,
+        val endPosition: Long? = null,
         val forceStreamPlayer: Boolean = false,
     )
 
@@ -254,8 +256,10 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         listener: PlayerListener? = null, // 单次播放的监听器
         securityKey: String? = null,
         initVector: String? = null,
-        originalFileName: String? = null,
         headers: Map<String, String>? = null,
+        filename: String? = null,
+        startPosition: Long? = null,
+        endPosition: Long? = null,
     ) {
         listener?.let {
             if (!listeners.contains(it)) listeners.add(it)
@@ -263,9 +267,17 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
 
         actionChannel.trySend(
             PlayRequest(
-                sourcePath, trackIndex, dsdMode, transition,
-                securityKey, initVector, originalFileName,
-                headers, forceStreamPlayer = false
+                sourcePath = sourcePath,
+                trackIndex = trackIndex,
+                dsdMode = dsdMode,
+                transition = transition,
+                securityKey = securityKey,
+                initVector = initVector,
+                headers = headers,
+                filename = filename,
+                forceStreamPlayer = false,
+                startPosition = startPosition,
+                endPosition = endPosition
             )
         )
     }
@@ -338,7 +350,9 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     dsdMode = request.dsdMode,
                     securityKey = request.securityKey,
                     initVector = request.initVector,
-                    originalFileName = request.originalFileName,
+                    filename = request.filename,
+                    startPosition = request.startPosition,
+                    endPosition = request.endPosition,
                     headers = request.headers
                 )
             }

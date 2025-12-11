@@ -95,7 +95,7 @@ object AudioPlayerFactory {
      *
      * @param source 播放源
      * @param trackId 轨道 ID (1-based)。如果不涉及分轨，传 -1。
-     * @param originalFileName      原始文件名。
+     * @param filename      原始文件名。
      *                              **关键参数**：对于网盘链接（URL无后缀），必须传入此参数 (如 "test.iso", "test.wav")，
      *                              否则底层无法识别 SACD 格式或 CUE 原始文件格式。
      * @param startPosition         CUE 播放起始时间 (ms)。仅用于网盘 CUE 优化播放模式。
@@ -117,11 +117,11 @@ object AudioPlayerFactory {
         clientSecret: String? = null,
         credentialsKey: String? = null,
         // 针对网盘的整轨文件,无法获取原始文件信息
-        originalFileName: String? = null,
+        filename: String? = null,
         startPosition: Long? = null,
         endPosition: Long? = null,
     ): AudioPlayer? {
-        QYLogger.d("Factory: Legacy create from path=$source trackId=$trackId file=$originalFileName")
+        QYLogger.d("Factory: Legacy create from path=$source trackId=$trackId file=$filename")
 
         val trackIndex = if (trackId > 0) trackId - 1 else -1
 
@@ -131,7 +131,7 @@ object AudioPlayerFactory {
             securityKey = securityKey,
             initVector = initVector,
             headers = headers,
-            originalFileName = originalFileName,
+            originalFileName = filename,
             startPosition = startPosition,
             endPosition = endPosition
         ) ?: return null
