@@ -198,22 +198,21 @@ static jlong native_init(JNIEnv *env, jobject thiz, jint type, jobject jCallback
 }
 
 // 2. Set Source
-static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring path, jstring headers,
+static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring path, jobject headers,
                              jint trackIndex, jlong startPos, jlong endPos) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
 
     const char *cPath = env->GetStringUTFChars(path, nullptr);
-    const char *cHeaders = headers ? env->GetStringUTFChars(headers, nullptr) : "";
+    std::map<std::string, std::string> headerMap = jmapToStdMap(env, headers);
 
     if (ctx->type == TYPE_FFMPEG) {
-        ((FFPlayer *) ctx->playerInstance)->setDataSource(cPath, cHeaders, startPos, endPos);
+        ((FFPlayer *) ctx->playerInstance)->setDataSource(cPath, headerMap, startPos, endPos);
     } else {
-        ((SacdPlayer *) ctx->playerInstance)->setDataSource(cPath, trackIndex);
+        ((SacdPlayer *) ctx->playerInstance)->setDataSource(cPath, trackIndex, headerMap);
     }
 
     env->ReleaseStringUTFChars(path, cPath);
-    if (headers) env->ReleaseStringUTFChars(headers, cHeaders);
 }
 
 // 3. Prepare
@@ -339,7 +338,7 @@ static jboolean native_isDsd(JNIEnv *env, jobject thiz, jlong handle) {
 
 static const JNINativeMethod gMethods[] = {
         {"native_init",               "(ILcom/qytech/audioplayer/player/EngineCallback;)J", (void *) native_init},
-        {"native_setSource",          "(JLjava/lang/String;Ljava/lang/String;IJJ)V",        (void *) native_setSource},
+        {"native_setSource",          "(JLjava/lang/String;Ljava/util/Map;IJJ)V",           (void *) native_setSource},
         {"native_prepare",            "(J)V",                                               (void *) native_prepare},
         {"native_play",               "(J)V",                                               (void *) native_play},
         {"native_pause",              "(J)V",                                               (void *) native_pause},

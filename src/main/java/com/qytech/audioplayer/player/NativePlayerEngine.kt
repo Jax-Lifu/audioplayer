@@ -38,12 +38,19 @@ internal class NativePlayerEngine {
 
     fun setSource(
         path: String,
-        headers: String? = null,
+        headers: Map<String, String>? = null,
         trackIndex: Int = -1,
         startPos: Long = 0L,
-        endPos: Long = -1L
+        endPos: Long = -1L,
     ) {
-        if (nativeHandle != 0L) native_setSource(nativeHandle, path, headers, trackIndex, startPos, endPos)
+        if (nativeHandle != 0L) native_setSource(
+            nativeHandle,
+            path,
+            headers,
+            trackIndex,
+            startPos,
+            endPos
+        )
     }
 
     fun setDsdConfig(mode: Int, d2pSampleRate: Int) {
@@ -100,10 +107,10 @@ internal class NativePlayerEngine {
     private external fun native_setSource(
         handle: Long,
         path: String,
-        headers: String?,
+        headers: Map<String, String>?,
         trackIndex: Int,
         startPos: Long,
-        endPos: Long
+        endPos: Long,
     )
 
     private external fun native_prepare(handle: Long)

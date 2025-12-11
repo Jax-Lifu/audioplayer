@@ -16,7 +16,11 @@ class SacdPlayer(
     override fun setMediaSource(mediaSource: MediaSource) {
         super.setMediaSource(mediaSource)
         if (mediaSource is SacdMediaSource) {
-            engine.setSource(mediaSource.uri, trackIndex = mediaSource.trackIndex)
+            engine.setSource(
+                mediaSource.uri,
+                trackIndex = mediaSource.trackIndex,
+                headers = mediaSource.headers
+            )
         }
     }
 

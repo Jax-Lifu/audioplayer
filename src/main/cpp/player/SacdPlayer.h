@@ -5,6 +5,8 @@
 #include <vector>
 #include "FFmpegD2pDecoder.h"
 #include "SystemProperties.h"
+#include "FFmpegNetworkStream.h"
+#include <map>
 
 extern "C" {
 // sacd 头文件
@@ -20,8 +22,7 @@ public:
 
     ~SacdPlayer() override;
 
-    // 特有的数据源设置接口
-    void setDataSource(const std::string &isoPath, int trackIndex);
+    void setDataSource(const std::string &isoPath, int trackIndex, const std::map<std::string, std::string> &headers = {});
 
     // 重写基类虚函数
     void prepare() override;
@@ -68,6 +69,9 @@ private:
     void extractAudioInfo();
 
 private:
+    std::map<std::string, std::string> mHeaders;
+    FFmpegNetworkStream *mNetStream = nullptr;
+
     std::string isoPath;
     int trackIndex = 0;
     int area_idx = -1;

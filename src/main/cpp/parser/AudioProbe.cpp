@@ -12,15 +12,13 @@ extern "C" {
 
 #include <sstream>
 #include <algorithm>
-#include <mutex> // 必须引入，用于线程锁
+#include <mutex>
 
 // ==========================================
 // 辅助工具与锁
 // ==========================================
 
-// 用于保护 FFmpeg 网络模块初始化 (只执行一次)
 static std::once_flag ffmpeg_init_flag;
-// 用于保护 SACD 库 (非线程安全库必须加锁)
 static std::mutex sacd_mutex;
 
 static std::string get_tag(AVDictionary *m, const char *key) {
@@ -33,11 +31,20 @@ static int parse_int(const std::string &s) {
 }
 
 static bool endsWith(const std::string &str, const std::string &suffix) {
-    if (str.length() < suffix.length()) {
-        return false;
-    }
-    // 从字符串末尾比较
-    return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
+    if (str.length() < suffix.length()) return false;
+    std::string sLower = str;
+    std::string sufLower = suffix;
+    // 简单转小写比较
+    std::transform(sLower.begin(), sLower.end(), sLower.begin(), ::tolower);
+    std::transform(sufLower.begin(), sufLower.end(), sufLower.begin(), ::tolower);
+    return sLower.compare(sLower.length() - sufLower.length(), sufLower.length(), sufLower) == 0;
+}
+
+// 提取纯路径（去除 URL 参数），用于后缀判断
+static std::string getPathNoQuery(const std::string &path) {
+    std::string lower = path;
+    size_t qPos = lower.find('?');
+    return (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
 }
 
 // ==========================================
@@ -47,48 +54,71 @@ static InternalMetadata
 probeStandard(const std::string &path, const std::map<std::string, std::string> &headers) {
     InternalMetadata meta;
     meta.uri = path;
+    meta.success = false; // 默认 false
 
-    // 核心修复：线程安全的全局初始化
     std::call_once(ffmpeg_init_flag, []() {
         av_log_set_level(AV_LOG_QUIET);
         avformat_network_init();
     });
 
     AVFormatContext *fmt_ctx = nullptr;
-    AVDictionary *opts = nullptr;
+    AVDictionary *options = nullptr;
 
     std::string customHeaders;
+    bool hasUserAgent = false;
+
+    // 1. 处理传入的 Headers
     for (const auto &pair: headers) {
         if (strcasecmp(pair.first.c_str(), "User-Agent") == 0) {
-            av_dict_set(&opts, "user_agent", pair.second.c_str(), 0);
+            av_dict_set(&options, "user_agent", pair.second.c_str(), 0);
+            hasUserAgent = true;
+            LOGD("Using provided User-Agent: %s", pair.second.c_str());
         } else {
             customHeaders += pair.first + ": " + pair.second + "\r\n";
         }
     }
-    if (!customHeaders.empty()) av_dict_set(&opts, "headers", customHeaders.c_str(), 0);
-
-    // 增加超时设置
-    av_dict_set(&opts, "timeout", "10000000", 0);
-
-    if (avformat_open_input(&fmt_ctx, path.c_str(), nullptr, &opts) < 0) {
-        av_dict_free(&opts);
-        return meta;
+    if (!customHeaders.empty()) {
+        av_dict_set(&options, "headers", customHeaders.c_str(), 0);
     }
-    av_dict_free(&opts);
+
+    // 2. 设置通用网络参数
+    av_dict_set(&options, "timeout", "10000000", 0); // 10s
+    av_dict_set(&options, "rw_timeout", "10000000", 0);
+    av_dict_set(&options, "reconnect", "1", 0);
+
+    // 【关键修复】只有在 headers 里没有 UA 时，才设置默认 UA
+    // 否则会覆盖掉 pan.baidu.com，导致 403 Forbidden
+    if (!hasUserAgent) {
+        av_dict_set(&options, "user_agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", 0);
+    }
+
+    av_dict_set(&options, "buffer_size", "4194304", 0);
+    av_dict_set(&options, "probesize", "512000", 0); // 减小探测大小，加速失败反馈
+    av_dict_set(&options, "analyzeduration", "1000000", 0);
+
+    // 尝试打开
+    int ret = avformat_open_input(&fmt_ctx, path.c_str(), nullptr, &options);
+    if (ret < 0) {
+        LOGE("probeStandard: avformat_open_input failed: %d, path: %s", ret, path.c_str());
+        av_dict_free(&options);
+        return meta; // 失败直接返回，交给后续 fallback
+    }
+    av_dict_free(&options);
 
     if (avformat_find_stream_info(fmt_ctx, nullptr) < 0) {
+        LOGE("probeStandard: avformat_find_stream_info failed");
         avformat_close_input(&fmt_ctx);
         return meta;
     }
 
+    // --- 解析元数据 ---
     meta.albumTitle = get_tag(fmt_ctx->metadata, "album");
     meta.albumArtist = get_tag(fmt_ctx->metadata, "album_artist");
     if (meta.albumArtist.empty()) meta.albumArtist = get_tag(fmt_ctx->metadata, "artist");
     meta.genre = get_tag(fmt_ctx->metadata, "genre");
     meta.date = get_tag(fmt_ctx->metadata, "date");
     meta.description = get_tag(fmt_ctx->metadata, "comment");
-    meta.lyrics = get_tag(fmt_ctx->metadata, "lyrics");
-    if (meta.lyrics.empty()) meta.lyrics = get_tag(fmt_ctx->metadata, "unsyncedlyrics");
 
     std::string discStr = get_tag(fmt_ctx->metadata, "disc");
     std::string trackStr = get_tag(fmt_ctx->metadata, "track");
@@ -113,6 +143,13 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
         }
     }
 
+    // 如果找不到音频流，说明可能不是常规音频文件（可能是 ISO）
+    if (audioIdx < 0) {
+        LOGW("probeStandard: No audio stream found. Might be ISO/SACD.");
+        avformat_close_input(&fmt_ctx);
+        return meta; // success 依然是 false
+    }
+
     InternalTrack track;
     track.trackId = curTrack;
     track.discNumber = curDisc;
@@ -129,22 +166,19 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
     }
     track.bitRate = fmt_ctx->bit_rate;
 
-    if (audioIdx >= 0) {
-        AVCodecParameters *p = fmt_ctx->streams[audioIdx]->codecpar;
-        track.sampleRate = p->sample_rate;
-        track.channels = p->ch_layout.nb_channels;
-        track.bitDepth = (p->bits_per_raw_sample > 0) ? p->bits_per_raw_sample : 16;
-        const AVCodecDescriptor *desc = avcodec_descriptor_get(p->codec_id);
-        track.format = desc ? desc->name : "unknown";
-        if (track.format.find("pcm") != std::string::npos) {
-            track.format = "pcm";
-        } else if (track.format.find("dsd") != std::string::npos) {
-            track.format = "DSD" + std::to_string(p->sample_rate * 8 / 44100);
-            track.bitDepth = 1;
-            track.sampleRate = p->sample_rate * 8;
-        }
-        LOGD("format: %s, bitDepth: %d, sampleRate: %d", track.format.c_str(), track.bitDepth,
-             track.sampleRate);
+    AVCodecParameters *p = fmt_ctx->streams[audioIdx]->codecpar;
+    track.sampleRate = p->sample_rate;
+    track.channels = p->ch_layout.nb_channels;
+    track.bitDepth = (p->bits_per_raw_sample > 0) ? p->bits_per_raw_sample : 16;
+    const AVCodecDescriptor *desc = avcodec_descriptor_get(p->codec_id);
+    track.format = desc ? desc->name : "unknown";
+
+    if (track.format.find("pcm") != std::string::npos) {
+        track.format = "pcm";
+    } else if (track.format.find("dsd") != std::string::npos) {
+        track.format = "DSD" + std::to_string(p->sample_rate * 8 / 44100);
+        track.bitDepth = 1;
+        track.sampleRate = p->sample_rate * 8;
     }
 
     meta.tracks.push_back(track);
@@ -156,10 +190,12 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
 }
 
 // ==========================================
-// 2. CueProbe (CUE 分轨)
+// 2. CueProbe
 // ==========================================
 static InternalMetadata
-probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::string> &headers) {
+probeCue(JNIEnv *env, const std::string &path,
+         const std::map<std::string, std::string> &headers,
+         const std::string &audioUrl) {
     InternalMetadata meta;
     meta.uri = path;
 
@@ -254,29 +290,40 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
     meta.success = true;
     meta.totalTracks = (int) temps.size();
 
+    bool isNetworkOverride = !audioUrl.empty();
     std::map<std::string, InternalMetadata> fileCache;
 
     for (size_t i = 0; i < temps.size(); ++i) {
-        std::string absPath = ProbeUtils::resolvePath(path, temps[i].file);
-        LOGD("absPath: %s", absPath.c_str());
-
-        if (fileCache.find(absPath) == fileCache.end()) {
-            fileCache[absPath] = probeStandard(absPath, headers);
-        }
-
-        const auto &fm = fileCache[absPath];
-        std::ostringstream titleStream;
-        titleStream << std::setw(2) << std::setfill('0') << temps[i].num << ". " << temps[i].title;
-
         InternalTrack it;
         it.trackId = temps[i].num;
         it.discNumber = 1;
+
+        std::ostringstream titleStream;
+        titleStream << std::setw(2) << std::setfill('0') << temps[i].num << ". " << temps[i].title;
         it.title = titleStream.str();
         it.artist = temps[i].performer;
         it.album = meta.albumTitle;
         it.genre = meta.genre;
-        it.path = absPath;
         it.startMs = temps[i].start;
+
+        if (isNetworkOverride) {
+            it.path = audioUrl;
+        } else {
+            it.path = ProbeUtils::resolvePath(path, temps[i].file);
+        }
+
+        if (fileCache.find(it.path) == fileCache.end()) {
+            fileCache[it.path] = probeStandard(it.path, headers);
+        }
+        const auto &fm = fileCache[it.path];
+        if (fm.success && !fm.tracks.empty()) {
+            const auto &ft = fm.tracks[0];
+            it.format = ft.format;
+            it.sampleRate = ft.sampleRate;
+            it.channels = ft.channels;
+            it.bitDepth = ft.bitDepth;
+            it.bitRate = ft.bitRate;
+        }
 
         int64_t endPos = -1;
         if (i < temps.size() - 1 && temps[i + 1].file == temps[i].file) {
@@ -287,22 +334,13 @@ probeCue(JNIEnv *env, const std::string &path, const std::map<std::string, std::
 
         it.endMs = endPos;
         it.durationMs = (endPos > it.startMs) ? (endPos - it.startMs) : 0;
-
-        if (fm.success && !fm.tracks.empty()) {
-            const auto &ft = fm.tracks[0];
-            it.format = ft.format;
-            it.sampleRate = ft.sampleRate;
-            it.channels = ft.channels;
-            it.bitDepth = ft.bitDepth;
-            it.bitRate = ft.bitRate;
-        }
         meta.tracks.push_back(it);
     }
     return meta;
 }
 
 // ==========================================
-// 3. SacdProbe (ISO) - 本地
+// 3. SacdProbe (ISO) - 本地 & 网络
 // ==========================================
 static const char *genreStr(int g) {
     static const char *gs[] = {"Not Used", "Not Defined", "Adult Contemporary", "Alternative Rock",
@@ -318,6 +356,7 @@ static const char *genreStr(int g) {
 
 static InternalMetadata
 probeSacd(const std::string &path, const std::map<std::string, std::string> &headers) {
+    LOGD("probeSacd: Starting for %s", path.c_str());
     InternalMetadata meta;
     meta.uri = path;
     std::lock_guard<std::mutex> lock(sacd_mutex);
@@ -328,7 +367,9 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
 
     if (isNetwork) {
         netStream = new FFmpegNetworkStream();
+        // FFmpegNetworkStream 内部应该会处理 Headers，确保 UA 被传递
         if (!netStream->open(path, headers)) {
+            LOGE("probeSacd: FFmpegNetworkStream open failed");
             delete netStream;
             return meta;
         }
@@ -344,17 +385,20 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
     }
 
     if (!reader) {
-        if (netStream) {
-            delete netStream;
-        }
-        return meta;
-    }
-    scarletbook_handle_t *handle = scarletbook_open(reader);
-    if (!handle) {
-        sacd_close(reader);
+        LOGE("probeSacd: sacd_open failed");
+        if (netStream) delete netStream;
         return meta;
     }
 
+    scarletbook_handle_t *handle = scarletbook_open(reader);
+    if (!handle) {
+        LOGE("probeSacd: scarletbook_open failed (Not a valid SACD ISO)");
+        sacd_close(reader);
+        if (netStream) delete netStream;
+        return meta;
+    }
+
+    // --- 解析成功，提取数据 ---
     master_toc_t *mtoc = handle->master_toc;
     master_text_t *mtext = &handle->master_text;
 
@@ -373,11 +417,14 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
     if (mtoc->disc_catalog_number) meta.extraInfo = mtoc->disc_catalog_number;
 
     scarletbook_area_t *target = nullptr;
-    for (int i = 0; i < handle->area_count; i++)
+    // 优先找立体声区域
+    for (int i = 0; i < handle->area_count; i++) {
         if (handle->area[i].area_toc->channel_count == 2) {
             target = &handle->area[i];
             break;
         }
+    }
+    // 找不到立体声就找多声道
     if (!target && handle->area_count > 0) target = &handle->area[0];
 
     if (target) {
@@ -410,76 +457,58 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
         }
     }
     scarletbook_close(handle);
-    sacd_close(reader);
+    sacd_close(reader); // reader 会通过回调关闭 netStream?
+    if (netStream) delete netStream;
+
     return meta;
 }
 
-static bool
-isIsoFormat(const std::string &path, const std::map<std::string, std::string> &headers) {
-    // 1. 如果有明确后缀，直接返回 true (性能优化)
-    std::string lower = path;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    // 移除 URL 参数部分再判断后缀 (针对 ...file?token=xxx 这种情况)
-    size_t qPos = lower.find('?');
-    std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
-    if (endsWith(pathNoQuery, ".iso")) return true;
-
-    // 2. 如果没有后缀，通过网络读取头部特征码 (Magic Number)
-    // ISO 9660 标准：在 0x8000 (32768) 偏移处有 "CD001"
-    FFmpegNetworkStream stream;
-    if (!stream.open(path, headers)) return false;
-
-    uint8_t magic[5] = {0};
-    // Seek 到 32768
-    if (stream.readAt(32768, magic, 5) == 5) {
-        // 检查 CD001
-        if (memcmp(magic, "CD001", 5) == 0) {
-            LOGD("Detected ISO format by Magic Number at %s", path.c_str());
-            return true;
-        }
-    }
-
-    return false;
-}
-
 // ==========================================
-// 4. 入口分发
+// 4. 入口分发 (核心修改)
 // ==========================================
 InternalMetadata
-AudioProbe::probe(JNIEnv *env, const std::string &path,
-                  const std::map<std::string, std::string> &headers) {
-    InternalMetadata meta; // 默认失败状态
-    meta.uri = path;
+AudioProbe::probe(
+        JNIEnv *env,
+        const std::string &source,
+        const std::map<std::string, std::string> &headers,
+        const std::string &filename,
+        const std::string &audioUrl
+) {
+
+    std::string nameToCheck = filename;
+    if (nameToCheck.empty()) {
+        nameToCheck = getPathNoQuery(source);
+    }
+
+    LOGD("AudioProbe::probe: source=[%s], originalName=[%s], checkName=[%s], audioUrl=[%s]",
+         source.c_str(), filename.c_str(), nameToCheck.c_str(), audioUrl.c_str());
+
+    InternalMetadata meta;
+    meta.uri = source;
+    meta.success = false;
 
     try {
-        std::string lower = path;
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-        size_t qPos = lower.find('?');
-        std::string pathNoQuery = (qPos != std::string::npos) ? lower.substr(0, qPos) : lower;
-
-        if (endsWith(pathNoQuery, ".cue")) {
-            return probeCue(env, path, headers);
+        // 解析 CUE
+        if (endsWith(nameToCheck, ".cue")) {
+            LOGD("AudioProbe: Detected .cue extension, using probeCue");
+            return probeCue(env, source, headers, audioUrl);
+        }
+        // 解析 Sacd
+        if (endsWith(nameToCheck, ".iso")) {
+            LOGD("AudioProbe: Detected .iso extension, skipping FFmpeg, using probeSacd");
+            return probeSacd(source, headers);
         }
 
-        // 2. SACD ISO 处理
-        if (isIsoFormat(path, headers)) {
-            return probeSacd(path, headers);
-        }
-
-        // 3. 其他情况交给 FFmpeg 标准探测
-        return probeStandard(path, headers);
-
+        LOGD("AudioProbe: Attempting standard FFmpeg probe");
+        meta = probeStandard(source, headers);
+        return meta;
     } catch (const std::exception &e) {
-        // 捕获所有标准 C++ 异常 (包括 out_of_range, bad_alloc 等)
-        LOGE("Native crash prevented inside AudioProbe::probe: %s", e.what());
+        LOGE("Native crash prevented in probe: %s", e.what());
         meta.success = false;
         return meta;
     } catch (...) {
-        // 捕获所有其他未知异常
-        LOGE("Native crash prevented inside AudioProbe::probe: unknown exception");
+        LOGE("Native crash prevented in probe: unknown exception");
         meta.success = false;
         return meta;
     }
 }
-
-

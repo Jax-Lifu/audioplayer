@@ -23,7 +23,8 @@ enum PlayerState {
     STATE_PAUSED = 4,       // 已暂停
     STATE_STOPPED = 5,      // 已停止
     STATE_COMPLETED = 6,    // 播放完成
-    STATE_ERROR = 7         // 发生错误
+    STATE_ERROR = 7,        // 发生错误
+    STATE_BUFFERING = 8,    // 缓冲中
 };
 
 // 回调接口

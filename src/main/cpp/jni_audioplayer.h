@@ -7,6 +7,7 @@
 
 #include <jni.h>
 #include "StringUtils.h"
+#include "MapUtils.h"
 
 int register_audioplayer_methods(JavaVM *vm, JNIEnv *env);
 

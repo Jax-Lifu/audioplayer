@@ -1,49 +1,52 @@
 #include "jni_audioprobe.h"
 #include "parser/AudioProbe.h"
 #include "parser/ProbeUtils.h"
+#include "MapUtils.h"
 #include <jni.h>
 #include <string>
 #include <map>
 
-// 辅助：Java Map -> std::map
-std::map<std::string, std::string> jmapToStdMap(JNIEnv *env, jobject jmap) {
-    std::map<std::string, std::string> cppMap;
-    if (!jmap) return cppMap;
 
-    jclass mapClass = env->GetObjectClass(jmap);
-    jobject entrySet = env->CallObjectMethod(jmap, env->GetMethodID(mapClass, "entrySet", "()Ljava/util/Set;"));
-    jobject iterator = env->CallObjectMethod(entrySet, env->GetMethodID(env->FindClass("java/util/Set"), "iterator", "()Ljava/util/Iterator;"));
-    jmethodID hasNext = env->GetMethodID(env->FindClass("java/util/Iterator"), "hasNext", "()Z");
-    jmethodID next = env->GetMethodID(env->FindClass("java/util/Iterator"), "next", "()Ljava/lang/Object;");
-    jclass entryClass = env->FindClass("java/util/Map$Entry");
-    jmethodID getKey = env->GetMethodID(entryClass, "getKey", "()Ljava/lang/Object;");
-    jmethodID getValue = env->GetMethodID(entryClass, "getValue", "()Ljava/lang/Object;");
-
-    while (env->CallBooleanMethod(iterator, hasNext)) {
-        // 核心修复：防止 Map 遍历时局部引用溢出
-        env->PushLocalFrame(16);
-        jobject entry = env->CallObjectMethod(iterator, next);
-        jstring k = (jstring) env->CallObjectMethod(entry, getKey);
-        jstring v = (jstring) env->CallObjectMethod(entry, getValue);
-        if (k && v) {
-            const char *ck = env->GetStringUTFChars(k, nullptr);
-            const char *cv = env->GetStringUTFChars(v, nullptr);
-            cppMap[ck] = cv;
-            env->ReleaseStringUTFChars(k, ck);
-            env->ReleaseStringUTFChars(v, cv);
-        }
-        env->PopLocalFrame(nullptr);
-    }
-    return cppMap;
-}
-
-static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHeaders) {
+static jobject
+nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHeaders, jstring jFilename,
+            jstring jAudioSourceUrl) {
     const char *path = env->GetStringUTFChars(jPath, nullptr);
     auto headers = jmapToStdMap(env, jHeaders);
 
-    // 核心修改：传递当前 env
-    InternalMetadata meta = AudioProbe::probe(env, path, headers);
+    // 处理原始文件名
+    const char *filename = nullptr;
+    std::string strFilename = "";
+    if (jFilename != nullptr) {
+        filename = env->GetStringUTFChars(jFilename, nullptr);
+        if (filename != nullptr) {
+            strFilename = filename;
+        }
+    }
+    // 处理原始音频 URL (用于网盘 CUE)
+    const char *audioUrl = nullptr;
+    std::string strAudioUrl = "";
+    if (jAudioSourceUrl != nullptr) {
+        audioUrl = env->GetStringUTFChars(jAudioSourceUrl, nullptr);
+        if (audioUrl != nullptr) {
+            strAudioUrl = audioUrl;
+        }
+    }
+    // 解析并返回元数据
+    InternalMetadata meta = AudioProbe::probe(env, path, headers, strFilename, strAudioUrl);
 
+    // 释放字符串资源
+    env->ReleaseStringUTFChars(jPath, path);
+    if (jFilename != nullptr && filename != nullptr) {
+        env->ReleaseStringUTFChars(jFilename, filename);
+    }
+    if (jAudioSourceUrl != nullptr && audioUrl != nullptr) {
+        env->ReleaseStringUTFChars(jAudioSourceUrl, audioUrl);
+    }
+    if (jFilename != nullptr && filename != nullptr) {
+        env->ReleaseStringUTFChars(jFilename, filename);
+    }
+
+    // 解析结果处理
     jstring jCoverPath = nullptr;
     if (!meta.coverData.empty()) {
         std::string savedPath = ProbeUtils::saveCoverAuto(meta.uri, meta.coverData);
@@ -52,22 +55,22 @@ static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHe
         }
     }
 
-    env->ReleaseStringUTFChars(jPath, path);
     if (!meta.success) return nullptr;
 
     jclass clsMeta = env->FindClass("com/qytech/audioplayer/parser/model/AudioMetadata");
     jclass clsTrack = env->FindClass("com/qytech/audioplayer/parser/model/AudioTrackItem");
     jclass clsList = env->FindClass("java/util/ArrayList");
 
-    jmethodID ctorMeta = env->GetMethodID(clsMeta, "<init>", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/lang/String;)V");
-    jmethodID ctorTrack = env->GetMethodID(clsTrack, "<init>", "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJLjava/lang/String;IIIJ)V");
+    jmethodID ctorMeta = env->GetMethodID(clsMeta, "<init>",
+                                          "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/lang/String;)V");
+    jmethodID ctorTrack = env->GetMethodID(clsTrack, "<init>",
+                                           "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JJJLjava/lang/String;IIIJ)V");
     jmethodID ctorList = env->GetMethodID(clsList, "<init>", "()V");
     jmethodID listAdd = env->GetMethodID(clsList, "add", "(Ljava/lang/Object;)Z");
 
     jobject jTracks = env->NewObject(clsList, ctorList);
 
     for (const auto &t: meta.tracks) {
-        // 核心修复：防止循环引用溢出
         env->PushLocalFrame(32);
 
         jstring ti = safeNewStringUTF(env, t.title.c_str());
@@ -99,11 +102,14 @@ static jobject nativeProbe(JNIEnv *env, jobject thiz, jstring jPath, jobject jHe
     );
 
     if (jCoverPath) env->DeleteLocalRef(jCoverPath);
+
     return result;
 }
 
 static const JNINativeMethod gMethods[] = {
-        {"native_probe", "(Ljava/lang/String;Ljava/util/Map;)Lcom/qytech/audioplayer/parser/model/AudioMetadata;", (void *) nativeProbe}
+        {"nativeProbe",
+         "(Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;Ljava/lang/String;)Lcom/qytech/audioplayer/parser/model/AudioMetadata;",
+         (void *) nativeProbe}
 };
 
 int register_audioprobe_methods(JavaVM *vm, JNIEnv *env) {

@@ -17,6 +17,7 @@ data class DefaultMediaSource(
 data class SacdMediaSource(
     override val uri: String,
     val trackIndex: Int = -1,
+    val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 /**

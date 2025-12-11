@@ -1,4 +1,5 @@
 #include "SacdPlayer.h"
+#include "FFmpegNetworkStream.h"
 
 
 // 1. 静态回调函数
@@ -31,14 +32,17 @@ SacdPlayer::~SacdPlayer() {
     releaseInternal();
 }
 
-void SacdPlayer::setDataSource(const std::string &_isoPath, int track_index) {
+void SacdPlayer::setDataSource(const std::string &_isoPath, int track_index,
+                               const std::map<std::string, std::string> &_headers) {
     isoPath = _isoPath;
+    mHeaders = _headers; // 复制 map
     if (track_index >= 0) {
         trackIndex = track_index;
     } else {
         trackIndex = 0;
     }
 }
+
 
 void SacdPlayer::prepare() {
     LOGD("SacdPlayer::prepare: trackIndex=%d start", trackIndex);
@@ -275,18 +279,57 @@ void SacdPlayer::onDecodeProgress(int track, uint32_t current, uint32_t total, f
 
 bool SacdPlayer::openSacdHandle() {
     if (isoPath.empty()) return false;
+
+    // 确保之前的 handle 和 stream 都已关闭
     closeSacdHandle();
 
-    mReader = sacd_open(isoPath.c_str());
+    // 判断是否为网络路径
+    bool isNetwork = (isoPath.find("http://") == 0 || isoPath.find("https://") == 0);
+
+    if (isNetwork) {
+        LOGD("SacdPlayer::openSacdHandle: Network stream detected");
+        mNetStream = new FFmpegNetworkStream();
+
+        if (!mNetStream->open(isoPath, mHeaders)) {
+            LOGE("SacdPlayer::openSacdHandle: FFmpegNetworkStream open failed");
+            delete mNetStream;
+            mNetStream = nullptr;
+            return false;
+        }
+
+        sacd_io_callbacks_t cb;
+        cb.context = mNetStream;
+        cb.read = FFmpegNetworkStream::read_cb;
+        cb.seek = FFmpegNetworkStream::seek_cb;
+        cb.tell = FFmpegNetworkStream::tell_cb;
+        cb.get_size = FFmpegNetworkStream::get_size_cb;
+
+        mReader = sacd_open_callbacks(&cb);
+    } else {
+        LOGD("SacdPlayer::openSacdHandle: Local file detected");
+        mReader = sacd_open(isoPath.c_str());
+    }
+
     if (!mReader) {
         LOGE("sacd_open failed: %s", isoPath.c_str());
+        if (mNetStream) {
+            mNetStream->close();
+            delete mNetStream;
+            mNetStream = nullptr;
+        }
         return false;
     }
+
     mHandle = scarletbook_open(mReader);
     if (!mHandle) {
         LOGE("scarletbook_open failed");
         sacd_close(mReader);
         mReader = nullptr;
+        // 清理网络流
+        if (mNetStream) {
+            delete mNetStream;
+            mNetStream = nullptr;
+        }
         return false;
     }
 
@@ -303,9 +346,17 @@ void SacdPlayer::closeSacdHandle() {
         scarletbook_close(mHandle);
         mHandle = nullptr;
     }
+
     if (mReader) {
         sacd_close(mReader);
         mReader = nullptr;
+    }
+
+    if (mNetStream) {
+        mNetStream->close();
+        delete mNetStream;
+        mNetStream = nullptr;
+        LOGD("SacdPlayer::closeSacdHandle: Network stream released");
     }
 }
 

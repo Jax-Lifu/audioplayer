@@ -17,8 +17,12 @@ object MediaSourceStrategy {
         securityKey: String? = null,
         initVector: String? = null,
         headers: Map<String, String>? = null,
+        originalFileName: String? = null,
+        startPosition: Long? = null,
+        endPosition: Long? = null,
     ): MediaSource? {
         val lowerUri = uri.lowercase(Locale.getDefault())
+        val lowerOriginalFileName = originalFileName?.lowercase(Locale.getDefault())
         if (uri.isEmpty()) {
             return null
         }
@@ -30,8 +34,12 @@ object MediaSourceStrategy {
         }
 
         // 2. SACD ISO (容器)
-        if (lowerUri.endsWith(".iso")) {
-            return SacdMediaSource(uri, trackIndex = trackIndex.coerceAtLeast(0))
+        if (lowerUri.endsWith(".iso") || lowerOriginalFileName?.endsWith(".iso") == true) {
+            return SacdMediaSource(
+                uri,
+                trackIndex = trackIndex.coerceAtLeast(0),
+                headers = safeHeaders
+            )
         }
 
         // 3. CUE 分段播放 (两种情况)

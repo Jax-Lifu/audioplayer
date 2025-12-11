@@ -17,7 +17,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import timber.log.Timber
 import java.util.concurrent.CopyOnWriteArrayList
 
 class AudioPlayerManager private constructor(private val context: Context) : AudioPlayer {
@@ -43,6 +42,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         val transition: AudioTransition?,
         val securityKey: String?,
         val initVector: String?,
+        val originalFileName: String? = null,
         val headers: Map<String, String>?,
         val forceStreamPlayer: Boolean = false,
     )
@@ -54,7 +54,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     private val actionChannel = Channel<PlayRequest>(Channel.CONFLATED)
 
     // 独立的 Scope，建议绑定到 Service 的生命周期，这里假设是全局单例
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineName("AudioPlayerManager"))
+    private val scope =
+        CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineName("AudioPlayerManager"))
 
     // 互斥锁，保护 currentPlayer 和 critical state 的原子性操作
     private val playerMutex = Mutex()
@@ -98,7 +99,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     }
 
     private suspend fun processPlayRequest(request: PlayRequest) {
-        Timber.d("Processing PlayRequest: $request")
+        QYLogger.d("Processing PlayRequest: $request")
 
         // 1. 如果是切歌（新的 sourcePath），重置重试标记
         if (lastPlayRequest?.sourcePath != request.sourcePath) {
@@ -253,6 +254,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         listener: PlayerListener? = null, // 单次播放的监听器
         securityKey: String? = null,
         initVector: String? = null,
+        originalFileName: String? = null,
         headers: Map<String, String>? = null,
     ) {
         listener?.let {
@@ -262,7 +264,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         actionChannel.trySend(
             PlayRequest(
                 sourcePath, trackIndex, dsdMode, transition,
-                securityKey, initVector, headers, forceStreamPlayer = false
+                securityKey, initVector, originalFileName,
+                headers, forceStreamPlayer = false
             )
         )
     }
@@ -335,6 +338,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     dsdMode = request.dsdMode,
                     securityKey = request.securityKey,
                     initVector = request.initVector,
+                    originalFileName = request.originalFileName,
                     headers = request.headers
                 )
             }

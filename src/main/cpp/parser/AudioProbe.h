@@ -44,9 +44,13 @@ struct InternalMetadata {
 
 class AudioProbe {
 public:
-    // 修改：增加 JNIEnv* 参数
-    static InternalMetadata
-    probe(JNIEnv *env, const std::string &path, const std::map<std::string, std::string> &headers);
+    static InternalMetadata probe(
+            JNIEnv *env,
+            const std::string &source,
+            const std::map<std::string, std::string> &headers,
+            const std::string &filename,
+            const std::string &audioUrl
+    );
 };
 
 #endif // AUDIO_PLAYER_AUDIOPROBE_H

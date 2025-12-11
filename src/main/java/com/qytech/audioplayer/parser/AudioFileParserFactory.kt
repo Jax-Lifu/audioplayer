@@ -11,6 +11,8 @@ import java.util.Locale
 class DefaultParserStrategy(
     val source: String,
     val headers: Map<String, String> = emptyMap(),
+    val filename: String? = null,
+    val audioSourceUrl: String? = null,
 ) : AudioFileParserStrategy {
     private val mutex = Mutex()
 
@@ -19,7 +21,8 @@ class DefaultParserStrategy(
      */
     override suspend fun parse(): List<AudioInfo>? {
         mutex.withLock {
-            val metadata = AudioProbe.probeFile(source, headers) ?: return null
+            val metadata = AudioProbe.probeFile(source, headers, filename, audioSourceUrl)
+                ?: return null
             return metadata.tracks.map { track ->
                 mapTrackToAudioInfo(source, track, metadata.coverPath, metadata.date)
             }
@@ -125,7 +128,9 @@ object AudioFileParserFactory {
     fun createParser(
         source: String,
         headers: Map<String, String> = emptyMap(),
+        filename: String? = null,
+        audioSourceUrl: String? = null,
     ): AudioFileParserStrategy {
-        return DefaultParserStrategy(source, headers)
+        return DefaultParserStrategy(source, headers, filename, audioSourceUrl)
     }
 }
