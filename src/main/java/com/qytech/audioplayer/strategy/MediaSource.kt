@@ -55,3 +55,11 @@ data class SonySelectMediaSource(
 
     val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
+
+
+data class WebDavMediaSource(
+    override val uri: String,
+    val username: String,
+    val password: String,
+    val headers: Map<String, String> = emptyMap(),
+) : MediaSource

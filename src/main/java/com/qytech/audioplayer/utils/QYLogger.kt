@@ -1,11 +1,11 @@
 package com.qytech.audioplayer.utils
 
 import timber.log.Timber
-
+import com.qytech.audioplayer.BuildConfig
 
 internal object QYLogger {
 
-    private val DEBUG = true// BuildConfig.DEBUG
+    private val DEBUG = BuildConfig.DEBUG
 
     inline fun d(message: () -> String) {
         if (DEBUG) {

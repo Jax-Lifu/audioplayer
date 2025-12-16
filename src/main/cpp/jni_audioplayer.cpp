@@ -90,6 +90,10 @@ public:
         callVoidMethod(jmid_onComplete);
     }
 
+    void onBuffering(bool buffering) override {
+
+    }
+
     void onAudioData(uint8_t *data, int size) override {
         JNIEnv *env = getEnv();
         if (env && isValid()) {
@@ -226,7 +230,9 @@ static void native_prepare(JNIEnv *env, jobject thiz, jlong handle) {
 // 4. Play
 static void native_play(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
+    LOGD("LOCK_CONTEXT before native_play() ");
     LOCK_CONTEXT(ctx); // 加锁保护
+    LOGD("LOCK_CONTEXT after native_play()");
     if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->play();
     else ((SacdPlayer *) ctx->playerInstance)->play();
 }

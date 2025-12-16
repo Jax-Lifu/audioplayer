@@ -20,6 +20,8 @@ object MediaSourceStrategy {
         originalFileName: String? = null,
         startPosition: Long? = null,
         endPosition: Long? = null,
+        webDavUser: String? = null,
+        webDavPwd: String? = null,
     ): MediaSource? {
         val lowerUri = uri.lowercase(Locale.getDefault())
         val lowerOriginalFileName = originalFileName?.lowercase(Locale.getDefault())
@@ -33,6 +35,9 @@ object MediaSourceStrategy {
             return SonySelectMediaSource(uri, securityKey, initVector, safeHeaders)
         }
 
+        if (!webDavUser.isNullOrEmpty() && !webDavPwd.isNullOrEmpty()) {
+            return WebDavMediaSource(uri, webDavUser, webDavPwd, safeHeaders)
+        }
         // 2. SACD ISO (容器)
         if (lowerUri.endsWith(".iso") || lowerOriginalFileName?.endsWith(".iso") == true) {
             return SacdMediaSource(
@@ -88,8 +93,15 @@ object MediaSourceStrategy {
                     )
                 }
             }
+        } else if (startPosition != null && endPosition != null) {
+            return CueMediaSource(
+                uri,
+                trackIndex,
+                startPosition,
+                endPosition,
+                safeHeaders
+            )
         }
-
         // 4. 网络流媒体 (http/rtmp/rtsp)
         if (isRemote(lowerUri)) {
             return StreamingMediaSource(uri, safeHeaders)

@@ -353,7 +353,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     filename = request.filename,
                     startPosition = request.startPosition,
                     endPosition = request.endPosition,
-                    headers = request.headers
+                    headers = request.headers,
                 )
             }
         } catch (e: Exception) {

@@ -1,36 +1,19 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
-import com.qytech.audioplayer.player.AudioPlayerFactory.create
-import com.qytech.audioplayer.player.AudioPlayerFactory.createAudioPlayer
 import com.qytech.audioplayer.strategy.AudioProfile
-import com.qytech.audioplayer.strategy.CueMediaSource
-import com.qytech.audioplayer.strategy.DefaultMediaSource
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.strategy.MediaSourceStrategy
 import com.qytech.audioplayer.strategy.SacdMediaSource
 import com.qytech.audioplayer.strategy.SonySelectMediaSource
 import com.qytech.audioplayer.strategy.StreamingMediaSource
+import com.qytech.audioplayer.strategy.WebDavUtils
 import com.qytech.audioplayer.utils.QYLogger
+import timber.log.Timber
 import java.util.Locale
 
 object AudioPlayerFactory {
 
-    /**
-     * 统一创建入口，使用 AudioProfile 进行类型安全的场景配置。
-     *
-     * 相比旧的 [createAudioPlayer] 方法，此方法通过 [AudioProfile] 强制约束了不同场景下的必填参数，
-     * 避免了"传了 trackId 却忘了传 originalFileName" 或 "CUE 模式下混淆了 trackId 和时间" 等错误。
-     *
-     * @param context 上下文
-     * @param source 播放源 (本地路径 或 网络 URL)
-     * @param profile 播放场景配置，默认为 [AudioProfile.Standard]。
-     *                - [AudioProfile.SacdIso]: 播放 ISO 镜像 (需传 trackIndex, originalFileName)
-     *                - [AudioProfile.CueByTime]: 网盘 CUE 免解析播放 (需传 start/end position, originalFileName)
-     *                - [AudioProfile.Encrypted]: Sony Select 加密流 (需传 key, iv)
-     * @param headers HTTP 请求头 (可选，用于网盘鉴权)
-     * @param dsdMode DSD 输出模式 (默认 Native)
-     */
     fun create(
         context: Context,
         source: String,
@@ -38,73 +21,103 @@ object AudioPlayerFactory {
         headers: Map<String, String>? = null,
         dsdMode: DSDMode = DSDMode.NATIVE,
     ): AudioPlayer? {
-        // 1. 解构 Profile 参数
+
+        // --- 1. WebDAV 解包与预处理 ---
+        var finalSource = source
+        var finalHeaders = headers ?: emptyMap()
+        var actualProfile = profile // 实际用于解析参数的 profile
+
+        // 用于传递给 Strategy 的 WebDAV 凭证
+        // 只有在 WebDAV + Standard 模式下才赋值，否则我们转换成 Header
+        var strategyWebDavUser: String? = null
+        var strategyWebDavPwd: String? = null
+
+        if (profile is AudioProfile.WebDav) {
+            if (profile.targetProfile is AudioProfile.Standard) {
+                // [路径 A]: WebDAV 播放普通文件 -> 保持原样
+                // 将账号密码传给 Strategy，生成 WebDavMediaSource
+                strategyWebDavUser = profile.username
+                strategyWebDavPwd = profile.password
+                actualProfile = profile.targetProfile
+            } else {
+                // [路径 B]: WebDAV 播放 ISO / CUE -> 转换为 HTTP Header 模式
+                // 底层 SACD/CUE 播放器不认识 WebDAV 对象，但支持 HTTP Header
+                // 所以我们在这里把 WebDAV 转换成带 Auth Header 的普通 HTTP 请求
+                val (encodedUrl, authHeaders) = WebDavUtils.process(
+                    source,
+                    profile.username,
+                    profile.password,
+                    finalHeaders
+                )
+
+                finalSource = encodedUrl
+                finalHeaders = authHeaders
+
+                // 剥去 WebDav 外壳，指向内部的 ISO/CUE 配置
+                actualProfile = profile.targetProfile
+
+                QYLogger.d("Factory: Unwrapped WebDAV for complex profile. New Url: $finalSource")
+            }
+        }
+
+        // --- 2. 解构具体的 Profile 参数 ---
         var trackIndex = -1
         var startPos: Long? = null
         var endPos: Long? = null
         var fileName: String? = null
-
-        // 加密参数
         var securityKey: String? = null
         var initVector: String? = null
 
-        when (profile) {
-            is AudioProfile.Standard -> {
+        when (actualProfile) {
+            is AudioProfile.Standard -> { /* No extra params */
             }
 
             is AudioProfile.SacdIso -> {
-                // 用户传入的是 TrackId (1-based)，内部转为 Index (0-based)
-                trackIndex = if (profile.trackId > 0) profile.trackId - 1 else -1
-                fileName = profile.filename
+                trackIndex = if (actualProfile.trackId > 0) actualProfile.trackId - 1 else -1
+                fileName = actualProfile.filename
             }
 
             is AudioProfile.CueByTime -> {
-                startPos = profile.startPosition
-                endPos = profile.endPosition
+                startPos = actualProfile.startPosition
+                endPos = actualProfile.endPosition
             }
 
             is AudioProfile.CueByIndex -> {
-                trackIndex = if (profile.trackIndex > 0) profile.trackIndex - 1 else -1
+                trackIndex = if (actualProfile.trackIndex > 0) actualProfile.trackIndex - 1 else -1
             }
 
             is AudioProfile.SonySelect -> {
-                securityKey = profile.securityKey
-                initVector = profile.initVector
+                securityKey = actualProfile.securityKey
+                initVector = actualProfile.initVector
+            }
+
+            is AudioProfile.WebDav -> {
+                // 不会走到这里，因为上面已经解包处理了
             }
         }
 
-        // 2. 统一构建 MediaSource
+        // --- 3. 构建 MediaSource ---
         val mediaSource = MediaSourceStrategy.create(
-            uri = source,
+            uri = finalSource,
             trackIndex = trackIndex,
-            headers = headers,
+            headers = finalHeaders,
             originalFileName = fileName,
             startPosition = startPos,
             endPosition = endPos,
             securityKey = securityKey,
             initVector = initVector,
+            webDavUser = strategyWebDavUser,
+            webDavPwd = strategyWebDavPwd
         ) ?: return null
 
-        // 3. 路由分发
+        // --- 4. 路由分发 ---
         return buildPlayer(context, mediaSource, dsdMode)
     }
 
     /**
-     * 传统创建入口。
-     * 建议新代码使用 [create] 方法配合 [AudioProfile]。
-     *
-     * @param source 播放源
-     * @param trackId 轨道 ID (1-based)。如果不涉及分轨，传 -1。
-     * @param filename      原始文件名。
-     *                              **关键参数**：对于网盘链接（URL无后缀），必须传入此参数 (如 "test.iso", "test.wav")，
-     *                              否则底层无法识别 SACD 格式或 CUE 原始文件格式。
-     * @param startPosition         CUE 播放起始时间 (ms)。仅用于网盘 CUE 优化播放模式。
-     * @param endPosition           CUE 播放结束时间 (ms)。
+     * 兼容老接口
      */
-    @Deprecated(
-        message = "Use AudioPlayerFactory.create(context, source, profile...) instead for better type safety.",
-        replaceWith = ReplaceWith("AudioPlayerFactory.create(context, source, AudioProfile.Standard)")
-    )
+    @Deprecated("Use AudioPlayerFactory.create(context, source, profile...)")
     fun createAudioPlayer(
         context: Context,
         source: String,
@@ -116,15 +129,24 @@ object AudioPlayerFactory {
         clientId: String? = null,
         clientSecret: String? = null,
         credentialsKey: String? = null,
-        // 针对网盘的整轨文件,无法获取原始文件信息
         filename: String? = null,
         startPosition: Long? = null,
         endPosition: Long? = null,
+        webDavUser: String? = null,
+        webDavPwd: String? = null,
     ): AudioPlayer? {
-        QYLogger.d("Factory: Legacy create from path=$source trackId=$trackId file=$filename")
 
+        QYLogger.d(
+            "createAudioPlayer context = $context, source = $source, trackId = $trackId " +
+                    "dsdMode = $dsdMode, securityKey = $securityKey, initVector = $initVector," +
+                    " headers = $headers, clientId = $clientId, clientSecret = $clientSecret," +
+                    " credentialsKey = $credentialsKey" +
+                    " filename = $filename, startPosition = $startPosition, endPosition = $endPosition," +
+                    " webDavUser = $webDavUser, webDavPwd = $webDavPwd"
+        )
         val trackIndex = if (trackId > 0) trackId - 1 else -1
 
+        // 老接口直接透传参数，Strategy 会处理
         val mediaSource = MediaSourceStrategy.create(
             uri = source,
             trackIndex = trackIndex,
@@ -133,63 +155,30 @@ object AudioPlayerFactory {
             headers = headers,
             originalFileName = filename,
             startPosition = startPosition,
-            endPosition = endPosition
+            endPosition = endPosition,
+            webDavUser = webDavUser,
+            webDavPwd = webDavPwd
         ) ?: return null
 
         return buildPlayer(context, mediaSource, dsdMode)
     }
 
-    // =================================================================================
-    // 3. 内部辅助方法
-    // =================================================================================
-
-    /**
-     * 内部路由逻辑：根据 MediaSource 类型决定实例化哪个 Player
-     */
     private fun buildPlayer(
         context: Context,
         source: MediaSource,
         dsdMode: DSDMode,
     ): AudioPlayer {
         val player = when (source) {
-            // SACD ISO -> 专用播放器 (Libsacd / Scarletbook)
-            is SacdMediaSource -> {
-                QYLogger.d("Route: SACD Player")
-                SacdPlayer(context)
-            }
-
-            // Sony Select (加密) -> 只能用 ExoPlayer (StreamPlayer)
-            is SonySelectMediaSource -> {
-                QYLogger.d("Route: Stream Player (Sony Encrypted)")
-                StreamPlayer(context)
-            }
-
-            // 网络流 -> 分情况讨论
+            is SacdMediaSource -> SacdPlayer(context)
+            is SonySelectMediaSource -> StreamPlayer(context)
             is StreamingMediaSource -> {
                 val lowerUri = source.uri.lowercase(Locale.getDefault())
-                // HLS (m3u8) -> 推荐用 ExoPlayer，FFmpeg 对 HLS 支持不如 Exo 完善
-                if (lowerUri.contains("m3u8") || lowerUri.contains("u3m8")) {
-                    QYLogger.d("Route: Stream Player (HLS)")
-                    StreamPlayer(context)
-                } else {
-                    QYLogger.d("Route: FFmpeg Player (Network Stream)")
-                    FFPlayer(context)
-                }
+                if (lowerUri.contains("m3u8")) StreamPlayer(context) else FFPlayer(context)
             }
 
-            // CUE 分轨 (时间定位模式 或 索引模式) -> FFmpeg (Native)
-            is CueMediaSource -> {
-                QYLogger.d("Route: FFmpeg Player (Segment/Cue)")
-                FFPlayer(context)
-            }
-
-            // 本地普通文件 -> FFmpeg (Native)
-            is DefaultMediaSource -> {
-                QYLogger.d("Route: FFmpeg Player (Default)")
-                FFPlayer(context)
-            }
+            else -> FFPlayer(context)
         }
-
+        Timber.d("buildPlayer $player")
         player.setDsdMode(dsdMode)
         player.setMediaSource(source)
         return player

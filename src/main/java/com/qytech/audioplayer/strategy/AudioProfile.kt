@@ -15,14 +15,20 @@ sealed interface AudioProfile {
     data class CueByTime(
         val startPosition: Long,
         val endPosition: Long,
-    ): AudioProfile
+    ) : AudioProfile
 
     data class CueByIndex(
         val trackIndex: Int,
-    ): AudioProfile
+    ) : AudioProfile
 
     data class SonySelect(
         val securityKey: String,
         val initVector: String,
-    ): AudioProfile
+    ) : AudioProfile
+
+    data class WebDav(
+        val username: String,
+        val password: String,
+        val targetProfile: AudioProfile = Standard,
+    ) : AudioProfile
 }

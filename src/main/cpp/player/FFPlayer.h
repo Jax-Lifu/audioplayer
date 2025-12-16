@@ -9,26 +9,22 @@
 #include <queue>
 #include <vector>
 #include <string>
-#include "SystemProperties.h"
-#include "CpuAffinity.h"
-#include "DsdUtils.h"
-#include <chrono>
-#include <algorithm>
 #include <map>
+#include "SystemProperties.h" // 假设你有这个
+#include "DsdUtils.h"         // 假设你有这个
 
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
 #include <libavutil/time.h>
-#include "libavutil/opt.h"
+#include <libavutil/opt.h>
 }
 
 // === 线程安全的 Packet 队列 ===
 class PacketQueue {
 public:
     PacketQueue() : nb_packets(0), size(0), abort_request(false) {}
-
     ~PacketQueue() { flush(); }
 
     void start() {
@@ -56,8 +52,8 @@ public:
     }
 
     int put(AVPacket *pkt) {
-        if (abort_request) return -1;
         std::lock_guard<std::mutex> lock(mutex);
+        if (abort_request) return -1;
         queue.push(pkt);
         nb_packets++;
         size += pkt->size;
@@ -66,7 +62,7 @@ public:
     }
 
     // block: true 为阻塞获取，false 为立即返回
-    // 返回: 1 获取成功, 0 队列空, -1 终止
+    // 返回: 1 获取成功, 0 队列空, -1 终止/Abort
     int get(AVPacket *pkt, bool block) {
         std::unique_lock<std::mutex> lock(mutex);
         for (;;) {
@@ -77,8 +73,8 @@ public:
                 queue.pop();
                 nb_packets--;
                 size -= src->size;
-                av_packet_move_ref(pkt, src); // 转移引用，不拷贝数据
-                av_packet_free(&src); // 释放容器内存
+                av_packet_move_ref(pkt, src); // 转移引用
+                av_packet_free(&src);
                 return 1;
             }
 
@@ -110,71 +106,46 @@ private:
 class FFPlayer : public BasePlayer {
 public:
     explicit FFPlayer(IPlayerCallback *callback);
-
     ~FFPlayer() override;
 
     void setDataSource(const char *path, const std::map<std::string, std::string> &headers,
-                       int64_t startPositon = 0,
-                       int64_t endPosition = -1);
-
+                       int64_t startPositon = 0, int64_t endPosition = -1);
     void prepare() override;
-
     void play() override;
-
     void pause() override;
-
     void resume() override;
-
     void stop() override;
-
     void release() override;
-
     void seek(long ms) override;
 
     // Getters
     long getDuration() const override;
-
     long getCurrentPosition() const override;
-
     int getSampleRate() const override;
-
     int getChannelCount() const override;
-
     int getBitPerSample() const override;
-
     bool isDsd() const override;
-
     bool isExit() const;
 
 private:
     void releaseInternal();
-
     void initFFmpeg();
-
     void releaseFFmpeg();
-
     int initSwrContext();
-
     void extractAudioInfo();
 
     // 核心循环
-    void readLoop();     // 生产者
-    void decodingLoop(); // 消费者
+    void readLoop();     // 生产者 (负责下载)
+    void decodingLoop(); // 消费者 (负责解码播放)
 
     void handlePcmAudioPacket(AVPacket *packet, AVFrame *frame);
-
     void handleDsdAudioPacket(AVPacket *packet, AVFrame *frame);
-
     void updateProgress();
-
     void ensureBufferCapacity(size_t requiredSize);
 
     static bool isDsdCodec(AVCodecID id);
-
     static bool isMsbfCodec(AVCodecID id);
-
     static AVSampleFormat getOutputSampleFormat(AVSampleFormat inputFormat);
-
     static int interrupt_cb(void *ctx);
 
 private:
@@ -193,7 +164,7 @@ private:
     // Audio Params
     int audioStreamIndex = -1;
     long mDurationMs = 0;
-    long mCurrentPositionMs = 0;
+    std::atomic<long> mCurrentPositionMs{0};
     int mSampleRate = 0;
     int mChannelCount = 0;
     int mBitPerSample = 0;
@@ -211,7 +182,7 @@ private:
 
     // Status
     std::atomic<bool> mIsExit{false};
-    std::atomic<bool> mIsEOF{false}; // 新增：标记文件是否读完
+    std::atomic<bool> mIsEOF{false};
 
     // Mutex & Condition
     std::mutex mStateMutex;
@@ -220,17 +191,20 @@ private:
     // Seek Control
     std::mutex mSeekMutex;
     long mSeekTargetMs = -1;
-    bool mIsSeeking = false;
+    std::atomic<bool> mIsSeeking{false};
     std::atomic<bool> mFlushCodec{false};
 
     // Queue & Buffer
     PacketQueue audioQueue;
     std::vector<uint8_t> outBuffer;
 
-    // Buffering Control Parameters
-    const int MAX_QUEUE_SIZE = 15 * 1024 * 1024; // 15MB 最大缓存
-    const int MIN_BUFFER_PACKETS = 100;          // 恢复播放阈值：100个包 (之前是20，太小了)
-    const int MIN_BUFFER_BYTES = 512 * 1024;     // 恢复播放阈值：512KB (DSD包大，数量可能少，双重保险)
+    // --- 缓存控制核心参数 ---
+    // 允许缓存 50MB (约一首无损歌曲)，实现“暂停时继续下载”
+    const int MAX_QUEUE_SIZE = 50 * 1024 * 1024;
+
+    // 起播阈值 (256KB)。
+    // 当 Seek 或缓冲耗尽后，必须积攒这么多数据才开始播放，防止频繁卡顿。
+    const int MIN_START_THRESHOLD = 256 * 1024;
 };
 
 #endif //QYPLAYER_FFPLAYER_H

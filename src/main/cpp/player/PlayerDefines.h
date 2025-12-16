@@ -40,6 +40,8 @@ public:
 
     virtual void onError(int code, const char *msg) = 0;
 
+    virtual void onBuffering(bool buffering) = 0;
+
     virtual ~IPlayerCallback() {}
 };
 
