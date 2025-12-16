@@ -5,7 +5,7 @@ import com.qytech.audioplayer.BuildConfig
 
 internal object QYLogger {
 
-    private val DEBUG = BuildConfig.DEBUG
+    private val DEBUG = /*if (true) true else*/ BuildConfig.DEBUG
 
     inline fun d(message: () -> String) {
         if (DEBUG) {

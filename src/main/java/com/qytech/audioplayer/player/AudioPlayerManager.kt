@@ -46,6 +46,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         val filename: String? = null,
         val startPosition: Long? = null,
         val endPosition: Long? = null,
+        val webDavUser: String? = null,
+        val webDavPwd: String? = null,
         val forceStreamPlayer: Boolean = false,
     )
 
@@ -260,6 +262,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         filename: String? = null,
         startPosition: Long? = null,
         endPosition: Long? = null,
+        webDavUser: String? = null,
+        webDavPwd: String? = null,
     ) {
         listener?.let {
             if (!listeners.contains(it)) listeners.add(it)
@@ -275,9 +279,11 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                 initVector = initVector,
                 headers = headers,
                 filename = filename,
-                forceStreamPlayer = false,
                 startPosition = startPosition,
-                endPosition = endPosition
+                endPosition = endPosition,
+                webDavUser = webDavUser,
+                webDavPwd = webDavPwd,
+                forceStreamPlayer = false,
             )
         )
     }
@@ -354,6 +360,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     startPosition = request.startPosition,
                     endPosition = request.endPosition,
                     headers = request.headers,
+                    webDavPwd = request.webDavPwd,
+                    webDavUser = request.webDavUser,
                 )
             }
         } catch (e: Exception) {

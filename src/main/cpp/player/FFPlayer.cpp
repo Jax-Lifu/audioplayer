@@ -54,29 +54,42 @@ void FFPlayer::prepare() {
     }
 
     AVDictionary *options = nullptr;
-    // 构造 Headers
-    std::string customHeaders;
-    bool hasUserAgent = false;
-    for (const auto &pair: mHeaders) {
-        if (strcasecmp(pair.first.c_str(), "User-Agent") == 0) {
-            av_dict_set(&options, "user_agent", pair.second.c_str(), 0);
-            hasUserAgent = true;
-        } else {
-            customHeaders += pair.first + ": " + pair.second + "\r\n";
+    bool isNetwork = false;
+    const char *url = mUrl.c_str();
+    if (strncasecmp(url, "http", 4) == 0 ||
+        strncasecmp(url, "rtmp", 4) == 0 ||
+        strncasecmp(url, "rtsp", 4) == 0 ||
+        strncasecmp(url, "udp", 3) == 0) {
+        isNetwork = true;
+    }
+
+    if (isNetwork) {
+        // 构造 Headers
+        std::string customHeaders;
+        bool hasUserAgent = false;
+        for (const auto &pair: mHeaders) {
+            if (strcasecmp(pair.first.c_str(), "User-Agent") == 0) {
+                av_dict_set(&options, "user_agent", pair.second.c_str(), 0);
+                hasUserAgent = true;
+            } else {
+                customHeaders += pair.first + ": " + pair.second + "\r\n";
+            }
         }
-    }
-    if (!customHeaders.empty()) {
-        av_dict_set(&options, "headers", customHeaders.c_str(), 0);
-    }
+        if (!customHeaders.empty()) {
+            av_dict_set(&options, "headers", customHeaders.c_str(), 0);
+        }
 
-    // 网络参数优化
-    av_dict_set(&options, "timeout", "10000000", 0); // TCP 连接超时 10s
-    av_dict_set(&options, "rw_timeout", "15000000", 0); // 读写超时 15s (适当加大以适应 Seek)
-    av_dict_set(&options, "reconnect", "1", 0);
-    av_dict_set(&options, "seekable", "1", 0); // 提示尽量支持 Seek
-    if (!hasUserAgent) av_dict_set(&options, "user_agent", "QYPlayer/1.0", 0);
-    av_dict_set(&options, "buffer_size", "4194304", 0); // 4MB 输入缓冲
+        // 网络参数优化
+        av_dict_set(&options, "timeout", "10000000", 0);    // TCP 连接超时 10s
+        av_dict_set(&options, "rw_timeout", "15000000", 0); // 读写超时
+        av_dict_set(&options, "reconnect", "1", 0);         // 断线重连
 
+        if (!hasUserAgent) {
+            av_dict_set(&options, "user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", 0);
+        }
+        av_dict_set(&options, "buffer_size", "4194304", 0); // 4MB 输入缓冲
+        av_dict_set(&options, "seekable", "1", 0);
+    }
     fmtCtx = avformat_alloc_context();
     fmtCtx->interrupt_callback.callback = interrupt_cb;
     fmtCtx->interrupt_callback.opaque = this;

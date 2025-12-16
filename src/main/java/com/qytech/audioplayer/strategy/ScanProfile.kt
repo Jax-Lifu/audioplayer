@@ -44,4 +44,18 @@ sealed interface ScanProfile {
         val audioSourceUrl: String,
         override val headers: Map<String, String>? = null,
     ) : RemoteProfile
+
+    /**
+     * 4. WebDAV 模式 (装饰器)
+     *
+     * @param username 账号
+     * @param password 密码
+     * @param targetProfile 目标文件类型 (Standard, RemoteFile, RemoteCue)
+     *                      例如：如果是 WebDAV 里的 CUE 文件，这里传入 RemoteCue
+     */
+    data class WebDav(
+        val username: String,
+        val password: String,
+        val targetProfile: ScanProfile = Standard,
+    ) : ScanProfile
 }

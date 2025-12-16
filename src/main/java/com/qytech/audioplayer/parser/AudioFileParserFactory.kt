@@ -2,6 +2,7 @@ package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.model.AudioTrackItem
+import com.qytech.audioplayer.utils.QYLogger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -13,6 +14,8 @@ class DefaultParserStrategy(
     val headers: Map<String, String> = emptyMap(),
     val filename: String? = null,
     val audioSourceUrl: String? = null,
+    val webDavUser: String? = null,
+    val webDavPwd: String? = null,
 ) : AudioFileParserStrategy {
     private val mutex = Mutex()
 
@@ -21,8 +24,15 @@ class DefaultParserStrategy(
      */
     override suspend fun parse(): List<AudioInfo>? {
         mutex.withLock {
-            val metadata = AudioProbe.probeFile(source, headers, filename, audioSourceUrl)
-                ?: return null
+            val metadata = AudioProbe.probeFile(
+                source,
+                headers,
+                filename,
+                audioSourceUrl,
+                webDavUser,
+                webDavPwd
+            ) ?: return null
+            QYLogger.d("parse: metadata = $metadata")
             return metadata.tracks.map { track ->
                 mapTrackToAudioInfo(source, track, metadata.coverPath, metadata.date)
             }
@@ -130,7 +140,16 @@ object AudioFileParserFactory {
         headers: Map<String, String> = emptyMap(),
         filename: String? = null,
         audioSourceUrl: String? = null,
+        webDavUser: String? = null,
+        webDavPwd: String? = null,
     ): AudioFileParserStrategy {
-        return DefaultParserStrategy(source, headers, filename, audioSourceUrl)
+        return DefaultParserStrategy(
+            source,
+            headers,
+            filename,
+            audioSourceUrl,
+            webDavUser,
+            webDavPwd
+        )
     }
 }

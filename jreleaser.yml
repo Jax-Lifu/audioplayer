@@ -1,7 +1,7 @@
 # Generated with JReleaser 1.18.0 at 2025-05-16T10:43:29.7294757+08:00
 project:
   name: audioplayer
-  version: 0.5.8
+  version: 0.6.2
   description: qytech audioplayer library
   longDescription: qytech audioplayer library
   authors:
