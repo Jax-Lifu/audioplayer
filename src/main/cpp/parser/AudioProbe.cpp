@@ -9,7 +9,7 @@ extern "C" {
 #include <libavcodec/codec_desc.h>
 #include <libavutil/avutil.h>
 }
-
+#include <unistd.h>
 #include <sstream>
 #include <algorithm>
 #include <mutex>
@@ -20,6 +20,16 @@ extern "C" {
 
 static std::once_flag ffmpeg_init_flag;
 static std::mutex sacd_mutex;
+
+
+static bool fileExists(const std::string &path) {
+    // 如果是网络流 (http/rtmp 等)，access 无法检测，暂且认为它"存在"交给 FFmpeg 处理
+    if (path.find("://") != std::string::npos) {
+        return true;
+    }
+    // F_OK 只判断是否存在
+    return access(path.c_str(), F_OK) == 0;
+}
 
 static std::string get_tag(AVDictionary *m, const char *key) {
     AVDictionaryEntry *t = av_dict_get(m, key, nullptr, AV_DICT_IGNORE_SUFFIX);
@@ -51,7 +61,7 @@ static std::string getPathNoQuery(const std::string &path) {
 // 1. FFProbe (Standard)
 // ==========================================
 static InternalMetadata
-probeStandard(const std::string &path, const std::map<std::string, std::string> &headers) {
+probeStandard(const std::string &path, const std::map<std::string, std::string> &headers, const std::string &filenameFallback) {
     InternalMetadata meta;
     meta.uri = path;
     meta.success = false; // 默认 false
@@ -86,8 +96,7 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
     av_dict_set(&options, "rw_timeout", "10000000", 0);
     av_dict_set(&options, "reconnect", "1", 0);
 
-    // 【关键修复】只有在 headers 里没有 UA 时，才设置默认 UA
-    // 否则会覆盖掉 pan.baidu.com，导致 403 Forbidden
+    // 只有在 headers 里没有 UA 时，才设置默认 UA
     if (!hasUserAgent) {
         av_dict_set(&options, "user_agent",
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", 0);
@@ -155,7 +164,18 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
     track.discNumber = curDisc;
     track.path = path;
     track.title = get_tag(fmt_ctx->metadata, "title");
-    if (track.title.empty()) track.title = path.substr(path.find_last_of("/\\") + 1);
+
+    // 如果没有 Tag 标题，优先使用 filenameFallback
+    if (track.title.empty()) {
+        if (!filenameFallback.empty()) {
+            track.title = filenameFallback;
+        } else {
+            // 如果连 filenameFallback 也没有，为了美观，先去除 URL 参数再截取文件名
+            std::string cleanPath = getPathNoQuery(path);
+            track.title = cleanPath.substr(cleanPath.find_last_of("/\\") + 1);
+        }
+    }
+
     track.artist = get_tag(fmt_ctx->metadata, "artist");
     track.album = meta.albumTitle;
     track.genre = meta.genre;
@@ -240,37 +260,27 @@ probeCue(JNIEnv *env, const std::string &path,
         ls >> cmd;
         std::getline(ls, val);
         val = unquote(val);
-        LOGD("line %s, cmd %s, val %s", line.c_str(), cmd.c_str(), val.c_str());
+
         if (cmd == "TITLE") { if (curNum == 0) meta.albumTitle = val; else curTitle = val; }
         else if (cmd == "PERFORMER") {
-            if (curNum == 0)
-                meta.albumArtist = val;
-            else curPerf = val;
+            if (curNum == 0) meta.albumArtist = val; else curPerf = val;
         } else if (cmd == "REM") {
-            if (val.find("GENRE") == 0 && val.length() >= 6) {
-                meta.genre = val.substr(6);
-            } else if (val.find("DATE") == 0 && val.length() >= 5) {
-                meta.date = val.substr(5);
-            } else if (val.find("COMMENT") == 0 && val.length() >= 8) {
-                meta.description = val.substr(8);
-            }
+            if (val.find("GENRE") == 0 && val.length() >= 6) meta.genre = val.substr(6);
+            else if (val.find("DATE") == 0 && val.length() >= 5) meta.date = val.substr(5);
+            else if (val.find("COMMENT") == 0 && val.length() >= 8) meta.description = val.substr(8);
         } else if (cmd == "FILE") {
             std::string tempFile = val;
-            LOGD("FILE value %s", val.c_str());
             size_t lastSpace = val.find_last_of(' ');
             if (lastSpace != std::string::npos) {
                 std::string possibleType = val.substr(lastSpace + 1);
-                bool isType = false;
+                // 简单的类型检测
                 if (possibleType == "WAVE" || possibleType == "MP3" || possibleType == "BINARY" ||
-                    possibleType == "AIFF" || possibleType == "FLAC" || possibleType == "APE" ||
-                    possibleType == "DSD" || possibleType == "MOTOROLA") {
-                    isType = true;
-                }
-                if (isType) {
+                    possibleType == "FLAC" || possibleType == "APE" || possibleType == "DSD") {
                     tempFile = val.substr(0, lastSpace);
-                    LOGD("tempFile %s", tempFile.c_str());
                 }
                 curFile = unquote(tempFile);
+            } else {
+                curFile = unquote(val);
             }
         } else if (cmd == "TRACK") {
             if (curNum > 0) temps.push_back({curNum, curTitle, curPerf, curFile, curStart});
@@ -309,12 +319,47 @@ probeCue(JNIEnv *env, const std::string &path,
         if (isNetworkOverride) {
             it.path = audioUrl;
         } else {
-            it.path = ProbeUtils::resolvePath(path, temps[i].file);
+            // 1. 获取基础文件名 (防守 Windows 路径)
+            std::string rawFile = temps[i].file;
+            std::string rawBaseName = rawFile.substr(rawFile.find_last_of("/\\") + 1);
+
+            // 2. 拼接标准路径
+            std::string resolvedPath = ProbeUtils::resolvePath(path, rawBaseName);
+
+            // 3. 核心优化：先检测文件是否存在，避免无效的 FFmpeg 探测
+            bool originalExists = fileExists(resolvedPath);
+
+            if (!originalExists) {
+                LOGW("CUE entry file not found: %s. Trying heuristic...", resolvedPath.c_str());
+
+                // 构造猜测路径：CUE文件名(无后缀) + FILE后缀
+                std::string cuePathNoExt = path;
+                size_t cueDot = cuePathNoExt.find_last_of('.');
+                if (cueDot != std::string::npos) cuePathNoExt = cuePathNoExt.substr(0, cueDot);
+
+                std::string targetExt = "";
+                size_t fileDot = rawBaseName.find_last_of('.');
+                if (fileDot != std::string::npos) targetExt = rawBaseName.substr(fileDot);
+
+                std::string fallbackPath = cuePathNoExt + targetExt;
+
+                if (fileExists(fallbackPath)) {
+                    LOGD("Fallback file found: %s", fallbackPath.c_str());
+                    resolvedPath = fallbackPath;
+                } else {
+                    LOGE("Neither original nor fallback file exists. Keeping original path for error reporting.");
+                }
+            }
+
+            it.path = resolvedPath;
+
+            // 4. 只有文件确实存在（或已被修正），才进行 Probe
+            // 使用 Map 缓存，避免同一个整轨文件被多次 Probe
+            if (fileCache.find(it.path) == fileCache.end()) {
+                fileCache[it.path] = probeStandard(it.path, headers, "");
+            }
         }
 
-        if (fileCache.find(it.path) == fileCache.end()) {
-            fileCache[it.path] = probeStandard(it.path, headers);
-        }
         const auto &fm = fileCache[it.path];
         if (fm.success && !fm.tracks.empty()) {
             const auto &ft = fm.tracks[0];
@@ -464,7 +509,7 @@ probeSacd(const std::string &path, const std::map<std::string, std::string> &hea
 }
 
 // ==========================================
-// 4. 入口分发 (核心修改)
+// 4. 入口分发
 // ==========================================
 InternalMetadata
 AudioProbe::probe(
@@ -500,7 +545,7 @@ AudioProbe::probe(
         }
 
         LOGD("AudioProbe: Attempting standard FFmpeg probe");
-        meta = probeStandard(source, headers);
+        meta = probeStandard(source, headers, filename);
         return meta;
     } catch (const std::exception &e) {
         LOGE("Native crash prevented in probe: %s", e.what());

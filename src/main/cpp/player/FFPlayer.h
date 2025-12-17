@@ -202,9 +202,9 @@ private:
     // 允许缓存 50MB (约一首无损歌曲)，实现“暂停时继续下载”
     const int MAX_QUEUE_SIZE = 50 * 1024 * 1024;
 
-    // 起播阈值 (256KB)。
+    // 起播阈值 (默认256KB，最后3s左右)。
     // 当 Seek 或缓冲耗尽后，必须积攒这么多数据才开始播放，防止频繁卡顿。
-    const int MIN_START_THRESHOLD = 256 * 1024;
+    int minStartThresholdBytes = 256 * 1024;
 };
 
 #endif //QYPLAYER_FFPLAYER_H

@@ -9,7 +9,6 @@ import com.qytech.audioplayer.strategy.SonySelectMediaSource
 import com.qytech.audioplayer.strategy.StreamingMediaSource
 import com.qytech.audioplayer.strategy.WebDavUtils
 import com.qytech.audioplayer.utils.QYLogger
-import timber.log.Timber
 import java.util.Locale
 
 object AudioPlayerFactory {
@@ -178,7 +177,7 @@ object AudioPlayerFactory {
 
             else -> FFPlayer(context)
         }
-        Timber.d("buildPlayer $player")
+        QYLogger.d("buildPlayer $player")
         player.setDsdMode(dsdMode)
         player.setMediaSource(source)
         return player

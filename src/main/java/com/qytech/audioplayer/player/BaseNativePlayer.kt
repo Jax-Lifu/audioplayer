@@ -7,7 +7,6 @@ import com.qytech.audioplayer.strategy.CueMediaSource
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.strategy.SacdMediaSource
 import com.qytech.audioplayer.utils.QYLogger
-import timber.log.Timber
 import java.util.concurrent.CopyOnWriteArrayList
 
 enum class PlayerStrategy(
@@ -94,7 +93,7 @@ abstract class BaseNativePlayer(
 
         try {
             currentTrackRef?.let { track ->
-                Timber.d("AudioTrack check: state=${track.state}, playState=${track.playState}")
+                QYLogger.d("AudioTrack check: state=${track.state}, playState=${track.playState}")
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
                     if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
                         track.play()

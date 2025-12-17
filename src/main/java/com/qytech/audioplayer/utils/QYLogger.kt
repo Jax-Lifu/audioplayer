@@ -1,7 +1,7 @@
 package com.qytech.audioplayer.utils
 
-import timber.log.Timber
 import com.qytech.audioplayer.BuildConfig
+import timber.log.Timber
 
 internal object QYLogger {
 

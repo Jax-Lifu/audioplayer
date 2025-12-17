@@ -85,7 +85,8 @@ void FFPlayer::prepare() {
         av_dict_set(&options, "reconnect", "1", 0);         // 断线重连
 
         if (!hasUserAgent) {
-            av_dict_set(&options, "user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", 0);
+            av_dict_set(&options, "user_agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", 0);
         }
         av_dict_set(&options, "buffer_size", "4194304", 0); // 4MB 输入缓冲
         av_dict_set(&options, "seekable", "1", 0);
@@ -100,7 +101,7 @@ void FFPlayer::prepare() {
             releaseFFmpeg();
             return;
         }
-        LOGE("Open input failed: %d", ret);
+        LOGE("Open input failed: %d path %s", ret, mUrl.c_str());
         std::lock_guard<std::mutex> lock(mStateMutex);
         mState = STATE_ERROR;
         if (mCallback) mCallback->onError(-1, "Open input failed");
@@ -282,16 +283,16 @@ void FFPlayer::releaseInternal() {
 }
 
 void FFPlayer::seek(long ms) {
-    long targetMs = ms;
-    auto duration = getDuration();
-    if (duration > 0 && targetMs > duration) targetMs = duration;
-    if (targetMs < 0) targetMs = 0;
+    long targetRelativeMs = ms;
+    auto duration = getDuration(); // 获取的是当前分轨的虚拟时长
+    if (duration > 0 && targetRelativeMs > duration) targetRelativeMs = duration;
+    if (targetRelativeMs < 0) targetRelativeMs = 0;
+    long targetAbsoluteMs = targetRelativeMs + mStartTimeMs;
 
     if (mState != STATE_IDLE && mState != STATE_ERROR && mState != STATE_STOPPED) {
         std::lock_guard<std::mutex> lock(mSeekMutex);
-        mSeekTargetMs = targetMs;
+        mSeekTargetMs = targetAbsoluteMs;
         mIsSeeking.store(true);
-        // 唤醒解码线程（如果它在 wait）和读线程（如果它在 sleep）
         stateCond.notify_all();
     }
 }
@@ -341,11 +342,14 @@ void FFPlayer::readLoop() {
                 mFlushCodec.store(true);
 
                 int64_t targetPts = av_rescale(targetMs, timeBase->den, timeBase->num * 1000LL);
-                int64_t minPts = targetPts - av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
-                int64_t maxPts = targetPts + av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
+                int64_t minPts =
+                        targetPts - av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
+                int64_t maxPts =
+                        targetPts + av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
 
                 // 优先使用 avformat_seek_file
-                int ret = avformat_seek_file(fmtCtx, audioStreamIndex, minPts, targetPts, maxPts, 0);
+                int ret = avformat_seek_file(fmtCtx, audioStreamIndex, minPts, targetPts, maxPts,
+                                             0);
                 if (ret < 0) {
                     LOGW("Precise seek failed, trying vague seek...");
                     ret = av_seek_frame(fmtCtx, audioStreamIndex, targetPts, AVSEEK_FLAG_BACKWARD);
@@ -388,7 +392,8 @@ void FFPlayer::readLoop() {
             if (!isRealEOF && mDurationMs > 0) {
                 long remaining = mDurationMs - lastReadPosMs;
                 if (remaining < 3000) { // 剩余不足 3秒
-                    LOGW("Network error near end (%ld/%ld). Treating as EOF.", lastReadPosMs, mDurationMs);
+                    LOGW("Network error near end (%ld/%ld). Treating as EOF.", lastReadPosMs,
+                         mDurationMs);
                     isRealEOF = true;
                 }
             }
@@ -419,7 +424,7 @@ void FFPlayer::readLoop() {
         if (packet->stream_index == audioStreamIndex) {
             // 更新读取进度
             if (packet->pts != AV_NOPTS_VALUE) {
-                long ptsMs = (long)(packet->pts * av_q2d(*timeBase) * 1000);
+                long ptsMs = (long) (packet->pts * av_q2d(*timeBase) * 1000);
                 if (ptsMs > lastReadPosMs) lastReadPosMs = ptsMs;
             }
 
@@ -485,7 +490,7 @@ void FFPlayer::decodingLoop() {
 
         // 正在缓冲 -> 检查是否达到起播阈值
         if (mState == STATE_BUFFERING) {
-            if (qSize > MIN_START_THRESHOLD || isEOF) {
+            if (qSize > minStartThresholdBytes || isEOF) {
                 std::lock_guard<std::mutex> lock(mStateMutex);
                 mState = STATE_PLAYING;
                 LOGD("Buffering end. Resuming playback.");
@@ -525,11 +530,11 @@ void FFPlayer::decodingLoop() {
                 // 真正的播放结束
                 if (mState != STATE_COMPLETED && mState != STATE_STOPPED && !mIsExit.load()) {
                     mState = STATE_COMPLETED;
-                    if(mCallback) mCallback->onComplete();
+                    if (mCallback) mCallback->onComplete();
                 }
                 // 等待 Seek 或 Stop
                 std::unique_lock<std::mutex> lock(mStateMutex);
-                stateCond.wait(lock, [this]{
+                stateCond.wait(lock, [this] {
                     return mIsExit.load() || mIsSeeking.load() || mState == STATE_STOPPED;
                 });
             } else if (rxRet >= 0) {
@@ -540,7 +545,7 @@ void FFPlayer::decodingLoop() {
         } else {
             // 普通模式
             if (packet->pts != AV_NOPTS_VALUE) {
-                mCurrentPositionMs.store((long)(packet->pts * av_q2d(*timeBase) * 1000));
+                mCurrentPositionMs.store((long) (packet->pts * av_q2d(*timeBase) * 1000));
             }
             // EndTime 检查
             if (mEndTimeMs > 0 && mCurrentPositionMs.load() >= mEndTimeMs) {
@@ -684,6 +689,31 @@ void FFPlayer::extractAudioInfo() {
         mSampleRate = codecCtx->sample_rate;
         mBitPerSample = outputSampleFormat == AV_SAMPLE_FMT_S32 ? 32 : 16;
     }
+
+    int64_t bitRate = 0;
+    if (fmtCtx->streams[audioStreamIndex]->codecpar->bit_rate > 0) {
+        bitRate = fmtCtx->streams[audioStreamIndex]->codecpar->bit_rate;
+    } else if (fmtCtx->bit_rate > 0) {
+        bitRate = fmtCtx->bit_rate;
+    }
+    int targetBytes = 0;
+    if (bitRate > 0) {
+        targetBytes = (int) ((bitRate / 8) * 3);
+    } else {
+        int bytesPerSec = mSampleRate * mChannelCount * 2;
+        targetBytes = bytesPerSec * 3;
+    }
+    if (targetBytes < 256 * 1024) {
+        // 最小3s 或者 256KB缓冲
+        minStartThresholdBytes = 256 * 1024;
+    } else if (targetBytes > 5 * 1024 * 1024) {
+        // 最大 5MB缓冲
+        minStartThresholdBytes = 5 * 1024 * 1024;
+    } else {
+        minStartThresholdBytes = targetBytes;
+    }
+    LOGD("Buffering Config: BitRate=%ld, Target 3s=%d, Final Threshold=%d",
+         bitRate, targetBytes, minStartThresholdBytes);
 }
 
 void FFPlayer::releaseFFmpeg() {
