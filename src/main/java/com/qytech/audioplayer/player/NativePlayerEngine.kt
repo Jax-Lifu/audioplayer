@@ -1,7 +1,7 @@
 package com.qytech.audioplayer.player
 
 import androidx.annotation.Keep
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 
 @Keep
 internal interface EngineCallback {
@@ -20,7 +20,7 @@ internal class NativePlayerEngine {
             try {
                 System.loadLibrary("audioplayer")
             } catch (e: UnsatisfiedLinkError) {
-                QYLogger.e("Failed to load library: ${e.message}")
+                QYPlayerLogger.e("Failed to load library: ${e.message}")
             }
         }
     }

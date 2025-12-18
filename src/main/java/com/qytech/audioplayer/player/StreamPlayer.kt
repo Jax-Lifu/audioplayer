@@ -23,7 +23,7 @@ import com.qytech.audioplayer.strategy.CueMediaSource
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.strategy.SonySelectMediaSource
 import com.qytech.audioplayer.strategy.StreamingMediaSource
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -129,7 +129,7 @@ class StreamPlayer(
 
         override fun onPlayerError(error: PlaybackException) {
             stopProgressJob()
-            QYLogger.e(error, "ExoPlayer Error")
+            QYPlayerLogger.e(error, "ExoPlayer Error")
             listeners.forEach {
                 it.onError(error.errorCode, error.message ?: "ExoPlayer Internal Error")
             }
@@ -235,7 +235,7 @@ class StreamPlayer(
             exoPlayer?.setMediaSource(finalSource)
 
         } catch (e: Exception) {
-            QYLogger.e(e, "StreamPlayer: Failed to create MediaSource")
+            QYPlayerLogger.e(e, "StreamPlayer: Failed to create MediaSource")
             listeners.forEach {
                 it.onError(
                     PlaybackException.ERROR_CODE_UNSPECIFIED,
@@ -334,11 +334,11 @@ class StreamPlayer(
 
 
     override fun setDsdMode(mode: DSDMode) {
-        QYLogger.d("DSD mode ignored in StreamPlayer: $mode")
+        QYPlayerLogger.d("DSD mode ignored in StreamPlayer: $mode")
     }
 
     override fun setD2pSampleRate(sampleRate: D2pSampleRate) {
-        QYLogger.d("D2P sample rate ignored in StreamPlayer: $sampleRate")
+        QYPlayerLogger.d("D2P sample rate ignored in StreamPlayer: $sampleRate")
     }
 
     private fun startProgressJob() {

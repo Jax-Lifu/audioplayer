@@ -2,7 +2,7 @@ package com.qytech.audioplayer.parser
 
 import com.qytech.audioplayer.model.AudioInfo
 import com.qytech.audioplayer.parser.model.AudioTrackItem
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -32,7 +32,7 @@ class DefaultParserStrategy(
                 webDavUser,
                 webDavPwd
             ) ?: return null
-            QYLogger.d("parse: metadata = $metadata")
+            QYPlayerLogger.d("parse: metadata = $metadata")
             return metadata.tracks.map { track ->
                 mapTrackToAudioInfo(source, track, metadata.coverPath, metadata.date)
             }

@@ -1,7 +1,7 @@
 package com.qytech.audioplayer.strategy
 
 import android.util.Base64
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 import java.net.URI
 import java.net.URLEncoder
 
@@ -60,7 +60,7 @@ object WebDavUtils {
             "$scheme://$host$port$encodedPath"
         } catch (e: Exception) {
             // 如果解析失败，回退到原始 URL (或者打印日志)
-            QYLogger.e("WebDAV URL encoding failed: ${e.message}")
+            QYPlayerLogger.e("WebDAV URL encoding failed: ${e.message}")
             source.uri
         }
 

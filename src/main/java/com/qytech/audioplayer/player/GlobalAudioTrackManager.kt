@@ -3,7 +3,7 @@ package com.qytech.audioplayer.player
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 
 /**
  * 全局 AudioTrack 资源管理器 (带 Session ID 保护)
@@ -45,7 +45,7 @@ object GlobalAudioTrackManager {
             currentEncoding == encoding &&
             currentChannel == channel
         ) {
-            QYLogger.i("GlobalAudioTrackManager: >>> Reuse Hit! (SR: $sampleRate, Session: $newSessionId) <<<")
+            QYPlayerLogger.i("GlobalAudioTrackManager: >>> Reuse Hit! (SR: $sampleRate, Session: $newSessionId) <<<")
             try {
                 // 复用流程：暂停 -> 清空 -> 播放
                 // 这里做的操作实际上已经替“上一个Session”完成了清理工作
@@ -54,12 +54,12 @@ object GlobalAudioTrackManager {
                 track.play()
                 return Pair(track, newSessionId)
             } catch (e: Exception) {
-                QYLogger.w("Reuse failed (exception), fallback to create new: ${e.message}")
+                QYPlayerLogger.w("Reuse failed (exception), fallback to create new: ${e.message}")
             }
         }
 
         // 3. 无法复用或参数变更，创建新的
-        QYLogger.i("GlobalAudioTrackManager: >>> Create New (SR: $sampleRate, ENC: $encoding, Session: $newSessionId) <<<")
+        QYPlayerLogger.i("GlobalAudioTrackManager: >>> Create New (SR: $sampleRate, ENC: $encoding, Session: $newSessionId) <<<")
 
         // 销毁旧的 AudioTrack 对象
         destroyInternal()
@@ -76,7 +76,7 @@ object GlobalAudioTrackManager {
         try {
             newTrack.play()
         } catch (e: Exception) {
-            QYLogger.e("AudioTrack play failed immediately after creation", e)
+            QYPlayerLogger.e("AudioTrack play failed immediately after creation", e)
         }
 
         return Pair(newTrack, newSessionId)
@@ -90,7 +90,7 @@ object GlobalAudioTrackManager {
     fun softRelease(callerSessionId: Long) {
         // [关键修复] 只有 Session ID 匹配，才允许操作 AudioTrack
         if (callerSessionId != currentSessionId) {
-            QYLogger.w(
+            QYPlayerLogger.w(
                 "GlobalAudioTrackManager: Ignored stale release request. " +
                         "CallerSession: $callerSessionId, CurrentSession: $currentSessionId"
             )
@@ -100,12 +100,12 @@ object GlobalAudioTrackManager {
         val track = audioTrack ?: return
         try {
             if (track.state == AudioTrack.STATE_INITIALIZED) {
-                QYLogger.d("GlobalAudioTrackManager: Soft releasing session $callerSessionId")
+                QYPlayerLogger.d("GlobalAudioTrackManager: Soft releasing session $callerSessionId")
                 track.pause()
                 track.flush()
             }
         } catch (e: Exception) {
-            QYLogger.e("GlobalAudioTrackManager softRelease error", e)
+            QYPlayerLogger.e("GlobalAudioTrackManager softRelease error", e)
         }
     }
 
@@ -115,7 +115,7 @@ object GlobalAudioTrackManager {
      */
     @Synchronized
     fun destroy() {
-        QYLogger.d("GlobalAudioTrackManager: Destroying hardware resource...")
+        QYPlayerLogger.d("GlobalAudioTrackManager: Destroying hardware resource...")
         destroyInternal()
         currentSampleRate = 0
         currentEncoding = 0
@@ -130,9 +130,9 @@ object GlobalAudioTrackManager {
                     it.stop()
                 }
                 it.release()
-                QYLogger.d("GlobalAudioTrackManager: Old track released.")
+                QYPlayerLogger.d("GlobalAudioTrackManager: Old track released.")
             } catch (e: Exception) {
-                QYLogger.e("AudioTrack release failed", e)
+                QYPlayerLogger.e("AudioTrack release failed", e)
             }
         }
         audioTrack = null

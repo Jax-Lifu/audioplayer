@@ -3,7 +3,7 @@ package com.qytech.audioplayer.player
 import android.content.Context
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.transition.AudioTransition
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -95,7 +95,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    QYLogger.e(e, "Fatal error in play loop")
+                    QYPlayerLogger.e(e, "Fatal error in play loop")
                     notifyError(-1, "Fatal error: ${e.message}")
                 }
             }
@@ -103,7 +103,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     }
 
     private suspend fun processPlayRequest(request: PlayRequest) {
-        QYLogger.d("Processing PlayRequest: $request")
+        QYPlayerLogger.d("Processing PlayRequest: $request")
 
         // 1. 如果是切歌（新的 sourcePath），重置重试标记
         if (lastPlayRequest?.sourcePath != request.sourcePath) {
@@ -149,7 +149,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     // 只有 play 成功后才执行淡入
                     request.transition?.fadeIn()
                 } catch (e: Exception) {
-                    QYLogger.e(e, "Player prepare/play failed")
+                    QYPlayerLogger.e(e, "Player prepare/play failed")
                     proxyListener.onError(-2, "Prepare failed: ${e.message}")
                 }
             } else {
@@ -174,7 +174,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     activeTransition?.fadeOut()
                     player.pause()
                 } catch (e: Exception) {
-                    QYLogger.e(e, "Pause failed")
+                    QYPlayerLogger.e(e, "Pause failed")
                 }
             }
         }
@@ -193,7 +193,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     player.play()
                     activeTransition?.fadeIn()
                 } catch (e: Exception) {
-                    QYLogger.e(e, "Resume failed")
+                    QYPlayerLogger.e(e, "Resume failed")
                 }
             }
         }
@@ -214,7 +214,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                 try {
                     player.stop()
                 } catch (e: Exception) {
-                    QYLogger.e(e, "Stop failed")
+                    QYPlayerLogger.e(e, "Stop failed")
                 }
             }
         }
@@ -344,7 +344,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     private fun createPlayerInternal(request: PlayRequest): AudioPlayer? {
         return try {
             if (request.forceStreamPlayer) {
-                QYLogger.w("Creating StreamPlayer explicitly for fallback...")
+                QYPlayerLogger.w("Creating StreamPlayer explicitly for fallback...")
                 val player = StreamPlayer(context)
                 player.setDsdMode(request.dsdMode)
                 player
@@ -365,7 +365,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                 )
             }
         } catch (e: Exception) {
-            QYLogger.e(e, "Factory create error")
+            QYPlayerLogger.e(e, "Factory create error")
             null
         }
     }
@@ -380,7 +380,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
 
     private fun triggerRetry() {
         val lastReq = lastPlayRequest ?: return
-        QYLogger.w("Triggering Retry with StreamPlayer...")
+        QYPlayerLogger.w("Triggering Retry with StreamPlayer...")
 
         // 标记：针对当前这首歌已经重试过了
         hasRetriedWithStreamPlayer = true
@@ -421,7 +421,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         }
 
         override fun onError(code: Int, msg: String) {
-            QYLogger.e("Player Error: $code, $msg")
+            QYPlayerLogger.e("Player Error: $code, $msg")
             updateState(PlaybackState.ERROR)
 
             if (shouldRetry()) {

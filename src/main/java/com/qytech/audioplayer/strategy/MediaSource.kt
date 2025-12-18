@@ -5,10 +5,13 @@ package com.qytech.audioplayer.strategy
  */
 sealed interface MediaSource {
     val uri: String
+    val headers: Map<String, String>
+
 }
 
 data class DefaultMediaSource(
     override val uri: String,
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 /**
@@ -17,7 +20,7 @@ data class DefaultMediaSource(
 data class SacdMediaSource(
     override val uri: String,
     val trackIndex: Int = -1,
-    val headers: Map<String, String> = emptyMap(),
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 /**
@@ -33,7 +36,7 @@ data class CueMediaSource(
     val trackIndex: Int = -1,
     val startPosition: Long, // 毫秒
     val endPosition: Long,   // 毫秒
-    val headers: Map<String, String>? = null,
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 /**
@@ -41,7 +44,7 @@ data class CueMediaSource(
  */
 data class StreamingMediaSource(
     override val uri: String,
-    val headers: Map<String, String> = emptyMap(),
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 
@@ -52,8 +55,7 @@ data class SonySelectMediaSource(
     override val uri: String,
     val securityKey: String,
     val initVector: String,
-
-    val headers: Map<String, String> = emptyMap(),
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource
 
 
@@ -61,5 +63,5 @@ data class WebDavMediaSource(
     override val uri: String,
     val username: String,
     val password: String,
-    val headers: Map<String, String> = emptyMap(),
+    override val headers: Map<String, String> = emptyMap(),
 ) : MediaSource

@@ -8,7 +8,7 @@ import com.qytech.audioplayer.strategy.SacdMediaSource
 import com.qytech.audioplayer.strategy.SonySelectMediaSource
 import com.qytech.audioplayer.strategy.StreamingMediaSource
 import com.qytech.audioplayer.strategy.WebDavUtils
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 import java.util.Locale
 
 object AudioPlayerFactory {
@@ -20,97 +20,54 @@ object AudioPlayerFactory {
         headers: Map<String, String>? = null,
         dsdMode: DSDMode = DSDMode.NATIVE,
     ): AudioPlayer? {
+        val (finalSource, finalProfile, finalHeaders) = resolveWebDavProfile(
+            source,
+            profile,
+            headers
+        )
 
-        // --- 1. WebDAV 解包与预处理 ---
-        var finalSource = source
-        var finalHeaders = headers ?: emptyMap()
-        var actualProfile = profile // 实际用于解析参数的 profile
-
-        // 用于传递给 Strategy 的 WebDAV 凭证
-        // 只有在 WebDAV + Standard 模式下才赋值，否则我们转换成 Header
-        var strategyWebDavUser: String? = null
-        var strategyWebDavPwd: String? = null
-
-        if (profile is AudioProfile.WebDav) {
-            if (profile.targetProfile is AudioProfile.Standard) {
-                // [路径 A]: WebDAV 播放普通文件 -> 保持原样
-                // 将账号密码传给 Strategy，生成 WebDavMediaSource
-                strategyWebDavUser = profile.username
-                strategyWebDavPwd = profile.password
-                actualProfile = profile.targetProfile
-            } else {
-                // [路径 B]: WebDAV 播放 ISO / CUE -> 转换为 HTTP Header 模式
-                // 底层 SACD/CUE 播放器不认识 WebDAV 对象，但支持 HTTP Header
-                // 所以我们在这里把 WebDAV 转换成带 Auth Header 的普通 HTTP 请求
-                val (encodedUrl, authHeaders) = WebDavUtils.process(
-                    source,
-                    profile.username,
-                    profile.password,
-                    finalHeaders
-                )
-
-                finalSource = encodedUrl
-                finalHeaders = authHeaders
-
-                // 剥去 WebDav 外壳，指向内部的 ISO/CUE 配置
-                actualProfile = profile.targetProfile
-
-                QYLogger.d("Factory: Unwrapped WebDAV for complex profile. New Url: $finalSource")
-            }
-        }
-
-        // --- 2. 解构具体的 Profile 参数 ---
-        var trackIndex = -1
-        var startPos: Long? = null
-        var endPos: Long? = null
-        var fileName: String? = null
-        var securityKey: String? = null
-        var initVector: String? = null
-
-        when (actualProfile) {
-            is AudioProfile.Standard -> { /* No extra params */
-            }
-
-            is AudioProfile.SacdIso -> {
-                trackIndex = if (actualProfile.trackId > 0) actualProfile.trackId - 1 else -1
-                fileName = actualProfile.filename
-            }
-
-            is AudioProfile.CueByTime -> {
-                startPos = actualProfile.startPosition
-                endPos = actualProfile.endPosition
-            }
-
-            is AudioProfile.CueByIndex -> {
-                trackIndex = if (actualProfile.trackIndex > 0) actualProfile.trackIndex - 1 else -1
-            }
-
-            is AudioProfile.SonySelect -> {
-                securityKey = actualProfile.securityKey
-                initVector = actualProfile.initVector
-            }
-
-            is AudioProfile.WebDav -> {
-                // 不会走到这里，因为上面已经解包处理了
-            }
-        }
-
-        // --- 3. 构建 MediaSource ---
         val mediaSource = MediaSourceStrategy.create(
             uri = finalSource,
-            trackIndex = trackIndex,
-            headers = finalHeaders,
-            originalFileName = fileName,
-            startPosition = startPos,
-            endPosition = endPos,
-            securityKey = securityKey,
-            initVector = initVector,
-            webDavUser = strategyWebDavUser,
-            webDavPwd = strategyWebDavPwd
+            profile = finalProfile,
+            headers = finalHeaders
         ) ?: return null
 
-        // --- 4. 路由分发 ---
+        QYPlayerLogger.d("Factory: Created source: $mediaSource from profile: $finalProfile")
+
         return buildPlayer(context, mediaSource, dsdMode)
+    }
+
+    /**
+     * 处理 WebDAV 逻辑，返回处理后的 (Url, Profile, Headers) 三元组
+     */
+    private fun resolveWebDavProfile(
+        source: String,
+        profile: AudioProfile,
+        headers: Map<String, String>?,
+    ): Triple<String, AudioProfile, Map<String, String>?> {
+
+        if (profile !is AudioProfile.WebDav) {
+            return Triple(source, profile, headers)
+        }
+
+        // 是 WebDAV Profile
+        return if (profile.targetProfile is AudioProfile.Standard) {
+            // 情况 A: 纯 WebDAV 文件播放 (MP3/FLAC等)
+            // 保持 WebDav Profile 不变，Strategy 会识别并创建 WebDavMediaSource (透传账号密码给底层)
+            Triple(source, profile, headers)
+        } else {
+            // 情况 B: WebDAV 嵌套复杂业务 (WebDAV -> ISO / WebDAV -> CUE)
+            // 策略：将 WebDAV 账号密码转换为 HTTP Auth Header，然后"剥去" WebDav Profile 外壳，
+            // 暴露出内部的 targetProfile (如 SacdIso 或 CueByTime) 给 Strategy 使用。
+            val (encodedUrl, authHeaders) = WebDavUtils.process(
+                source,
+                profile.username,
+                profile.password,
+                headers ?: emptyMap()
+            )
+            QYPlayerLogger.d("Factory: Unwrapped WebDAV. New Url: $encodedUrl, Inner Profile: ${profile.targetProfile}")
+            Triple(encodedUrl, profile.targetProfile, authHeaders)
+        }
     }
 
     /**
@@ -135,31 +92,59 @@ object AudioPlayerFactory {
         webDavPwd: String? = null,
     ): AudioPlayer? {
 
-        QYLogger.d(
-            "createAudioPlayer context = $context, source = $source, trackId = $trackId " +
-                    "dsdMode = $dsdMode, securityKey = $securityKey, initVector = $initVector," +
-                    " headers = $headers, clientId = $clientId, clientSecret = $clientSecret," +
-                    " credentialsKey = $credentialsKey" +
-                    " filename = $filename, startPosition = $startPosition, endPosition = $endPosition," +
-                    " webDavUser = $webDavUser, webDavPwd = $webDavPwd"
+        // 1. 提取关键判定条件
+        val isSonyEncrypted = !securityKey.isNullOrEmpty() && !initVector.isNullOrEmpty()
+        val isExplicitTimeRange = startPosition != null && endPosition != null
+        val isValidTrackId = trackId > 0
+        // 判断是否为 ISO 文件 (检查 URL 后缀或 filename 参数)
+        val isIsoSource = source.endsWith(".iso", ignoreCase = true) ||
+                filename?.endsWith(".iso", ignoreCase = true) == true
+        val isWebDav = !webDavUser.isNullOrEmpty() && !webDavPwd.isNullOrEmpty()
+
+        // 2. 打印精简日志
+        QYPlayerLogger.d(
+            "Legacy createAudioPlayer invoked.\n" +
+                    "Source: $source\n" +
+                    "Type Hints: [ISO=$isIsoSource, Sony=$isSonyEncrypted, WebDAV=$isWebDav]\n" +
+                    "Range: ${if (isExplicitTimeRange) "$startPosition-$endPosition" else "None"}\n" +
+                    "TrackId: $trackId"
         )
-        val trackIndex = if (trackId > 0) trackId - 1 else -1
 
-        // 老接口直接透传参数，Strategy 会处理
-        val mediaSource = MediaSourceStrategy.create(
-            uri = source,
-            trackIndex = trackIndex,
-            securityKey = securityKey,
-            initVector = initVector,
-            headers = headers,
-            originalFileName = filename,
-            startPosition = startPosition,
-            endPosition = endPosition,
-            webDavUser = webDavUser,
-            webDavPwd = webDavPwd
-        ) ?: return null
+        // 3. 构建核心业务 Profile
+        val coreProfile: AudioProfile = when {
+            isSonyEncrypted -> {
+                AudioProfile.SonySelect(securityKey, initVector)
+            }
 
-        return buildPlayer(context, mediaSource, dsdMode)
+            isIsoSource && isValidTrackId -> {
+                AudioProfile.SacdIso(trackId, filename)
+            }
+
+            isExplicitTimeRange -> {
+                AudioProfile.CueByTime(startPosition, endPosition)
+            }
+
+            isValidTrackId -> {
+                AudioProfile.CueByIndex(trackId)
+            }
+
+            else -> AudioProfile.Standard
+        }
+
+        val finalProfile = if (isWebDav) {
+            AudioProfile.WebDav(
+                username = webDavUser,
+                password = webDavPwd,
+                targetProfile = coreProfile
+            )
+        } else {
+            coreProfile
+        }
+
+        QYPlayerLogger.d("Legacy parameter mapping result: $finalProfile")
+
+        // 5. 调用新接口
+        return create(context, source, finalProfile, headers, dsdMode)
     }
 
     private fun buildPlayer(
@@ -177,7 +162,6 @@ object AudioPlayerFactory {
 
             else -> FFPlayer(context)
         }
-        QYLogger.d("buildPlayer $player")
         player.setDsdMode(dsdMode)
         player.setMediaSource(source)
         return player

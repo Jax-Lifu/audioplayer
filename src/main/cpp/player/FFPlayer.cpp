@@ -24,6 +24,8 @@ void FFPlayer::setDataSource(const char *path, const std::map<std::string, std::
     this->mHeaders = headers;
     this->mStartTimeMs = startPositon;
     this->mEndTimeMs = endPosition;
+    LOGD("setDataSource mUrl %s mStartTimeMs %ld mEndTimeMs %ld", mUrl.c_str(), mStartTimeMs,
+         mEndTimeMs);
 }
 
 void FFPlayer::initFFmpeg() {
@@ -70,6 +72,7 @@ void FFPlayer::prepare() {
         for (const auto &pair: mHeaders) {
             if (strcasecmp(pair.first.c_str(), "User-Agent") == 0) {
                 av_dict_set(&options, "user_agent", pair.second.c_str(), 0);
+                LOGD("Set User-Agent: %s", pair.second.c_str());
                 hasUserAgent = true;
             } else {
                 customHeaders += pair.first + ": " + pair.second + "\r\n";
@@ -178,7 +181,9 @@ void FFPlayer::prepare() {
     }
 
     extractAudioInfo();
-    if (mStartTimeMs > 0) mCurrentPositionMs.store(mStartTimeMs);
+    if (mStartTimeMs > 0) {
+        mCurrentPositionMs.store(mStartTimeMs);
+    }
 
     {
         std::lock_guard<std::mutex> lock(mStateMutex);
@@ -310,8 +315,13 @@ void FFPlayer::readLoop() {
     // 起始位置跳转
     if (mStartTimeMs > 0) {
         lastReadPosMs = mStartTimeMs;
-        int64_t timestamp = av_rescale(mStartTimeMs, timeBase->den, timeBase->num * 1000LL);
-        avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, timestamp, INT64_MAX, 0);
+        int64_t targetPts = av_rescale(mStartTimeMs, timeBase->den, timeBase->num * 1000LL);
+        int64_t minPts =
+                targetPts - av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
+        int64_t maxPts =
+                targetPts + av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
+        LOGD("mStartTimeMs %ld avformat_seek_file targetPts %ld", mStartTimeMs, targetPts);
+        avformat_seek_file(fmtCtx, audioStreamIndex, minPts, targetPts, maxPts, 0);
     }
 
     while (!mIsExit.load()) {
@@ -590,14 +600,15 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
 
         // --- [核心修复 1] 强制标准化 Frame 布局 ---
         // 很多崩溃是因为 layout.order 是 UNSPEC，导致 swr 计算矩阵失败
-        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC || frame->ch_layout.nb_channels <= 0) {
+        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC ||
+            frame->ch_layout.nb_channels <= 0) {
             // 如果没布局，根据声道数猜一个默认布局 (例如 2 -> Stereo)
             av_channel_layout_default(&frame->ch_layout, frame->ch_layout.nb_channels);
         }
 
         // --- [核心修复 2] 严格的数据指针检查 ---
         // 确保 swr_convert 读取的每一个 input 指针都是有效的
-        bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat)frame->format);
+        bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat) frame->format);
         int planesToCheck = isPlanar ? frame->ch_layout.nb_channels : 1;
         bool hasBadPointer = false;
 
@@ -656,7 +667,8 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
             // --- 配置 Output ---
             AVChannelLayout outLayout;
             av_channel_layout_default(&outLayout, CHANNEL_OUT_STEREO);
-            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : frame->sample_rate; // 使用 frame 的 rate
+            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate
+                                             : frame->sample_rate; // 使用 frame 的 rate
 
             av_opt_set_chlayout(swrCtx, "out_chlayout", &outLayout, 0);
             av_opt_set_int(swrCtx, "out_sample_rate", actualOutRate, 0);
@@ -666,7 +678,7 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
             // 这一点至关重要：告诉 Swr 实际进来的数据到底是什么
             av_opt_set_chlayout(swrCtx, "in_chlayout", &frame->ch_layout, 0);
             av_opt_set_int(swrCtx, "in_sample_rate", frame->sample_rate, 0);
-            av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat)frame->format, 0);
+            av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat) frame->format, 0);
 
             // 显式设置声道数，防止 rematrix 混淆
             av_opt_set_int(swrCtx, "ich", frame->ch_layout.nb_channels, 0);
@@ -711,7 +723,7 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
 
                 uint8_t *rawBuffer = outBuffer.data();
                 uint8_t *outData[2] = {rawBuffer, nullptr};
-                const uint8_t **inData = (const uint8_t **)frame->extended_data;
+                const uint8_t **inData = (const uint8_t **) frame->extended_data;
 
                 // 转换
                 int convertedSamples = swr_convert(swrCtx,

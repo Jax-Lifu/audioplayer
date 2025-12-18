@@ -3,7 +3,7 @@ package com.qytech.audioplayer.parser
 import com.qytech.audioplayer.parser.model.AudioMetadata
 import com.qytech.audioplayer.strategy.ScanProfile
 import com.qytech.audioplayer.strategy.WebDavUtils
-import com.qytech.audioplayer.utils.QYLogger
+import com.qytech.audioplayer.utils.QYPlayerLogger
 
 object AudioProbe {
     init {
@@ -62,9 +62,11 @@ object AudioProbe {
         // 转换 headers 参数
         val headersParam = finalHeaders.ifEmpty { null }
 
-        QYLogger.d("probe: finalUrl = $finalUrl, headers = $headersParam, filename = $filename, audioSourceUrl = $audioSourceUrl")
+        QYPlayerLogger.d("probe: finalUrl = $finalUrl, headers = $headersParam, filename = $filename, audioSourceUrl = $audioSourceUrl")
 
-        return nativeProbe(finalUrl, headersParam, filename, audioSourceUrl)
+        val result = nativeProbe(finalUrl, headersParam, filename, audioSourceUrl)
+        QYPlayerLogger.d("probe: result = $result")
+        return result
     }
 
     /**
