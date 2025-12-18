@@ -391,7 +391,7 @@ void FFPlayer::readLoop() {
             // 智能 EOF 判定：临近结尾的错误视为结束
             if (!isRealEOF && mDurationMs > 0) {
                 long remaining = mDurationMs - lastReadPosMs;
-                if (remaining < 3000) { // 剩余不足 3秒
+                if (remaining < 500) { // 剩余不足500ms
                     LOGW("Network error near end (%ld/%ld). Treating as EOF.", lastReadPosMs,
                          mDurationMs);
                     isRealEOF = true;
@@ -571,7 +571,7 @@ void FFPlayer::decodingLoop() {
 void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
     if (!codecCtx || !frame) return;
 
-    // 如果是 Drain 模式，packet 为 nullptr，跳过 send
+    // 1. Send Packet
     if (packet) {
         int ret = avcodec_send_packet(codecCtx, packet);
         if (ret < 0) {
@@ -580,39 +580,148 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
         }
     }
 
+    // 2. Receive Frames
     while (true) {
         int ret = avcodec_receive_frame(codecCtx, frame);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
         if (ret < 0) break;
 
+        if (frame->nb_samples <= 0) continue;
+
+        // --- [核心修复 1] 强制标准化 Frame 布局 ---
+        // 很多崩溃是因为 layout.order 是 UNSPEC，导致 swr 计算矩阵失败
+        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC || frame->ch_layout.nb_channels <= 0) {
+            // 如果没布局，根据声道数猜一个默认布局 (例如 2 -> Stereo)
+            av_channel_layout_default(&frame->ch_layout, frame->ch_layout.nb_channels);
+        }
+
+        // --- [核心修复 2] 严格的数据指针检查 ---
+        // 确保 swr_convert 读取的每一个 input 指针都是有效的
+        bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat)frame->format);
+        int planesToCheck = isPlanar ? frame->ch_layout.nb_channels : 1;
+        bool hasBadPointer = false;
+
+        // 必须检查 extended_data，因为 swr_convert 用的是这个
+        if (!frame->extended_data) {
+            hasBadPointer = true;
+        } else {
+            for (int i = 0; i < planesToCheck; i++) {
+                if (!frame->extended_data[i]) {
+                    hasBadPointer = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasBadPointer) {
+            LOGE("Frame data corrupt: null pointers in extended_data. Skipping.");
+            continue;
+        }
+
+        // --- [核心修复 3] 动态重建 SwrContext (完全脱离 codecCtx) ---
+        // 这里的逻辑是：只看 Frame，不看 CodecCtx。只要 Frame 变了，Swr 必须变。
+
+        // 获取当前 Frame 的布局掩码 (用于比较)
+        // 注意：这里我们比较 layout 的 mask 值，如果 layout 结构比较复杂，可以比较 nb_channels
+        // 但最安全的是：只要参数变了，就重建。
+        bool swrNeedsReinit = false;
+
+        // 比较参数
+        if (!swrCtx ||
+            mSwrInSampleRate != frame->sample_rate ||
+            mSwrInFormat != frame->format ||
+            mSwrInChannels != frame->ch_layout.nb_channels ||
+            av_channel_layout_compare(&codecCtx->ch_layout, &frame->ch_layout) != 0) {
+            swrNeedsReinit = true;
+        }
+        if (mSwrInSampleRate != frame->sample_rate ||
+            mSwrInFormat != frame->format ||
+            mSwrInChannels != frame->ch_layout.nb_channels) {
+            swrNeedsReinit = true;
+        }
+
+        if (swrNeedsReinit) {
+            // 如果存在旧的，先释放
+            if (swrCtx) {
+                swr_free(&swrCtx);
+                swrCtx = nullptr;
+            }
+
+            swrCtx = swr_alloc();
+            if (!swrCtx) {
+                LOGE("Failed to allocate swrCtx");
+                continue;
+            }
+
+            // --- 配置 Output ---
+            AVChannelLayout outLayout;
+            av_channel_layout_default(&outLayout, CHANNEL_OUT_STEREO);
+            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : frame->sample_rate; // 使用 frame 的 rate
+
+            av_opt_set_chlayout(swrCtx, "out_chlayout", &outLayout, 0);
+            av_opt_set_int(swrCtx, "out_sample_rate", actualOutRate, 0);
+            av_opt_set_sample_fmt(swrCtx, "out_sample_fmt", outputSampleFormat, 0);
+
+            // --- 配置 Input (完全基于当前 Frame) ---
+            // 这一点至关重要：告诉 Swr 实际进来的数据到底是什么
+            av_opt_set_chlayout(swrCtx, "in_chlayout", &frame->ch_layout, 0);
+            av_opt_set_int(swrCtx, "in_sample_rate", frame->sample_rate, 0);
+            av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat)frame->format, 0);
+
+            // 显式设置声道数，防止 rematrix 混淆
+            av_opt_set_int(swrCtx, "ich", frame->ch_layout.nb_channels, 0);
+
+            if (swr_init(swrCtx) < 0) {
+                LOGE("Failed to swr_init");
+                swr_free(&swrCtx);
+                continue;
+            }
+
+            // 更新缓存状态
+            mSwrInSampleRate = frame->sample_rate;
+            mSwrInFormat = frame->format;
+            mSwrInChannels = frame->ch_layout.nb_channels;
+            // 同步 codecCtx 防止外部逻辑混乱 (可选)
+            codecCtx->sample_rate = frame->sample_rate;
+            av_channel_layout_uninit(&codecCtx->ch_layout);
+            av_channel_layout_copy(&codecCtx->ch_layout, &frame->ch_layout);
+
+            LOGD("Swr Re-initialized: %dHz %dch fmt%d -> %dHz Stereo",
+                 frame->sample_rate, frame->ch_layout.nb_channels, frame->format, actualOutRate);
+        }
+
+        // --- 执行转换 ---
         if (swrCtx) {
-            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : codecCtx->sample_rate;
+            // 计算输出 Buffer 大小
+            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : frame->sample_rate;
             int out_samples = av_rescale_rnd(
-                    swr_get_delay(swrCtx, codecCtx->sample_rate) + frame->nb_samples,
+                    swr_get_delay(swrCtx, frame->sample_rate) + frame->nb_samples,
                     actualOutRate,
-                    codecCtx->sample_rate,
+                    frame->sample_rate,
                     AV_ROUND_UP
             );
 
             if (out_samples > 0) {
                 int outSampleSize = av_get_bytes_per_sample(outputSampleFormat);
-                int channels = 2;
-                int requiredBufferSize = out_samples * outSampleSize * channels;
+                int outChannels = 2; // Stereo
+                int requiredBufferSize = out_samples * outSampleSize * outChannels;
 
                 ensureBufferCapacity(requiredBufferSize);
-                if (outBuffer.empty()) return;
+                if (outBuffer.empty()) continue;
 
-                auto *rawBuffer = outBuffer.data();
+                uint8_t *rawBuffer = outBuffer.data();
                 uint8_t *outData[2] = {rawBuffer, nullptr};
+                const uint8_t **inData = (const uint8_t **)frame->extended_data;
 
+                // 转换
                 int convertedSamples = swr_convert(swrCtx,
                                                    outData,
                                                    out_samples,
-                                                   (const uint8_t **) frame->data,
+                                                   inData,
                                                    frame->nb_samples);
 
                 if (convertedSamples > 0) {
-                    int size = convertedSamples * outSampleSize * channels;
+                    int size = convertedSamples * outSampleSize * outChannels;
                     if (mCallback) mCallback->onAudioData(rawBuffer, size);
                 }
             }

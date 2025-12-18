@@ -316,23 +316,29 @@ probeCue(JNIEnv *env, const std::string &path,
         it.genre = meta.genre;
         it.startMs = temps[i].start;
 
+        // 定义用于探测元数据的实际路径 (本地路径 或 网络URL)
+        std::string probeTarget;
+
         if (isNetworkOverride) {
+            // --- 网络/网盘模式 ---
+            // 直接使用传入的源 Audio URL 作为播放路径和探测路径
             it.path = audioUrl;
+            probeTarget = audioUrl;
         } else {
-            // 1. 获取基础文件名 (防守 Windows 路径)
+            // --- 本地文件模式 ---
+            // 1. 获取基础文件名
             std::string rawFile = temps[i].file;
             std::string rawBaseName = rawFile.substr(rawFile.find_last_of("/\\") + 1);
 
             // 2. 拼接标准路径
             std::string resolvedPath = ProbeUtils::resolvePath(path, rawBaseName);
 
-            // 3. 核心优化：先检测文件是否存在，避免无效的 FFmpeg 探测
+            // 3. 本地文件存在性检查与自动纠错 (Fallback logic)
             bool originalExists = fileExists(resolvedPath);
 
             if (!originalExists) {
                 LOGW("CUE entry file not found: %s. Trying heuristic...", resolvedPath.c_str());
 
-                // 构造猜测路径：CUE文件名(无后缀) + FILE后缀
                 std::string cuePathNoExt = path;
                 size_t cueDot = cuePathNoExt.find_last_of('.');
                 if (cueDot != std::string::npos) cuePathNoExt = cuePathNoExt.substr(0, cueDot);
@@ -347,38 +353,51 @@ probeCue(JNIEnv *env, const std::string &path,
                     LOGD("Fallback file found: %s", fallbackPath.c_str());
                     resolvedPath = fallbackPath;
                 } else {
-                    LOGE("Neither original nor fallback file exists. Keeping original path for error reporting.");
+                    LOGE("Neither original nor fallback file exists.");
                 }
             }
 
             it.path = resolvedPath;
+            probeTarget = resolvedPath;
+        }
 
-            // 4. 只有文件确实存在（或已被修正），才进行 Probe
-            // 使用 Map 缓存，避免同一个整轨文件被多次 Probe
-            if (fileCache.find(it.path) == fileCache.end()) {
-                fileCache[it.path] = probeStandard(it.path, headers, "");
+        // --- 统一探测逻辑 ---
+        // 只有当 probeTarget 非空时才进行探测
+        if (!probeTarget.empty()) {
+            if (fileCache.find(probeTarget) == fileCache.end()) {
+                // 这里传入 headers 是为了让 probeStandard 能处理这就网络 URL 需要鉴权的情况
+                fileCache[probeTarget] = probeStandard(probeTarget, headers, "");
             }
+
+            // 从缓存中读取元数据
+            const auto &fm = fileCache[probeTarget];
+            if (fm.success && !fm.tracks.empty()) {
+                const auto &ft = fm.tracks[0];
+                it.format = ft.format;
+                it.sampleRate = ft.sampleRate;
+                it.channels = ft.channels;
+                it.bitDepth = ft.bitDepth;
+                it.bitRate = ft.bitRate;
+            }
+
+            // 计算结束时间和持续时间
+            int64_t endPos = -1;
+            // 如果还有下一轨，且下一轨属于同一个文件，则当前轨结束于下一轨开始
+            if (i < temps.size() - 1 && temps[i + 1].file == temps[i].file) {
+                endPos = temps[i + 1].start;
+            }
+                // 否则（这是最后一轨，或者下一轨换文件了），使用探测到的总时长
+            else if (fm.success && !fm.tracks.empty() && fm.tracks[0].durationMs > 0) {
+                endPos = fm.tracks[0].durationMs;
+            }
+
+            it.endMs = endPos;
+            it.durationMs = (endPos > it.startMs) ? (endPos - it.startMs) : 0;
+        } else {
+            // 如果路径为空（异常情况），给个默认值
+            it.durationMs = 0;
         }
 
-        const auto &fm = fileCache[it.path];
-        if (fm.success && !fm.tracks.empty()) {
-            const auto &ft = fm.tracks[0];
-            it.format = ft.format;
-            it.sampleRate = ft.sampleRate;
-            it.channels = ft.channels;
-            it.bitDepth = ft.bitDepth;
-            it.bitRate = ft.bitRate;
-        }
-
-        int64_t endPos = -1;
-        if (i < temps.size() - 1 && temps[i + 1].file == temps[i].file) {
-            endPos = temps[i + 1].start;
-        } else if (fm.success && !fm.tracks.empty() && fm.tracks[0].durationMs > 0) {
-            endPos = fm.tracks[0].durationMs;
-        }
-
-        it.endMs = endPos;
-        it.durationMs = (endPos > it.startMs) ? (endPos - it.startMs) : 0;
         meta.tracks.push_back(it);
     }
     return meta;

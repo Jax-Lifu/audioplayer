@@ -36,7 +36,12 @@ abstract class BaseNativePlayer(
     private var mediaSource: MediaSource? = null
     private var d2pSampleRate: D2pSampleRate? = null
 
+    // 标记是否需要在 prepare 完成后自动播放
     private var playWhenReady = false
+
+    // 标记是否已经通知过 PLAYING 状态，防止在 onAudioData 中频繁回调
+    @Volatile
+    private var isPlayingNotified = false
 
     private val engineCallback = EngineCallbackImpl()
 
@@ -59,6 +64,7 @@ abstract class BaseNativePlayer(
     override fun prepare() {
         QYLogger.d("BaseNativePlayer: prepare")
         playWhenReady = false
+        isPlayingNotified = false
         // 设置 DSD 模式和 D2P 采样率
         dsdMode?.let { engine.setDsdConfig(it.value, d2pSampleRate?.hz ?: -1) }
         engine.prepare()
@@ -78,9 +84,12 @@ abstract class BaseNativePlayer(
         performPlay()
     }
 
-    // [修复1] 提取实际播放逻辑
+    // [优化] 仅执行底层播放逻辑，不负责通知 UI 状态
     private fun performPlay() {
         QYLogger.d("BaseNativePlayer: performPlay state=${engine.getPlayerState()}")
+
+        // 重置标记，等待数据到来时再次通知
+        isPlayingNotified = false
 
         // Native 引擎控制
         if (engine.getPlayerState() == PlaybackState.PAUSED) {
@@ -103,22 +112,13 @@ abstract class BaseNativePlayer(
         } catch (e: Exception) {
             QYLogger.e("AudioTrack play failed", e)
         }
-
-        // 通知状态变更
-        QYLogger.d("BaseNativePlayer: notifying PLAYING")
-        mediaSource?.let { source ->
-            onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                PlaybackState.PLAYING,
-                source.uri,
-                getTrackIndex()
-            )
-            listeners.forEach { it.onStateChanged(PlaybackState.PLAYING) }
-        }
     }
 
     override fun pause() {
         QYLogger.d("BaseNativePlayer: pause")
         playWhenReady = false
+        isPlayingNotified = false
+
         engine.pause()
 
         // AudioTrack 暂停
@@ -128,19 +128,15 @@ abstract class BaseNativePlayer(
             currentTrackRef?.pause()
         }
 
-        mediaSource?.let { source ->
-            onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                PlaybackState.PAUSED,
-                source.uri,
-                getTrackIndex()
-            )
-            listeners.forEach { it.onStateChanged(PlaybackState.PAUSED) }
-        }
+        // PAUSED 是用户主动触发的，立即通知
+        notifyStateChanged(PlaybackState.PAUSED)
     }
 
     override fun stop() {
         QYLogger.d("BaseNativePlayer: stop")
         playWhenReady = false
+        isPlayingNotified = false
+
         engine.stop()
 
         // stop 时只做 flush，随时准备下次播放
@@ -156,19 +152,15 @@ abstract class BaseNativePlayer(
             }
         }
 
-        mediaSource?.let { source ->
-            onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                PlaybackState.STOPPED,
-                source.uri,
-                getTrackIndex()
-            )
-            listeners.forEach { it.onStateChanged(PlaybackState.STOPPED) }
-        }
+        // STOPPED 是用户主动触发的，立即通知
+        notifyStateChanged(PlaybackState.STOPPED)
     }
 
     override fun release() {
         QYLogger.d("BaseNativePlayer: release (Triggering Soft Release)")
         playWhenReady = false
+        isPlayingNotified = false
+
         engine.release()
 
         // 调用管理器的软释放，不销毁 AudioTrack 硬件资源
@@ -183,6 +175,8 @@ abstract class BaseNativePlayer(
         if (currentTrackRef?.state == AudioTrack.STATE_INITIALIZED) {
             currentTrackRef?.flush()
         }
+        // seek 后通常需要缓冲，重置标记
+        isPlayingNotified = false
         engine.seek(positionMs)
     }
 
@@ -196,15 +190,17 @@ abstract class BaseNativePlayer(
         listeners.add(listener)
 
         val currentState = engine.getPlayerState()
-        // 如果已经准备好（包含准备好、播放中、暂停中），立即补发 onPrepared
+        // 如果已经准备好（包含准备好、播放中、暂停中），立即补发回调
         if (currentState == PlaybackState.PREPARED ||
             currentState == PlaybackState.PLAYING ||
-            currentState == PlaybackState.PAUSED
+            currentState == PlaybackState.PAUSED ||
+            currentState == PlaybackState.BUFFERING
         ) {
-            QYLogger.d("addListener: Player is already prepared, notifying new listener immediately.")
+            QYLogger.d("addListener: Player is active, notifying new listener immediately.")
             try {
+                // 必定补发 onPrepared
                 listener.onPrepared()
-                // 如果是播放或暂停状态，也可以选择补充回调 onStateChanged
+                // 如果不是单纯的 prepared 状态，补发当前具体状态
                 if (currentState != PlaybackState.PREPARED) {
                     listener.onStateChanged(currentState)
                 }
@@ -216,6 +212,17 @@ abstract class BaseNativePlayer(
 
     override fun removeListener(listener: PlayerListener) {
         listeners.remove(listener)
+    }
+
+    private fun notifyStateChanged(state: PlaybackState) {
+        mediaSource?.let { source ->
+            onPlaybackStateChangeListener?.onPlaybackStateChanged(
+                state,
+                source.uri,
+                getTrackIndex()
+            )
+            listeners.forEach { it.onStateChanged(state) }
+        }
     }
 
     // 辅助方法：将位深转换为 AudioFormat 编码
@@ -273,13 +280,20 @@ abstract class BaseNativePlayer(
         }
 
         override fun onProgress(track: Int, currentMs: Long, totalMs: Long, progress: Float) {
+            if (!isPlayingNotified) {
+                QYLogger.d("onProgress triggers PLAYING notification (Fallback)")
+                isPlayingNotified = true
+                notifyStateChanged(PlaybackState.PLAYING)
+            }
+
             listeners.forEach { it.onProgress(track, currentMs, totalMs, progress) }
             onProgressListener?.onProgress(PlaybackProgress(currentMs, progress, totalMs))
         }
 
         override fun onError(code: Int, msg: String) {
             QYLogger.e("Native Error: $code, $msg")
-            playWhenReady = false // 发生错误，重置自动播放
+            playWhenReady = false
+            isPlayingNotified = false
             listeners.forEach { it.onError(code, msg) }
             onPlaybackStateChangeListener?.onPlayerError(msg)
         }
@@ -287,8 +301,10 @@ abstract class BaseNativePlayer(
         override fun onComplete() {
             QYLogger.d("onComplete")
             playWhenReady = false
+            isPlayingNotified = false
+
+            listeners.forEach { it.onComplete() }
             mediaSource?.let { source ->
-                listeners.forEach { it.onComplete() }
                 onPlaybackStateChangeListener?.onPlaybackStateChanged(
                     PlaybackState.COMPLETED,
                     source.uri,
@@ -298,6 +314,14 @@ abstract class BaseNativePlayer(
         }
 
         override fun onAudioData(data: ByteArray, size: Int) {
+            if (!isPlayingNotified) {
+                if (engine.getPlayerState() != PlaybackState.BUFFERING) {
+                    QYLogger.d("onAudioData: First data received, notifying PLAYING")
+                    isPlayingNotified = true
+                    notifyStateChanged(PlaybackState.PLAYING)
+                }
+            }
+
             currentTrackRef?.let { track ->
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
                     try {
@@ -309,6 +333,20 @@ abstract class BaseNativePlayer(
                         QYLogger.e("AudioTrack write error", e)
                     }
                 }
+            }
+        }
+
+        override fun onBuffering(isBuffering: Boolean) {
+            if (isBuffering) {
+                QYLogger.d("onBuffering: START")
+                // 开始缓冲，不再是播放状态
+                isPlayingNotified = false
+                notifyStateChanged(PlaybackState.BUFFERING)
+            } else {
+                QYLogger.d("onBuffering: END -> notifying PLAYING")
+                // 缓冲结束，恢复播放
+                isPlayingNotified = true
+                notifyStateChanged(PlaybackState.PLAYING)
             }
         }
     }

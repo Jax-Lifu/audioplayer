@@ -10,6 +10,8 @@ internal interface EngineCallback {
     fun onError(code: Int, msg: String)
     fun onComplete()
     fun onAudioData(data: ByteArray, size: Int)
+
+    fun onBuffering(isBuffering: Boolean)
 }
 
 internal class NativePlayerEngine {

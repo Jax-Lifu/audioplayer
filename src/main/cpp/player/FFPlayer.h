@@ -205,6 +205,11 @@ private:
     // 起播阈值 (默认256KB，最后3s左右)。
     // 当 Seek 或缓冲耗尽后，必须积攒这么多数据才开始播放，防止频繁卡顿。
     int minStartThresholdBytes = 256 * 1024;
+
+    int64_t mSwrInChannelLayout = 0;
+    int mSwrInSampleRate = 0;
+    int mSwrInFormat = -1;
+    int mSwrInChannels = 0;
 };
 
 #endif //QYPLAYER_FFPLAYER_H

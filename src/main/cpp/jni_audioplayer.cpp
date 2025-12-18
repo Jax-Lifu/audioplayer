@@ -40,6 +40,7 @@ public:
         jmid_onError = env->GetMethodID(clazz, "onError", "(ILjava/lang/String;)V");
         jmid_onComplete = env->GetMethodID(clazz, "onComplete", "()V");
         jmid_onAudioData = env->GetMethodID(clazz, "onAudioData", "([BI)V");
+        jmid_onBuffering = env->GetMethodID(clazz, "onBuffering", "(Z)V");
 
         // 记得删除局部引用
         env->DeleteLocalRef(clazz);
@@ -67,10 +68,7 @@ public:
             env->CallVoidMethod(javaCallbackObj, jmid_onProgress, trackIndex, (jlong) currentMs,
                                 (jlong) totalMs, progress);
         }
-        if (env->ExceptionCheck()) {
-            env->ExceptionDescribe();
-            env->ExceptionClear();
-        }
+        checkException(env);
     }
 
     void onError(int code, const char *msg) override {
@@ -80,10 +78,7 @@ public:
             env->CallVoidMethod(javaCallbackObj, jmid_onError, (jint) code, jMsg);
             env->DeleteLocalRef(jMsg);
         }
-        if (env->ExceptionCheck()) {
-            env->ExceptionDescribe();
-            env->ExceptionClear();
-        }
+        checkException(env);
     }
 
     void onComplete() override {
@@ -91,7 +86,12 @@ public:
     }
 
     void onBuffering(bool buffering) override {
-
+        JNIEnv *env = getEnv();
+        if (env && isValid()) {
+            // 将 C++ bool 转换为 JNI jboolean
+            env->CallVoidMethod(javaCallbackObj, jmid_onBuffering, (jboolean) buffering);
+        }
+        checkException(env);
     }
 
     void onAudioData(uint8_t *data, int size) override {
@@ -101,10 +101,7 @@ public:
             env->SetByteArrayRegion(jData, 0, size, (jbyte *) data);
 
             env->CallVoidMethod(javaCallbackObj, jmid_onAudioData, jData, (jint) size);
-            if (env->ExceptionCheck()) {
-                env->ExceptionDescribe();
-                env->ExceptionClear();
-            }
+            checkException(env);
             env->DeleteLocalRef(jData);
         }
     }
@@ -116,6 +113,8 @@ private:
     jmethodID jmid_onError;
     jmethodID jmid_onComplete;
     jmethodID jmid_onAudioData;
+    jmethodID jmid_onBuffering;
+
 
     static JNIEnv *getEnv() {
         JNIEnv *env;
@@ -136,7 +135,11 @@ private:
     void callVoidMethod(jmethodID mid) {
         JNIEnv *env = getEnv();
         if (env && isValid()) env->CallVoidMethod(javaCallbackObj, mid);
-        if (env->ExceptionCheck()) {
+        checkException(env);
+    }
+
+    void checkException(JNIEnv *env) {
+        if (env && env->ExceptionCheck()) {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
