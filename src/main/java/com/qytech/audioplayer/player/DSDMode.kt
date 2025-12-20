@@ -16,7 +16,13 @@ enum class D2pSampleRate(val hz: Int) {
     PCM_96000(96000),
     PCM_192000(192000),
     PCM_384000(384000),
-    PCM_768000(768000),
+    PCM_768000(768000);
+
+    companion object {
+        fun fromValue(value: Int): D2pSampleRate {
+            return D2pSampleRate.entries.firstOrNull { it.hz == value } ?: PCM_44100
+        }
+    }
 }
 
 /**

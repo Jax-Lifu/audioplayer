@@ -3,6 +3,7 @@
 #include "jni_audioprobe.h"
 #include "jni_audioplayer.h"
 #include "parser/ProbeUtils.h"
+#include "jni_dsd_resampler.h"
 
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -24,6 +25,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
+    // 3. 注册 DsdResampler
+    if (register_dsd_resampler_methods(vm, env) != JNI_OK) {
+        LOGE("JNI: Failed to register DsdResampler methods");
+        return JNI_ERR;
+    }
 
     LOGD("JNI_OnLoad: Success");
     return JNI_VERSION_1_6;

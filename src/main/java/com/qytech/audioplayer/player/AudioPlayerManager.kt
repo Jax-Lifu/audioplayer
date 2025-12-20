@@ -39,6 +39,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         val sourcePath: String,
         val trackIndex: Int,
         val dsdMode: DSDMode,
+        val d2pSampleRate: D2pSampleRate,
         val transition: AudioTransition?,
         val securityKey: String?,
         val initVector: String?,
@@ -134,7 +135,6 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
 
             // D. 创建新播放器
             val newPlayer = createPlayerInternal(request)
-
             playerMutex.withLock {
                 currentPlayer = newPlayer
                 // 绑定监听器 (使用内部代理监听器)
@@ -254,6 +254,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         sourcePath: String,
         trackIndex: Int = 0,
         dsdMode: DSDMode = DSDMode.NATIVE,
+        d2pSampleRate: D2pSampleRate = D2pSampleRate.PCM_44100,
         transition: AudioTransition? = null,
         listener: PlayerListener? = null, // 单次播放的监听器
         securityKey: String? = null,
@@ -274,6 +275,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                 sourcePath = sourcePath,
                 trackIndex = trackIndex,
                 dsdMode = dsdMode,
+                d2pSampleRate = d2pSampleRate,
                 transition = transition,
                 securityKey = securityKey,
                 initVector = initVector,
@@ -354,6 +356,7 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
                     source = request.sourcePath,
                     trackId = request.trackIndex,
                     dsdMode = request.dsdMode,
+                    d2pSampleRate = request.d2pSampleRate,
                     securityKey = request.securityKey,
                     initVector = request.initVector,
                     filename = request.filename,

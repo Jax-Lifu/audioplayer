@@ -53,6 +53,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         utils/FFmpegNetworkStream.cpp
         jni_audioprobe.cpp
         jni_audioplayer.cpp
+        jni_dsd_resampler.cpp
         jni_main.cpp)
 
 target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE

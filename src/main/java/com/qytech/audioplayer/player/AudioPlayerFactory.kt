@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
+import androidx.core.net.toUri
 import com.qytech.audioplayer.strategy.AudioProfile
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.strategy.MediaSourceStrategy
@@ -19,6 +20,7 @@ object AudioPlayerFactory {
         profile: AudioProfile = AudioProfile.Standard,
         headers: Map<String, String>? = null,
         dsdMode: DSDMode = DSDMode.NATIVE,
+        d2pSampleRate: D2pSampleRate = D2pSampleRate.PCM_44100,
     ): AudioPlayer? {
         val (finalSource, finalProfile, finalHeaders) = resolveWebDavProfile(
             source,
@@ -34,7 +36,7 @@ object AudioPlayerFactory {
 
         QYPlayerLogger.d("Factory: Created source: $mediaSource from profile: $finalProfile")
 
-        return buildPlayer(context, mediaSource, dsdMode)
+        return buildPlayer(context, mediaSource, dsdMode, d2pSampleRate)
     }
 
     /**
@@ -72,6 +74,7 @@ object AudioPlayerFactory {
 
     /**
      * 兼容老接口
+     * 逻辑顺序：Sony -> ISO -> CUE -> TimeRange(Valid)  -> Standard
      */
     @Deprecated("Use AudioPlayerFactory.create(context, source, profile...)")
     fun createAudioPlayer(
@@ -79,6 +82,7 @@ object AudioPlayerFactory {
         source: String,
         trackId: Int = -1,
         dsdMode: DSDMode = DSDMode.NATIVE,
+        d2pSampleRate: D2pSampleRate = D2pSampleRate.PCM_44100,
         securityKey: String? = null,
         initVector: String? = null,
         headers: Map<String, String>? = null,
@@ -92,46 +96,89 @@ object AudioPlayerFactory {
         webDavPwd: String? = null,
     ): AudioPlayer? {
 
-        // 1. 提取关键判定条件
-        val isSonyEncrypted = !securityKey.isNullOrEmpty() && !initVector.isNullOrEmpty()
-        val isExplicitTimeRange = startPosition != null && endPosition != null
-        val isValidTrackId = trackId > 0
-        // 判断是否为 ISO 文件 (检查 URL 后缀或 filename 参数)
-        val isIsoSource = source.endsWith(".iso", ignoreCase = true) ||
-                filename?.endsWith(".iso", ignoreCase = true) == true
-        val isWebDav = !webDavUser.isNullOrEmpty() && !webDavPwd.isNullOrEmpty()
+        // --- 1. 数据清洗 ---
+        val targetNameForDetection = if (!filename.isNullOrEmpty()) {
+            filename
+        } else {
+            // 只有当 source 明确以常见的网络协议头开头时，才使用 Uri 解析器去剥离参数。
+            // 常见的流媒体/网络协议：http, https, rtmp, rtsp, ftp, udp, mmsh, mmst, dav, davs
+            val lowerSource = source.lowercase(Locale.getDefault())
+            val isRemoteProtocol = lowerSource.startsWith("http://") ||
+                    lowerSource.startsWith("https://") ||
+                    lowerSource.startsWith("rtmp://") ||
+                    lowerSource.startsWith("rtsp://") ||
+                    lowerSource.startsWith("ftp://") ||
+                    lowerSource.startsWith("udp://") ||
+                    lowerSource.startsWith("mmsh://") ||
+                    lowerSource.startsWith("mmst://")
 
-        // 2. 打印精简日志
-        QYPlayerLogger.d(
-            "Legacy createAudioPlayer invoked.\n" +
-                    "Source: $source\n" +
-                    "Type Hints: [ISO=$isIsoSource, Sony=$isSonyEncrypted, WebDAV=$isWebDav]\n" +
-                    "Range: ${if (isExplicitTimeRange) "$startPosition-$endPosition" else "None"}\n" +
-                    "TrackId: $trackId"
-        )
+            if (isRemoteProtocol) {
+                // 情况 A: 标准网络 URL
+                // 行为：严格剥离 ?query 和 #fragment
+                try {
+                    source.toUri().path ?: source.substringBefore("?")
+                } catch (_: Exception) {
+                    source.substringBefore("?")
+                }
+            } else {
+                source
+            }
+        }.lowercase(Locale.getDefault())
 
-        // 3. 构建核心业务 Profile
+        // --- 2. 参数有效性严格校验 (Validations) ---
+
+        // [校验 1] Sony DRM: Key 和 IV 必须同时存在且不为空
+        val isValidSonyParams = !securityKey.isNullOrEmpty() && !initVector.isNullOrEmpty()
+
+        // [校验 2] WebDAV: 账号密码必须同时存在
+        val isValidWebDavParams = !webDavUser.isNullOrEmpty() && !webDavPwd.isNullOrEmpty()
+
+        // [校验 3] 时间范围: 
+        // 1. start 和 end 不能为 null
+        // 2. start 必须 >= 0 (排除 -1 或负数)
+        // 3. end 必须为 -1 (表示直到末尾) 或者 end > start (结束时间必须大于开始时间)
+        val isValidTimeRange = startPosition != null && endPosition != null &&
+                startPosition >= 0 &&
+                (endPosition == -1L || endPosition > startPosition)
+
+        // [校验 4] 文件后缀
+        val isIsoExt = targetNameForDetection.endsWith(".iso")
+        val isCueExt = targetNameForDetection.endsWith(".cue")
+
+        // --- 3. 严格路由逻辑 ---
         val coreProfile: AudioProfile = when {
-            isSonyEncrypted -> {
+            // [Priority 1]: Sony Select (参数有效才进入)
+            isValidSonyParams -> {
                 AudioProfile.SonySelect(securityKey, initVector)
             }
 
-            isIsoSource && isValidTrackId -> {
-                AudioProfile.SacdIso(trackId, filename)
+            // [Priority 2]: ISO 文件 (格式优先)
+            // 只要是 .iso，必须走 SacdIso，忽略时间参数（因为 SacdPlayer 负责处理 ISO）
+            isIsoExt -> {
+                val validTrackId = if (trackId > 0) trackId else 0
+                AudioProfile.SacdIso(validTrackId, filename)
             }
 
-            isExplicitTimeRange -> {
+            // [Priority 3]: CUE 文件 (格式优先)
+            // 只要是 .cue，必须走 CueByIndex 进行解析
+            isCueExt -> {
+                val validTrackId = if (trackId > 0) trackId else 0
+                AudioProfile.CueByIndex(validTrackId)
+            }
+
+            // [Priority 4]: 显式时间范围 (仅当参数合法时)
+            // 场景：普通音频文件 (flac/mp3/wav) 的片段播放
+            isValidTimeRange -> {
                 AudioProfile.CueByTime(startPosition, endPosition)
             }
 
-            isValidTrackId -> {
-                AudioProfile.CueByIndex(trackId)
-            }
-
+            // [Priority 5]: 标准播放 (兜底)
+            // 如果 startPosition = -1，isValidTimeRange 为 false，会落到这里，符合预期
             else -> AudioProfile.Standard
         }
 
-        val finalProfile = if (isWebDav) {
+        // --- 4. WebDAV 包装 ---
+        val finalProfile = if (isValidWebDavParams) {
             AudioProfile.WebDav(
                 username = webDavUser,
                 password = webDavPwd,
@@ -141,16 +188,24 @@ object AudioPlayerFactory {
             coreProfile
         }
 
-        QYPlayerLogger.d("Legacy parameter mapping result: $finalProfile")
+        QYPlayerLogger.d(
+            "Legacy Routing Detail:\n" +
+                    "  TargetFile: $targetNameForDetection\n" +
+                    "  ValidSony: $isValidSonyParams\n" +
+                    "  ValidTime: $isValidTimeRange (Start=$startPosition, End=$endPosition)\n" +
+                    "  ValidWebDav: $isValidWebDavParams\n" +
+                    "  IsIso: $isIsoExt, IsCue: $isCueExt\n" +
+                    "  -> Result Profile: $finalProfile"
+        )
 
-        // 5. 调用新接口
-        return create(context, source, finalProfile, headers, dsdMode)
+        return create(context, source, finalProfile, headers, dsdMode, d2pSampleRate)
     }
 
     private fun buildPlayer(
         context: Context,
         source: MediaSource,
         dsdMode: DSDMode,
+        d2pSampleRate: D2pSampleRate,
     ): AudioPlayer {
         val player = when (source) {
             is SacdMediaSource -> SacdPlayer(context)
@@ -163,6 +218,7 @@ object AudioPlayerFactory {
             else -> FFPlayer(context)
         }
         player.setDsdMode(dsdMode)
+        player.setD2pSampleRate(d2pSampleRate)
         player.setMediaSource(source)
         return player
     }

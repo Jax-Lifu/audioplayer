@@ -173,8 +173,6 @@ private:
     bool mIsSourceDsd = false;
     bool isMsbf = false;
     bool is4ChannelSupported = false;
-    int mDsdMode = DSD_MODE_NATIVE;
-    int mTargetD2pSampleRate = 44100;
 
     // Threads
     std::thread *readThread = nullptr;

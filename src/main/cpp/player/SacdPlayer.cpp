@@ -64,7 +64,7 @@ void SacdPlayer::prepare() {
         extractAudioInfo();
         if (mDsdMode == DSD_MODE_D2P) {
             d2pDecoder = new FFmpegD2pDecoder();
-            d2pDecoder->initFFmpegD2pDecoder(mTargetD2pSampleRate);
+            d2pDecoder->init(2822400, mTargetD2pSampleRate, 16);
         }
         is4ChannelSupported = SystemProperties::is4ChannelSupported();
 
@@ -195,7 +195,7 @@ void SacdPlayer::releaseInternal() {
     mState = STATE_IDLE;
 
     if (d2pDecoder) {
-        d2pDecoder->releaseFFmpegD2pDecoder();
+        d2pDecoder->release();
         delete d2pDecoder;
         d2pDecoder = nullptr;
     }
@@ -240,7 +240,7 @@ int SacdPlayer::onDecodeData(uint8_t *data, size_t size, int track_index) {
             }
             break;
         case DSD_MODE_D2P:
-            out_size = d2pDecoder->decodeD2pData(data, size, outBuffer.data());
+            out_size = d2pDecoder->process(data, size, outBuffer.data());
             break;
         case DSD_MODE_DOP:
             out_size = DsdUtils::packDoP(true, data, size, outBuffer.data());
