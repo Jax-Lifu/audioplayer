@@ -4,8 +4,12 @@ import com.qytech.audioplayer.parser.model.AudioMetadata
 import com.qytech.audioplayer.strategy.ScanProfile
 import com.qytech.audioplayer.strategy.WebDavUtils
 import com.qytech.audioplayer.utils.QYPlayerLogger
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 object AudioProbe {
+    private val directoryCoverCache = ConcurrentHashMap<String, String>()
+
     init {
         System.loadLibrary("audioplayer")
     }
@@ -64,9 +68,33 @@ object AudioProbe {
 
         QYPlayerLogger.d("probe: finalUrl = $finalUrl, headers = $headersParam, filename = $filename, audioSourceUrl = $audioSourceUrl")
 
-        val result = nativeProbe(finalUrl, headersParam, filename, audioSourceUrl)
-        QYPlayerLogger.d("probe: result = $result")
-        return result
+        val metadata = nativeProbe(finalUrl, headersParam, filename, audioSourceUrl) ?: return null
+        QYPlayerLogger.d("probe: metadata = $metadata")
+        if (metadata.coverPath.isNullOrEmpty()) {
+            tryGetFolderCoverPath(source)?.let {
+                return metadata.copy(coverPath = it)
+            }
+        }
+        return metadata
+    }
+
+    /**
+     * 获取文件夹内的封面图路径（带缓存机制）
+     * 返回：路径字符串，若未找到则返回 null
+     */
+    private fun tryGetFolderCoverPath(source: String): String? {
+        val file = File(source)
+        if (!file.exists() || !file.isAbsolute) return null
+
+        val parentDir = file.parentFile ?: return null
+        val parentPath = parentDir.absolutePath
+
+        val cachedPath = directoryCoverCache.computeIfAbsent(parentPath) {
+            QYPlayerLogger.d("Scanning directory for cover: $parentPath")
+            LocalCoverImage.findLocalCoverImage(parentDir)?.absolutePath ?: ""
+        }
+
+        return cachedPath.ifEmpty { null }
     }
 
     /**
