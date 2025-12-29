@@ -142,8 +142,6 @@ object GlobalAudioTrackManager {
         val channelConfig =
             if (channel == 4) AudioFormat.CHANNEL_OUT_QUAD else AudioFormat.CHANNEL_OUT_STEREO
         val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding)
-        // 适当增大 Buffer 以防止高码率 DSD 播放卡顿
-        val bufferSize = if (minBufferSize > 0) minBufferSize * 4 else sampleRate * 4
 
         return AudioTrack.Builder()
             .setAudioAttributes(
@@ -159,7 +157,7 @@ object GlobalAudioTrackManager {
                     .setChannelMask(channelConfig)
                     .build()
             )
-            .setBufferSizeInBytes(bufferSize)
+            .setBufferSizeInBytes(minBufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
     }
