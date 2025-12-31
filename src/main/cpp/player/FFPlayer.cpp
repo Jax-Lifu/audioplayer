@@ -8,6 +8,12 @@ static int64_t getNowMs() {
             std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
+static inline void msToMinSec(long ms, long &min, long &sec) {
+    long totalSec = ms / 1000;
+    min = totalSec / 60;
+    sec = totalSec % 60;
+}
+
 FFPlayer::FFPlayer(IPlayerCallback *callback) : BasePlayer(callback) {
     initFFmpeg();
     outBuffer.reserve(DEFAULT_BUFFER_SIZE);
@@ -232,6 +238,7 @@ void FFPlayer::play() {
         }
         if (!readThread) readThread = new std::thread(&FFPlayer::readLoop, this);
         if (!decodeThread) decodeThread = new std::thread(&FFPlayer::decodingLoop, this);
+        if (!mProgressThread) mProgressThread = new std::thread(&FFPlayer::progressHeartbeat, this);
         stateCond.notify_all();
     }
 }
@@ -274,6 +281,11 @@ void FFPlayer::stop() {
         decodeThread->join();
         delete decodeThread;
         decodeThread = nullptr;
+    }
+    if (mProgressThread && mProgressThread->joinable()) {
+        mProgressThread->join();
+        delete mProgressThread;
+        mProgressThread = nullptr;
     }
 }
 
@@ -368,6 +380,10 @@ void FFPlayer::readLoop() {
                 if (ret >= 0) {
                     LOGD("Seek success to %ld ms", targetMs);
                     lastReadPosMs = targetMs;
+
+                    mBasePtsMs.store(targetMs);
+                    mBaseSystemMs.store(0);
+                    mCurrentPositionMs.store(targetMs);
                 } else {
                     LOGE("Seek failed: %d", ret);
                 }
@@ -394,6 +410,7 @@ void FFPlayer::readLoop() {
             }
 
             bool isRealEOF = (ret == AVERROR_EOF);
+            LOGD("Read error: %d, count: %d ", ret, consecutiveErrors);
 
             // 智能 EOF 判定：IO 标记 check
             if (!isRealEOF && fmtCtx->pb && fmtCtx->pb->eof_reached) isRealEOF = true;
@@ -414,7 +431,7 @@ void FFPlayer::readLoop() {
                     mIsEOF.store(true);
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                continue;
+                break;
             }
 
             consecutiveErrors++;
@@ -553,10 +570,6 @@ void FFPlayer::decodingLoop() {
                 else handlePcmAudioPacket(nullptr, frame);
             }
         } else {
-            // 普通模式
-            if (packet->pts != AV_NOPTS_VALUE) {
-                mCurrentPositionMs.store((long) (packet->pts * av_q2d(*timeBase) * 1000));
-            }
             // EndTime 检查
             if (mEndTimeMs > 0 && mCurrentPositionMs.load() >= mEndTimeMs) {
                 av_packet_unref(packet);
@@ -564,9 +577,6 @@ void FFPlayer::decodingLoop() {
                 mIsEOF.store(true);
                 continue;
             }
-
-            if (mState == STATE_PLAYING) updateProgress();
-
             if (mIsSourceDsd && mDsdMode != DSD_MODE_D2P) handleDsdAudioPacket(packet, frame);
             else handlePcmAudioPacket(packet, frame);
 
@@ -576,6 +586,15 @@ void FFPlayer::decodingLoop() {
 
     av_frame_free(&frame);
     av_packet_free(&packet);
+}
+
+void FFPlayer::progressHeartbeat() {
+    while (!mIsExit.load()) {
+        if (mState == STATE_PLAYING) {
+            updateProgress();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
 }
 
 void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
@@ -596,23 +615,23 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
         if (ret < 0) break;
 
+        if (mState == STATE_PLAYING && frame->pts != AV_NOPTS_VALUE) {
+            mBasePtsMs.store((int64_t) (frame->pts * av_q2d(*timeBase) * 1000));
+            mBaseSystemMs.store(getNowMs());
+        }
+
         if (frame->nb_samples <= 0) continue;
 
-        // --- [核心修复 1] 强制标准化 Frame 布局 ---
-        // 很多崩溃是因为 layout.order 是 UNSPEC，导致 swr 计算矩阵失败
         if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC ||
             frame->ch_layout.nb_channels <= 0) {
             // 如果没布局，根据声道数猜一个默认布局 (例如 2 -> Stereo)
             av_channel_layout_default(&frame->ch_layout, frame->ch_layout.nb_channels);
         }
 
-        // --- [核心修复 2] 严格的数据指针检查 ---
-        // 确保 swr_convert 读取的每一个 input 指针都是有效的
         bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat) frame->format);
         int planesToCheck = isPlanar ? frame->ch_layout.nb_channels : 1;
         bool hasBadPointer = false;
 
-        // 必须检查 extended_data，因为 swr_convert 用的是这个
         if (!frame->extended_data) {
             hasBadPointer = true;
         } else {
@@ -629,12 +648,6 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
             continue;
         }
 
-        // --- [核心修复 3] 动态重建 SwrContext (完全脱离 codecCtx) ---
-        // 这里的逻辑是：只看 Frame，不看 CodecCtx。只要 Frame 变了，Swr 必须变。
-
-        // 获取当前 Frame 的布局掩码 (用于比较)
-        // 注意：这里我们比较 layout 的 mask 值，如果 layout 结构比较复杂，可以比较 nb_channels
-        // 但最安全的是：只要参数变了，就重建。
         bool swrNeedsReinit = false;
 
         // 比较参数
@@ -674,13 +687,10 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
             av_opt_set_int(swrCtx, "out_sample_rate", actualOutRate, 0);
             av_opt_set_sample_fmt(swrCtx, "out_sample_fmt", outputSampleFormat, 0);
 
-            // --- 配置 Input (完全基于当前 Frame) ---
-            // 这一点至关重要：告诉 Swr 实际进来的数据到底是什么
             av_opt_set_chlayout(swrCtx, "in_chlayout", &frame->ch_layout, 0);
             av_opt_set_int(swrCtx, "in_sample_rate", frame->sample_rate, 0);
             av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat) frame->format, 0);
 
-            // 显式设置声道数，防止 rematrix 混淆
             av_opt_set_int(swrCtx, "ich", frame->ch_layout.nb_channels, 0);
 
             if (swr_init(swrCtx) < 0) {
@@ -746,6 +756,11 @@ void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
     // DSD 模式一般不需要 Drain 处理残余帧，因为没有 buffer delay
     if (!packet) return;
 
+    if (mState == STATE_PLAYING && packet->pts != AV_NOPTS_VALUE) {
+        mBasePtsMs.store((int64_t) (packet->pts * av_q2d(*timeBase) * 1000));
+        mBaseSystemMs.store(getNowMs());
+    }
+
     ensureBufferCapacity(packet->size * 2);
     int outputSize = 0;
     uint8_t *rawBuffer = outBuffer.data();
@@ -770,8 +785,23 @@ void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
 }
 
 void FFPlayer::updateProgress() {
-    long cur = mCurrentPositionMs.load();
-    long relativePosition = cur - mStartTimeMs;
+    int64_t basePts = mBasePtsMs.load();
+    int64_t baseSys = mBaseSystemMs.load();
+    int64_t now = getNowMs();
+
+    int64_t currentPosMs = basePts;
+
+    if (mState == STATE_PLAYING && baseSys > 0) {
+        int64_t elapsed = now - baseSys;
+        if (elapsed > 0 && elapsed < 5000) {
+            currentPosMs += elapsed;
+        }
+    }
+
+    mCurrentPositionMs.store(currentPosMs);
+
+
+    long relativePosition = (long) (currentPosMs - mStartTimeMs);
     if (relativePosition < 0) relativePosition = 0;
 
     long virtualDuration = getDuration();
@@ -784,6 +814,7 @@ void FFPlayer::updateProgress() {
         mCallback->onProgress(0, relativePosition, virtualDuration, progress);
     }
 }
+
 
 void FFPlayer::extractAudioInfo() {
     if (fmtCtx && fmtCtx->duration != AV_NOPTS_VALUE) {
@@ -835,6 +866,17 @@ void FFPlayer::extractAudioInfo() {
     }
     LOGD("Buffering Config: BitRate=%ld, Target 3s=%d, Final Threshold=%d",
          bitRate, targetBytes, minStartThresholdBytes);
+#ifdef DEBUG
+    long dMin, dSec, sMin, sSec;
+    msToMinSec(mDurationMs, dMin, dSec);
+    msToMinSec(mStartTimeMs, sMin, sSec);
+
+    LOGD(
+            "File Duration: %ld ms (%02ld:%02ld), Track Start: %ld ms (%02ld:%02ld)",
+            mDurationMs, dMin, dSec,
+            mStartTimeMs, sMin, sSec
+    );
+#endif
 }
 
 void FFPlayer::releaseFFmpeg() {

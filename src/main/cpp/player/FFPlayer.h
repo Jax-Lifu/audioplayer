@@ -25,6 +25,7 @@ extern "C" {
 class PacketQueue {
 public:
     PacketQueue() : nb_packets(0), size(0), abort_request(false) {}
+
     ~PacketQueue() { flush(); }
 
     void start() {
@@ -106,46 +107,71 @@ private:
 class FFPlayer : public BasePlayer {
 public:
     explicit FFPlayer(IPlayerCallback *callback);
+
     ~FFPlayer() override;
 
     void setDataSource(const char *path, const std::map<std::string, std::string> &headers,
                        int64_t startPositon = 0, int64_t endPosition = -1);
+
     void prepare() override;
+
     void play() override;
+
     void pause() override;
+
     void resume() override;
+
     void stop() override;
+
     void release() override;
+
     void seek(long ms) override;
 
     // Getters
     long getDuration() const override;
+
     long getCurrentPosition() const override;
+
     int getSampleRate() const override;
+
     int getChannelCount() const override;
+
     int getBitPerSample() const override;
+
     bool isDsd() const override;
+
     bool isExit() const;
 
 private:
     void releaseInternal();
+
     void initFFmpeg();
+
     void releaseFFmpeg();
+
     int initSwrContext();
+
     void extractAudioInfo();
 
     // 核心循环
     void readLoop();     // 生产者 (负责下载)
     void decodingLoop(); // 消费者 (负责解码播放)
+    void progressHeartbeat(); // 专门负责进度
 
     void handlePcmAudioPacket(AVPacket *packet, AVFrame *frame);
+
     void handleDsdAudioPacket(AVPacket *packet, AVFrame *frame);
+
     void updateProgress();
+
     void ensureBufferCapacity(size_t requiredSize);
 
     static bool isDsdCodec(AVCodecID id);
+
     static bool isMsbfCodec(AVCodecID id);
+
     static AVSampleFormat getOutputSampleFormat(AVSampleFormat inputFormat);
+
     static int interrupt_cb(void *ctx);
 
 private:
@@ -208,6 +234,11 @@ private:
     int mSwrInSampleRate = 0;
     int mSwrInFormat = -1;
     int mSwrInChannels = 0;
+
+    // 针对某些压缩格式，进度回调慢的问题
+    std::atomic<int64_t> mBasePtsMs{0};      // 记录帧开始时的 PTS
+    std::atomic<int64_t> mBaseSystemMs{0};   // 记录拿到该帧时的系统时间
+    std::thread *mProgressThread = nullptr;  // 独立的心跳线程
 };
 
 #endif //QYPLAYER_FFPLAYER_H
