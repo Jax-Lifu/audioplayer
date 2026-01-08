@@ -52,6 +52,8 @@ public:
 
     virtual int getBitPerSample() const = 0;
 
+    virtual MediaInfo getMediaInfo() const = 0;
+
     virtual bool isDsd() const = 0;
 
     bool isPlaying() const {

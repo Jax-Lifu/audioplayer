@@ -305,6 +305,7 @@ void FFPlayer::seek(long ms) {
     if (duration > 0 && targetRelativeMs > duration) targetRelativeMs = duration;
     if (targetRelativeMs < 0) targetRelativeMs = 0;
     long targetAbsoluteMs = targetRelativeMs + mStartTimeMs;
+    LOGD("seek %ld ms to %ld ms", ms, targetAbsoluteMs);
 
     if (mState != STATE_IDLE && mState != STATE_ERROR && mState != STATE_STOPPED) {
         std::lock_guard<std::mutex> lock(mSeekMutex);
@@ -348,7 +349,7 @@ void FFPlayer::readLoop() {
                     mSeekTargetMs = -1;
                 }
             }
-
+            LOGD("Seek to %ld ms", targetMs);
             if (targetMs >= 0) {
                 mIsEOF.store(false);
                 consecutiveErrors = 0;
@@ -391,6 +392,11 @@ void FFPlayer::readLoop() {
             continue; // Seek 完立即开始下载
         }
 
+        if (mState.load() == STATE_STOPPED ||
+            mState.load() == STATE_COMPLETED) {
+            break;
+        }
+
         // --- 2. 缓存控制 ---
         // 移除了 STATE_PAUSED 的检查，实现“暂停时继续下载”
         if (audioQueue.getSize() > MAX_QUEUE_SIZE) {
@@ -418,7 +424,7 @@ void FFPlayer::readLoop() {
             // 智能 EOF 判定：临近结尾的错误视为结束
             if (!isRealEOF && mDurationMs > 0) {
                 long remaining = mDurationMs - lastReadPosMs;
-                if (remaining < 500) { // 剩余不足500ms
+                if (remaining < 100) { // 剩余不足500ms
                     LOGW("Network error near end (%ld/%ld). Treating as EOF.", lastReadPosMs,
                          mDurationMs);
                     isRealEOF = true;
@@ -430,19 +436,16 @@ void FFPlayer::readLoop() {
                     LOGD("Stream EOF reached.");
                     mIsEOF.store(true);
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                continue;
             }
 
             consecutiveErrors++;
             LOGW("Read error: %d, count: %d", ret, consecutiveErrors);
             if (consecutiveErrors > MAX_ERRORS) {
-                // 错误太多，强制结束或重连（此处选择 EOF 以结束）
                 mIsEOF.store(true);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
 
@@ -480,7 +483,10 @@ void FFPlayer::decodingLoop() {
     bool isDraining = false;
 
     while (!mIsExit.load()) {
-        if (mState == STATE_STOPPED) break;
+        if (mState.load() == STATE_STOPPED ||
+            mState.load() == STATE_COMPLETED) {
+            break;
+        }
 
         // 1. Seek Flush
         if (mFlushCodec.load()) {
@@ -923,6 +929,114 @@ int FFPlayer::getChannelCount() const {
 int FFPlayer::getBitPerSample() const { return mBitPerSample; }
 
 bool FFPlayer::isDsd() const { return mIsSourceDsd; }
+
+MediaInfo FFPlayer::getMediaInfo() const {
+    MediaInfo info;
+
+    if (!codecCtx) return info;
+
+    info.channels = codecCtx->ch_layout.nb_channels;
+
+    // 获取原始 codec 名称 (例如: "dsd_lsbf", "pcm_s16le", "flac")
+    const AVCodecDescriptor *desc = avcodec_descriptor_get(codecCtx->codec_id);
+    std::string rawFormat = (desc && desc->name) ? desc->name : "unknown";
+
+    // 判断是否为 DSD
+    bool isDsd = (codecCtx->codec_id == AV_CODEC_ID_DSD_LSBF ||
+                  codecCtx->codec_id == AV_CODEC_ID_DSD_MSBF ||
+                  codecCtx->codec_id == AV_CODEC_ID_DSD_LSBF_PLANAR ||
+                  codecCtx->codec_id == AV_CODEC_ID_DSD_MSBF_PLANAR);
+
+    if (isDsd) {
+        // --- DSD 规格处理 ---
+        info.bitDepth = 1;
+
+        // 修正采样率 (FFmpeg 报告的是 ByteRate，需要 * 8)
+        info.sampleRate = codecCtx->sample_rate * 8;
+
+        // 计算 DSD 规格名称 (DSD64, DSD128...)
+        // 标准 DSD 基频是 44100 Hz
+        long multiple = info.sampleRate / 44100;
+
+        // 容错处理：处理 48kHz 基频的 DSD (较少见，但存在)
+        if (multiple == 0 && info.sampleRate > 0) {
+            multiple = info.sampleRate / 48000;
+        }
+
+        if (multiple >= 512) {
+            info.format = "DSD512";
+        } else if (multiple >= 256) {
+            info.format = "DSD256";
+        } else if (multiple >= 128) {
+            info.format = "DSD128";
+        } else {
+            info.format = "DSD64";
+        }
+
+    } else {
+        // --- PCM / 其他格式处理 ---
+        info.sampleRate = codecCtx->sample_rate;
+
+        // 计算位深
+        if (codecCtx->bits_per_raw_sample > 0) {
+            info.bitDepth = codecCtx->bits_per_raw_sample;
+        } else {
+            info.bitDepth = av_get_bytes_per_sample(codecCtx->sample_fmt) * 8;
+        }
+
+        // --- 格式名称标准化 ---
+        // 1. 如果是 PCM 系列 (pcm_s16le, pcm_f32be 等)，统一显示 "PCM"
+        if (rawFormat.find("pcm") == 0) {
+            info.format = "PCM";
+        } else {
+            info.format = rawFormat;
+        }
+    }
+
+    // --- 比特率计算 ---
+    if (fmtCtx && fmtCtx->bit_rate > 0) {
+        info.bitrate = fmtCtx->bit_rate;
+    } else if (codecCtx && codecCtx->bit_rate > 0) {
+        info.bitrate = codecCtx->bit_rate;
+    } else {
+        info.bitrate = (long) info.sampleRate * info.channels * info.bitDepth;
+    }
+
+    // --- 1. 先赋予默认值 (兜底策略) ---
+    info.title = "Unknown Title";
+    info.artist = "Unknown Artist";
+    info.album = "Unknown Album";
+
+    // --- 2. 尝试提取真实数据并覆盖 ---
+    if (fmtCtx && fmtCtx->metadata) {
+        AVDictionaryEntry *tag = nullptr;
+
+        // 获取 Title (改为 MATCH_CASE_OPEN 以忽略大小写)
+        tag = av_dict_get(fmtCtx->metadata, "title", nullptr, AV_DICT_MATCH_CASE);
+        if (tag && tag->value && tag->value[0] != '\0') {
+            info.title = tag->value;
+        }
+
+        // 获取 Artist
+        tag = av_dict_get(fmtCtx->metadata, "artist", nullptr, AV_DICT_MATCH_CASE);
+        if (tag && tag->value && tag->value[0] != '\0') {
+            info.artist = tag->value;
+        } else {
+            // 尝试回退到 Album Artist
+            tag = av_dict_get(fmtCtx->metadata, "album_artist", nullptr, AV_DICT_MATCH_CASE);
+            if (tag && tag->value && tag->value[0] != '\0') {
+                info.artist = tag->value;
+            }
+        }
+
+        // 获取 Album
+        tag = av_dict_get(fmtCtx->metadata, "album", nullptr, AV_DICT_MATCH_CASE);
+        if (tag && tag->value && tag->value[0] != '\0') {
+            info.album = tag->value;
+        }
+    }
+    return info;
+}
 
 bool FFPlayer::isExit() const { return mIsExit.load(); }
 

@@ -138,6 +138,8 @@ public:
 
     int getBitPerSample() const override;
 
+    MediaInfo getMediaInfo() const override;
+
     bool isDsd() const override;
 
     bool isExit() const;

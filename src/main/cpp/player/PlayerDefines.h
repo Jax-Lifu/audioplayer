@@ -6,6 +6,7 @@
 #define QYPLAYER_PLAYERDEFINES_H
 
 #include <stdint.h>
+#include <string>
 
 // DSD 播放模式
 enum DsdMode {
@@ -43,6 +44,17 @@ public:
     virtual void onBuffering(bool buffering) = 0;
 
     virtual ~IPlayerCallback() {}
+};
+
+struct MediaInfo {
+    int sampleRate = 0;
+    int channels = 0;
+    long bitrate = 0;     // bits per second
+    int bitDepth = 0;
+    std::string format;   // e.g., "flac", "dsd64", "pcm_s16le"
+    std::string title;
+    std::string album;
+    std::string artist;
 };
 
 #endif //QYPLAYER_PLAYERDEFINES_H

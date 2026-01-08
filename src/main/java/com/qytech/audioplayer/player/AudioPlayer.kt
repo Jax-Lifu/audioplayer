@@ -1,5 +1,6 @@
 package com.qytech.audioplayer.player
 
+import com.qytech.audioplayer.model.MediaInfo
 import com.qytech.audioplayer.strategy.MediaSource
 
 /**
@@ -45,6 +46,9 @@ interface PlayerListener {
     fun onComplete()
 
     fun onStateChanged(state: PlaybackState)
+
+    fun onMetadata(mediaInfo: MediaInfo) {}
+
 }
 
 

@@ -213,6 +213,57 @@ int SacdPlayer::getSampleRate() const {
     return mSampleRate;
 }
 
+MediaInfo SacdPlayer::getMediaInfo() const {
+    MediaInfo info;
+
+    info.sampleRate = 2822400;
+    info.bitDepth = 1;
+
+    if (mHandle && area_idx >= 0) {
+        info.channels = mHandle->area[area_idx].area_toc->channel_count;
+        info.format = mHandle->area[area_idx].area_toc->frame_format == FRAME_FORMAT_DST
+                      ? "DST64" : "DSD64";
+    } else {
+        info.channels = 2; // 默认
+        info.format = "DSD64";
+    }
+    info.bitrate = (long) info.sampleRate * info.channels * info.bitDepth;
+
+    // --- 1. 先赋予兜底默认值 ---
+    info.album = "Unknown Album";
+    info.artist = "Unknown Artist";
+    info.title = "Track " + std::to_string(trackIndex + 1);
+
+    if (mHandle) {
+        auto *mtext = &mHandle->master_text;
+        if (mtext) {
+            if (mtext->disc_title && mtext->disc_title[0] != '\0') {
+                info.album = mtext->disc_title;
+            }
+            if (mtext->disc_artist && mtext->disc_artist[0] != '\0') {
+                info.artist = mtext->disc_artist;
+            }
+        }
+
+        if (area_idx >= 0 && area_idx < mHandle->area_count) {
+            auto *area = &mHandle->area[area_idx];
+
+            if (area->area_toc &&
+                trackIndex >= 0 &&
+                trackIndex < area->area_toc->track_count) {
+
+                auto *trackText = &area->area_track_text[trackIndex];
+
+                // 获取歌名
+                if (trackText->track_type_title && trackText->track_type_title[0] != '\0') {
+                    info.title = trackText->track_type_title;
+                }
+            }
+        }
+    }
+    return info;
+}
+
 int SacdPlayer::getChannelCount() const {
     if (mDsdMode == DSD_MODE_NATIVE && is4ChannelSupported) {
         return 4;

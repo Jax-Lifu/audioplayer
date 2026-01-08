@@ -226,8 +226,8 @@ static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring pa
 static void native_prepare(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->prepare();
-    else ((SacdPlayer *) ctx->playerInstance)->prepare();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->prepare();
 }
 
 // 4. Play
@@ -236,39 +236,39 @@ static void native_play(JNIEnv *env, jobject thiz, jlong handle) {
     LOGD("LOCK_CONTEXT before native_play() ");
     LOCK_CONTEXT(ctx); // 加锁保护
     LOGD("LOCK_CONTEXT after native_play()");
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->play();
-    else ((SacdPlayer *) ctx->playerInstance)->play();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->play();
 }
 
 // 5. Pause
 static void native_pause(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->pause();
-    else ((SacdPlayer *) ctx->playerInstance)->pause();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->pause();
 }
 
 static void native_resume(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->resume();
-    else ((SacdPlayer *) ctx->playerInstance)->resume();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->resume();
 }
 
 // 6. Stop
 static void native_stop(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->stop();
-    else ((SacdPlayer *) ctx->playerInstance)->stop();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->stop();
 }
 
 // 7. Seek
 static void native_seek(JNIEnv *env, jobject thiz, jlong handle, jlong ms) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) ((FFPlayer *) ctx->playerInstance)->seek(ms);
-    else ((SacdPlayer *) ctx->playerInstance)->seek(ms);
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->seek(ms);
 }
 
 // 8. Release
@@ -290,54 +290,94 @@ static void
 native_setDsdConfig(JNIEnv *env, jobject thiz, jlong handle, jint mode, jint sampleRate) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
-    if (ctx->type == TYPE_FFMPEG) {
-        ((FFPlayer *) ctx->playerInstance)->setDsdConfig((DsdMode) mode, sampleRate);
-    } else {
-        ((SacdPlayer *) ctx->playerInstance)->setDsdConfig((DsdMode) mode, sampleRate);
-    }
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->setDsdConfig((DsdMode) mode, sampleRate);
 }
 
 // 10. Getters (GetSampleRate etc)
 static jint native_getSampleRate(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getSampleRate();
-    else return ((SacdPlayer *) ctx->playerInstance)->getSampleRate();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getSampleRate();
 }
 
 static jint native_getChannelCount(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getChannelCount();
-    else return ((SacdPlayer *) ctx->playerInstance)->getChannelCount();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getChannelCount();
 }
 
 static jint native_getBitPerSample(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getBitPerSample();
-    else return ((SacdPlayer *) ctx->playerInstance)->getBitPerSample();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getBitPerSample();
 }
 
 static jlong native_getDuration(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getDuration();
-    else return ((SacdPlayer *) ctx->playerInstance)->getDuration();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getDuration();
 }
 
 static jlong native_getCurrentPosition(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getCurrentPosition();
-    else return ((SacdPlayer *) ctx->playerInstance)->getCurrentPosition();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getCurrentPosition();
 }
 
 static jint native_getPlayerState(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->getState();
-    else return ((SacdPlayer *) ctx->playerInstance)->getState();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->getState();
 }
 
 static jboolean native_isDsd(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
-    if (ctx->type == TYPE_FFMPEG) return ((FFPlayer *) ctx->playerInstance)->isDsd();
-    else return ((SacdPlayer *) ctx->playerInstance)->isDsd();
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    return player->isDsd();
+}
+
+static jobject native_getMediaInfo(JNIEnv *env, jobject thiz, jlong handle) {
+    auto *ctx = getContext(handle);
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    if (!player) {
+        return nullptr;
+    }
+
+    MediaInfo info = player->getMediaInfo();
+    static const char *className = "com/qytech/audioplayer/model/MediaInfo";
+    jclass clazz = env->FindClass(className);
+    if (clazz == nullptr) {
+        return nullptr;
+    }
+    jmethodID ctor = env->GetMethodID(clazz, "<init>",
+                                      "(IIJILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    if (ctor == nullptr) {
+        env->DeleteLocalRef(clazz);
+        return nullptr;
+    }
+
+    jstring jFormat = env->NewStringUTF(info.format.c_str());
+    jstring jTitle = env->NewStringUTF(info.title.c_str());
+    jstring jArtist = env->NewStringUTF(info.artist.c_str());
+    jstring jAlbum = env->NewStringUTF(info.album.c_str());
+
+    jobject jObj = env->NewObject(clazz, ctor,
+                                  (jint) info.sampleRate,
+                                  (jint) info.channels,
+                                  (jlong) info.bitrate,
+                                  (jint) info.bitDepth,
+                                  jFormat,
+                                  jTitle,
+                                  jArtist,
+                                  jAlbum);
+    env->DeleteLocalRef(jFormat);
+    env->DeleteLocalRef(jTitle);
+    env->DeleteLocalRef(jArtist);
+    env->DeleteLocalRef(jAlbum);
+    env->DeleteLocalRef(clazz);
+
+    return jObj;
 }
 
 
@@ -363,6 +403,7 @@ static const JNINativeMethod gMethods[] = {
         {"native_getCurrentPosition", "(J)J",                                               (void *) native_getCurrentPosition},
         {"native_getPlayerState",     "(J)I",                                               (void *) native_getPlayerState},
         {"native_isDsd",              "(J)Z",                                               (void *) native_isDsd},
+        {"native_getMediaInfo",       "(J)Lcom/qytech/audioplayer/model/MediaInfo;",        (void *) native_getMediaInfo},
 };
 
 int register_audioplayer_methods(JavaVM *vm, JNIEnv *env) {

@@ -240,6 +240,7 @@ abstract class BaseNativePlayer(
             val sampleRate = engine.getSampleRate()
             val channel = engine.getChannelCount()
             val bitPerSample = engine.getBitPerSample()
+            val mediaInfo = engine.getMediaInfo()
             val targetEncoding = getAudioEncoding(bitPerSample)
 
             QYPlayerLogger.d("onPrepared: sampleRate=$sampleRate, bitPerSample=$bitPerSample")
@@ -258,7 +259,10 @@ abstract class BaseNativePlayer(
 
                 mediaSource?.let { source ->
                     // 1. 通知所有监听器
-                    listeners.forEach { it.onPrepared() }
+                    listeners.forEach { listener ->
+                        listener.onPrepared()
+                        mediaInfo?.let { info -> listener.onMetadata(info) }
+                    }
 
                     onPlaybackStateChangeListener?.onPlaybackStateChanged(
                         PlaybackState.PREPARED,

@@ -22,7 +22,8 @@ public:
 
     ~SacdPlayer() override;
 
-    void setDataSource(const std::string &isoPath, int trackIndex, const std::map<std::string, std::string> &headers = {});
+    void setDataSource(const std::string &isoPath, int trackIndex,
+                       const std::map<std::string, std::string> &headers = {});
 
     // 重写基类虚函数
     void prepare() override;
@@ -49,6 +50,8 @@ public:
     int getChannelCount() const override;
 
     int getBitPerSample() const override;
+
+    MediaInfo getMediaInfo() const override;
 
     bool isDsd() const override;
 

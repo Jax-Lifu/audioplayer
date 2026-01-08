@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
+import com.qytech.audioplayer.model.MediaInfo
 import com.qytech.audioplayer.strategy.MediaSource
 import com.qytech.audioplayer.transition.AudioTransition
 import com.qytech.audioplayer.utils.QYPlayerLogger
@@ -404,6 +405,16 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     // ==========================================
 
     private val proxyListener = object : PlayerListener {
+
+        override fun onMetadata(
+            mediaInfo: MediaInfo,
+        ) {
+            super.onMetadata(mediaInfo)
+            listeners.forEach {
+                it.onMetadata(mediaInfo)
+            }
+        }
+
         override fun onPrepared() {
             listeners.forEach { it.onPrepared() }
         }

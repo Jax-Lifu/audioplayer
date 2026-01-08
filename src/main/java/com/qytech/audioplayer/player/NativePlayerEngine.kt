@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.player
 
 import androidx.annotation.Keep
+import com.qytech.audioplayer.model.MediaInfo
 import com.qytech.audioplayer.utils.QYPlayerLogger
 
 @Keep
@@ -96,6 +97,7 @@ internal class NativePlayerEngine {
     fun getSampleRate(): Int = if (nativeHandle != 0L) native_getSampleRate(nativeHandle) else 0
     fun getChannelCount(): Int = if (nativeHandle != 0L) native_getChannelCount(nativeHandle) else 0
     fun getBitPerSample(): Int = if (nativeHandle != 0L) native_getBitPerSample(nativeHandle) else 0
+    fun getMediaInfo(): MediaInfo? = if (nativeHandle != 0L) native_getMediaInfo(nativeHandle) else null
     fun getDuration(): Long = if (nativeHandle != 0L) native_getDuration(nativeHandle) else 0
     fun getPosition(): Long = if (nativeHandle != 0L) native_getCurrentPosition(nativeHandle) else 0
 
@@ -128,10 +130,13 @@ internal class NativePlayerEngine {
     private external fun native_getSampleRate(handle: Long): Int
     private external fun native_getChannelCount(handle: Long): Int
     private external fun native_getBitPerSample(handle: Long): Int
+
     private external fun native_getDuration(handle: Long): Long
     private external fun native_getCurrentPosition(handle: Long): Long
 
     private external fun native_getPlayerState(handle: Long): Int
 
     private external fun native_isDsd(handle: Long): Boolean
+
+    private external fun native_getMediaInfo(handle: Long): MediaInfo
 }
