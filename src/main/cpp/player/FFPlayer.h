@@ -241,6 +241,9 @@ private:
     std::atomic<int64_t> mBasePtsMs{0};      // 记录帧开始时的 PTS
     std::atomic<int64_t> mBaseSystemMs{0};   // 记录拿到该帧时的系统时间
     std::thread *mProgressThread = nullptr;  // 独立的心跳线程
+
+    std::atomic<int64_t> mAudioDataStartPos{-1};
+
 };
 
 #endif //QYPLAYER_FFPLAYER_H

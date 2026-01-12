@@ -317,7 +317,8 @@ void FFPlayer::seek(long ms) {
 
 // ---------------------------------------------------------------------
 // 核心逻辑: readLoop (生产者)
-// 包含 Seek 修复、智能 EOF、贪婪缓存
+// 修复方案：相对对齐 Seek (Relative Alignment Seek)
+// 解决 DSD Header 偏移导致的声道反转/杂音问题
 // ---------------------------------------------------------------------
 void FFPlayer::readLoop() {
     AVPacket *packet = av_packet_alloc();
@@ -325,86 +326,135 @@ void FFPlayer::readLoop() {
     const int MAX_ERRORS = 10;
     long lastReadPosMs = 0;
 
-    // 起始位置跳转
+    // 仅用于 DSD 模式 Seek 后的丢帧
+    int dropFrameCount = 0;
+
+    // 重置数据起始点标记
+    mAudioDataStartPos.store(-1);
+
+    // 起播 Seek (通用)
     if (mStartTimeMs > 0) {
-        lastReadPosMs = mStartTimeMs;
         int64_t targetPts = av_rescale(mStartTimeMs, timeBase->den, timeBase->num * 1000LL);
-        int64_t minPts =
-                targetPts - av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
-        int64_t maxPts =
-                targetPts + av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
-        LOGD("mStartTimeMs %ld avformat_seek_file targetPts %ld", mStartTimeMs, targetPts);
-        avformat_seek_file(fmtCtx, audioStreamIndex, minPts, targetPts, maxPts, 0);
+        avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts, INT64_MAX, 0);
     }
 
     while (!mIsExit.load()) {
-        // --- 1. Seek 处理 ---
+        // -----------------------------------------------------------------
+        // 1. Seek 处理逻辑 (分流处理)
+        // -----------------------------------------------------------------
         if (mIsSeeking.load()) {
             long targetMs = -1;
             {
                 std::lock_guard<std::mutex> lock(mSeekMutex);
                 if (mIsSeeking.load()) {
                     targetMs = mSeekTargetMs;
-                    mIsSeeking.store(false); // 必须在调用 API 前关闭标记，防止被 interrupt_cb 误杀
+                    mIsSeeking.store(false);
                     mSeekTargetMs = -1;
                 }
             }
-            LOGD("Seek to %ld ms", targetMs);
+
             if (targetMs >= 0) {
+                LOGD("Seek requested to %ld ms", targetMs);
                 mIsEOF.store(false);
                 consecutiveErrors = 0;
-
-                // IO 复位：防止因中断导致的 Error 状态残留
-                if (fmtCtx->pb) {
-                    fmtCtx->pb->eof_reached = 0;
-                    fmtCtx->pb->error = 0;
-                    avio_flush(fmtCtx->pb); // 丢弃旧数据，强制发新请求
-                }
-
                 audioQueue.flush();
                 mFlushCodec.store(true);
 
-                int64_t targetPts = av_rescale(targetMs, timeBase->den, timeBase->num * 1000LL);
-                int64_t minPts =
-                        targetPts - av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
-                int64_t maxPts =
-                        targetPts + av_rescale(1000, timeBase->den, timeBase->num * 1000LL);
+                bool seekSuccess = false;
 
-                // 优先使用 avformat_seek_file
-                int ret = avformat_seek_file(fmtCtx, audioStreamIndex, minPts, targetPts, maxPts,
-                                             0);
-                if (ret < 0) {
-                    LOGW("Precise seek failed, trying vague seek...");
-                    ret = av_seek_frame(fmtCtx, audioStreamIndex, targetPts, AVSEEK_FLAG_BACKWARD);
+                // ================== 分支 A: DSD 特殊优化通道 ==================
+                // 条件：是 DSD，且已经找到了数据起始位置 (说明已经读过包了)
+                if (mIsSourceDsd && mAudioDataStartPos.load() > 0) {
+                    LOGD("Using DSD Fast Byte Seek...");
+
+                    int64_t startDataPos = mAudioDataStartPos.load();
+                    int64_t bytesPerSec = 0;
+                    if (fmtCtx->bit_rate > 0) bytesPerSec = fmtCtx->bit_rate / 8;
+                    else if (codecCtx->bit_rate > 0) bytesPerSec = codecCtx->bit_rate / 8;
+
+                    if (bytesPerSec > 0) {
+                        // 1. 计算理论偏移
+                        int64_t offsetBytes = (int64_t)(targetMs / 1000.0 * bytesPerSec);
+
+                        // 2. 块对齐 (核心防杂音逻辑)
+                        int align = codecCtx->block_align > 0 ? codecCtx->block_align : 4096;
+                        // 相对对齐：保证 offset 是 block 的整数倍
+                        offsetBytes -= (offsetBytes % align);
+
+                        // 3. 计算绝对物理位置
+                        int64_t finalBytePos = startDataPos + offsetBytes;
+
+                        // 4. IO 跳转
+                        int64_t fileSize = avio_size(fmtCtx->pb);
+                        if (fileSize <= 0 || finalBytePos < fileSize) {
+                            if (avio_seek(fmtCtx->pb, finalBytePos, SEEK_SET) >= 0) {
+                                avio_flush(fmtCtx->pb); // 必须清空 IO 缓冲
+
+                                // 重置解封装器状态
+                                if (fmtCtx->pb) {
+                                    fmtCtx->pb->eof_reached = 0;
+                                    fmtCtx->pb->error = 0;
+                                }
+
+                                // DSD 强制丢包，让 Parser 重组 Magic Bytes
+                                dropFrameCount = 3;
+                                seekSuccess = true;
+                                LOGD("DSD Seek success to pos: %ld", finalBytePos);
+                            }
+                        }
+                    }
                 }
 
-                if (ret >= 0) {
-                    LOGD("Seek success to %ld ms", targetMs);
-                    lastReadPosMs = targetMs;
+                // ================== 分支 B: 普通格式 / 降级通道 ==================
+                // FLAC, MP3, WAV, 或者还没找到 DSD 起始位置时走这里
+                if (!seekSuccess) {
+                    if (mIsSourceDsd) LOGW("DSD Fast seek unavailable, fallback to standard...");
+                    else LOGD("Using Standard avformat_seek_file...");
 
+                    int64_t targetPts = av_rescale(targetMs, timeBase->den, timeBase->num * 1000LL);
+
+                    // 标准 Seek
+                    int ret = avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts, INT64_MAX, 0);
+                    if (ret < 0) {
+                        // 备用 Seek
+                        ret = av_seek_frame(fmtCtx, audioStreamIndex, targetPts, AVSEEK_FLAG_BACKWARD);
+                    }
+
+                    if (ret >= 0) {
+                        seekSuccess = true;
+                        // 普通格式通常不需要强制丢包，FFmpeg 处理得很好
+                        dropFrameCount = 0;
+                    } else {
+                        LOGE("Standard seek failed: %d", ret);
+                    }
+                }
+
+                // Seek 完成后的公共状态更新
+                if (seekSuccess) {
                     mBasePtsMs.store(targetMs);
                     mBaseSystemMs.store(0);
                     mCurrentPositionMs.store(targetMs);
-                } else {
-                    LOGE("Seek failed: %d", ret);
+                    lastReadPosMs = targetMs;
                 }
             }
-            continue; // Seek 完立即开始下载
+            continue;
         }
 
-        if (mState.load() == STATE_STOPPED ||
-            mState.load() == STATE_COMPLETED) {
+        if (mState.load() == STATE_STOPPED || mState.load() == STATE_COMPLETED) {
             break;
         }
 
-        // --- 2. 缓存控制 ---
-        // 移除了 STATE_PAUSED 的检查，实现“暂停时继续下载”
+        // -----------------------------------------------------------------
+        // 2. 缓冲控制
+        // -----------------------------------------------------------------
         if (audioQueue.getSize() > MAX_QUEUE_SIZE) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             continue;
         }
 
-        // --- 3. 读取 Packet ---
+        // -----------------------------------------------------------------
+        // 3. 读取数据
+        // -----------------------------------------------------------------
         if (!packet) packet = av_packet_alloc();
         int ret = av_read_frame(fmtCtx, packet);
 
@@ -449,10 +499,26 @@ void FFPlayer::readLoop() {
             continue;
         }
 
-        // --- 4. 读取成功 ---
-        consecutiveErrors = 0;
+        // -----------------------------------------------------------------
+        // 4. 数据处理与记录
+        // -----------------------------------------------------------------
         if (packet->stream_index == audioStreamIndex) {
-            // 更新读取进度
+
+            // [仅 DSD] 记录第一个音频包的物理位置，作为后续 Seek 的基准点
+            if (mIsSourceDsd && mAudioDataStartPos.load() == -1 && packet->pos > 0) {
+                mAudioDataStartPos.store(packet->pos);
+                LOGD("DSD Start Position Detected: %ld", packet->pos);
+            }
+
+            // [仅 DSD] Seek 后的脏数据过滤
+            if (mIsSourceDsd && dropFrameCount > 0) {
+                av_packet_unref(packet);
+                dropFrameCount--;
+                LOGD("DSD: Dropping dirty packet after seek");
+                continue;
+            }
+
+            // 更新读取位置
             if (packet->pts != AV_NOPTS_VALUE) {
                 long ptsMs = (long) (packet->pts * av_q2d(*timeBase) * 1000);
                 if (ptsMs > lastReadPosMs) lastReadPosMs = ptsMs;
@@ -469,6 +535,7 @@ void FFPlayer::readLoop() {
         } else {
             av_packet_unref(packet);
         }
+        consecutiveErrors = 0;
     }
     if (packet) av_packet_free(&packet);
 }
