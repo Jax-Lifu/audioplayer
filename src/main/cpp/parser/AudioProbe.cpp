@@ -9,6 +9,7 @@ extern "C" {
 #include <libavcodec/codec_desc.h>
 #include <libavutil/avutil.h>
 }
+
 #include <unistd.h>
 #include <sstream>
 #include <algorithm>
@@ -61,7 +62,8 @@ static std::string getPathNoQuery(const std::string &path) {
 // 1. FFProbe (Standard)
 // ==========================================
 static InternalMetadata
-probeStandard(const std::string &path, const std::map<std::string, std::string> &headers, const std::string &filenameFallback) {
+probeStandard(const std::string &path, const std::map<std::string, std::string> &headers,
+              const std::string &filenameFallback) {
     InternalMetadata meta;
     meta.uri = path;
     meta.success = false; // 默认 false
@@ -189,7 +191,16 @@ probeStandard(const std::string &path, const std::map<std::string, std::string> 
     AVCodecParameters *p = fmt_ctx->streams[audioIdx]->codecpar;
     track.sampleRate = p->sample_rate;
     track.channels = p->ch_layout.nb_channels;
-    track.bitDepth = (p->bits_per_raw_sample > 0) ? p->bits_per_raw_sample : 16;
+    if (p->bits_per_raw_sample > 0) {
+        track.bitDepth = p->bits_per_raw_sample;
+    } else {
+        int bytes = av_get_bytes_per_sample((AVSampleFormat) p->format);
+        if (bytes > 0) {
+            track.bitDepth = bytes * 8;
+        } else {
+            track.bitDepth = 16;
+        }
+    }
     const AVCodecDescriptor *desc = avcodec_descriptor_get(p->codec_id);
     track.format = desc ? desc->name : "unknown";
 
@@ -267,7 +278,8 @@ probeCue(JNIEnv *env, const std::string &path,
         } else if (cmd == "REM") {
             if (val.find("GENRE") == 0 && val.length() >= 6) meta.genre = val.substr(6);
             else if (val.find("DATE") == 0 && val.length() >= 5) meta.date = val.substr(5);
-            else if (val.find("COMMENT") == 0 && val.length() >= 8) meta.description = val.substr(8);
+            else if (val.find("COMMENT") == 0 && val.length() >= 8)
+                meta.description = val.substr(8);
         } else if (cmd == "FILE") {
             std::string tempFile = val;
             size_t lastSpace = val.find_last_of(' ');
