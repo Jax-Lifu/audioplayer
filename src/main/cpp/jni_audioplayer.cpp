@@ -357,10 +357,10 @@ static jobject native_getMediaInfo(JNIEnv *env, jobject thiz, jlong handle) {
         return nullptr;
     }
 
-    jstring jFormat = env->NewStringUTF(info.format.c_str());
-    jstring jTitle = env->NewStringUTF(info.title.c_str());
-    jstring jArtist = env->NewStringUTF(info.artist.c_str());
-    jstring jAlbum = env->NewStringUTF(info.album.c_str());
+    jstring jFormat = safeNewStringUTF(env, info.format.c_str());
+    jstring jTitle = safeNewStringUTF(env, info.title.c_str());
+    jstring jArtist = safeNewStringUTF(env, info.artist.c_str());
+    jstring jAlbum = safeNewStringUTF(env, info.album.c_str());
 
     jobject jObj = env->NewObject(clazz, ctor,
                                   (jint) info.sampleRate,
