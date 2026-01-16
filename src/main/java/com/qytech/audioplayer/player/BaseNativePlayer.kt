@@ -1,6 +1,7 @@
 package com.qytech.audioplayer.player
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import com.qytech.audioplayer.strategy.CueMediaSource
@@ -29,8 +30,6 @@ abstract class BaseNativePlayer(
 
     @Deprecated("Use PlayerListener instead")
     private var onPlaybackStateChangeListener: OnPlaybackStateChangeListener? = null
-    protected var currentTrackRef: AudioTrack? = null
-    private var trackSessionId: Long = -1
 
     private var dsdMode: DSDMode? = null
     private var mediaSource: MediaSource? = null
@@ -42,6 +41,7 @@ abstract class BaseNativePlayer(
     // 标记是否已经通知过 PLAYING 状态，防止在 onAudioData 中频繁回调
     @Volatile
     private var isPlayingNotified = false
+    protected var audioTrack: AudioTrack? = null
 
     private val engineCallback = EngineCallbackImpl()
 
@@ -65,6 +65,9 @@ abstract class BaseNativePlayer(
         QYPlayerLogger.d("BaseNativePlayer: prepare")
         playWhenReady = false
         isPlayingNotified = false
+
+        releaseAudioTrack()
+
         // 设置 DSD 模式和 D2P 采样率
         dsdMode?.let { engine.setDsdConfig(it.value, d2pSampleRate?.hz ?: -1) }
         engine.prepare()
@@ -101,7 +104,7 @@ abstract class BaseNativePlayer(
         }
 
         try {
-            currentTrackRef?.let { track ->
+            audioTrack?.let { track ->
                 QYPlayerLogger.d("AudioTrack check: state=${track.state}, playState=${track.playState}")
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
                     if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
@@ -122,10 +125,10 @@ abstract class BaseNativePlayer(
         engine.pause()
 
         // AudioTrack 暂停
-        if (currentTrackRef?.state == AudioTrack.STATE_INITIALIZED &&
-            currentTrackRef?.playState == AudioTrack.PLAYSTATE_PLAYING
+        if (audioTrack?.state == AudioTrack.STATE_INITIALIZED &&
+            audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
         ) {
-            currentTrackRef?.pause()
+            audioTrack?.pause()
         }
 
         // PAUSED 是用户主动触发的，立即通知
@@ -140,13 +143,13 @@ abstract class BaseNativePlayer(
         engine.stop()
 
         // stop 时只做 flush，随时准备下次播放
-        if (currentTrackRef?.state == AudioTrack.STATE_INITIALIZED) {
+        if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
             try {
-                if (currentTrackRef?.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                    currentTrackRef?.pause()
+                if (audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                    audioTrack?.pause()
                 }
-                currentTrackRef?.flush()
-                currentTrackRef?.stop()
+                audioTrack?.flush()
+                audioTrack?.stop()
             } catch (e: Exception) {
                 QYPlayerLogger.e("AudioTrack stop failed", e)
             }
@@ -163,17 +166,15 @@ abstract class BaseNativePlayer(
 
         engine.release()
 
-        // 调用管理器的软释放，不销毁 AudioTrack 硬件资源
-        GlobalAudioTrackManager.softRelease(trackSessionId)
-        currentTrackRef = null
-        trackSessionId = -1
+        releaseAudioTrack()
+
         listeners.clear()
     }
 
     override fun seekTo(positionMs: Long) {
         // seek 前清理缓冲区，防止听到 seek 前的残留声音
-        if (currentTrackRef?.state == AudioTrack.STATE_INITIALIZED) {
-            currentTrackRef?.flush()
+        if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
+            audioTrack?.flush()
         }
         // seek 后通常需要缓冲，重置标记
         isPlayingNotified = false
@@ -246,14 +247,10 @@ abstract class BaseNativePlayer(
             QYPlayerLogger.d("onPrepared: sampleRate=$sampleRate, bitPerSample=$bitPerSample")
 
             try {
-                // 尝试复用 AudioTrack
-                val result = GlobalAudioTrackManager.acquireAudioTrack(
-                    sampleRate,
-                    targetEncoding,
-                    channel
-                )
-                currentTrackRef = result.first
-                trackSessionId = result.second
+                releaseAudioTrack()
+
+                audioTrack = createAudioTrack(sampleRate, targetEncoding, channel)
+
 
                 QYPlayerLogger.d("onPrepared $mediaSource listeners:${listeners.size}")
 
@@ -334,7 +331,7 @@ abstract class BaseNativePlayer(
                     notifyStateChanged(PlaybackState.PLAYING)
                 }
             }
-            currentTrackRef?.let { track ->
+            audioTrack?.let { track ->
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
                     try {
                         val ret = track.write(data, 0, size)
@@ -388,5 +385,49 @@ abstract class BaseNativePlayer(
                 -1
             }
         }
+    }
+
+    private fun releaseAudioTrack() {
+        audioTrack?.let { track ->
+            try {
+                if (track.state == AudioTrack.STATE_INITIALIZED) {
+                    track.stop()
+                }
+            } catch (e: Exception) {
+                // ignore stop errors
+            }
+            try {
+                track.release()
+            } catch (e: Exception) {
+                QYPlayerLogger.e("AudioTrack release error", e)
+            }
+        }
+        audioTrack = null
+    }
+
+    private fun createAudioTrack(sampleRate: Int, encoding: Int, channel: Int): AudioTrack {
+        val channelConfig =
+            if (channel == 4) AudioFormat.CHANNEL_OUT_QUAD else AudioFormat.CHANNEL_OUT_STEREO
+        val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding)
+        // 适当扩大缓冲区以增强稳定性
+        val bufferSize = if (minBufferSize > 0) minBufferSize * 2 else minBufferSize
+
+        return AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(encoding)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(channelConfig)
+                    .build()
+            )
+            .setBufferSizeInBytes(bufferSize)
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
     }
 }
