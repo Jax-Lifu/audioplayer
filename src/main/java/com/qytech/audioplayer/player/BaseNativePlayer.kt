@@ -409,8 +409,6 @@ abstract class BaseNativePlayer(
         val channelConfig =
             if (channel == 4) AudioFormat.CHANNEL_OUT_QUAD else AudioFormat.CHANNEL_OUT_STEREO
         val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding)
-        // 适当扩大缓冲区以增强稳定性
-        val bufferSize = if (minBufferSize > 0) minBufferSize * 2 else minBufferSize
 
         return AudioTrack.Builder()
             .setAudioAttributes(
@@ -426,7 +424,7 @@ abstract class BaseNativePlayer(
                     .setChannelMask(channelConfig)
                     .build()
             )
-            .setBufferSizeInBytes(bufferSize)
+            .setBufferSizeInBytes(minBufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
     }
