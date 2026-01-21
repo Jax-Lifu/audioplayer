@@ -271,6 +271,8 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
             if (!listeners.contains(it)) listeners.add(it)
         }
 
+        QYPlayerLogger.d("Play sourcePath: $sourcePath initVector $initVector securityKey $securityKey ")
+
         actionChannel.trySend(
             PlayRequest(
                 sourcePath = sourcePath,

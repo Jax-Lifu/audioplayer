@@ -94,6 +94,7 @@ object AudioPlayerFactory {
         webDavUser: String? = null,
         webDavPwd: String? = null,
     ): AudioPlayer? {
+        QYPlayerLogger.d("source $source securityKey $securityKey initVector $initVector headers $headers")
         val lowerSource = source.lowercase(Locale.getDefault())
 
         val isRemoteProtocol = lowerSource.let { s ->

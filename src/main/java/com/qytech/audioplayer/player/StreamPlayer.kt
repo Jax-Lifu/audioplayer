@@ -231,9 +231,9 @@ class StreamPlayer(
                 baseExoSource
             }
 
-            // --- 3. 设置给播放器 ---
-            exoPlayer?.setMediaSource(finalSource)
-
+            mainScope.launch {
+                exoPlayer?.setMediaSource(finalSource)
+            }
         } catch (e: Exception) {
             QYPlayerLogger.e(e, "StreamPlayer: Failed to create MediaSource")
             listeners.forEach {
