@@ -94,6 +94,15 @@ class StreamPlayer(
     private val exoListener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             when (state) {
+                Player.STATE_BUFFERING -> {
+                    listeners.forEach { it.onStateChanged(PlaybackState.BUFFERING) }
+                    mediaSource?.let { source ->
+                        playbackStateChangeListener?.onPlaybackStateChanged(
+                            PlaybackState.BUFFERING, source.uri, 0
+                        )
+                    }
+                }
+
                 Player.STATE_READY -> {
                     listeners.forEach { it.onPrepared() }
                     mediaSource?.let { source ->
@@ -125,15 +134,44 @@ class StreamPlayer(
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (isPlaying) startProgressJob() else stopProgressJob()
+
+            val player = exoPlayer ?: return
+            val playbackState = player.playbackState
+
+            if (playbackState == Player.STATE_READY) {
+                val targetState = if (isPlaying) PlaybackState.PLAYING else PlaybackState.PAUSED
+
+                listeners.forEach { it.onStateChanged(targetState) }
+
+                mediaSource?.let { source ->
+                    playbackStateChangeListener?.onPlaybackStateChanged(
+                        targetState,
+                        source.uri,
+                        0
+                    )
+                }
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
             stopProgressJob()
             QYPlayerLogger.e(error, "ExoPlayer Error")
-            listeners.forEach {
-                it.onError(error.errorCode, error.message ?: "ExoPlayer Internal Error")
+            if (error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED) {
+                listeners.forEach { it.onComplete() }
+                mediaSource?.let { source ->
+                    playbackStateChangeListener?.onPlaybackStateChanged(
+                        PlaybackState.COMPLETED,
+                        source.uri, 0
+                    )
+                }
+            } else {
+                listeners.forEach {
+                    it.onError(error.errorCode, error.message ?: "ExoPlayer Internal Error")
+                }
+                playbackStateChangeListener?.onPlayerError(
+                    error.message ?: "ExoPlayer Internal Error"
+                )
             }
-            playbackStateChangeListener?.onPlayerError(error.message ?: "ExoPlayer Internal Error")
         }
     }
 
