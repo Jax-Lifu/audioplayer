@@ -346,25 +346,73 @@ probeCue(JNIEnv *env, const std::string &path,
             std::string resolvedPath = ProbeUtils::resolvePath(path, rawBaseName);
 
             // 3. 本地文件存在性检查与自动纠错 (Fallback logic)
+            LOGD("CUE resolvedPath %s", resolvedPath.c_str());
             bool originalExists = fileExists(resolvedPath);
 
             if (!originalExists) {
                 LOGW("CUE entry file not found: %s. Trying heuristic...", resolvedPath.c_str());
 
-                std::string cuePathNoExt = path;
-                size_t cueDot = cuePathNoExt.find_last_of('.');
-                if (cueDot != std::string::npos) cuePathNoExt = cuePathNoExt.substr(0, cueDot);
+                // 获取 CUE 文件所在的目录路径
+                std::string dir = path.substr(0, path.find_last_of("/\\") + 1);
 
-                std::string targetExt = "";
-                size_t fileDot = rawBaseName.find_last_of('.');
-                if (fileDot != std::string::npos) targetExt = rawBaseName.substr(fileDot);
+                // 定义常见音频后缀列表 (优先级可按需调整)
+                const std::vector<std::string> candidateExts = {
+                        ".ape", ".flac", ".wav", ".mp3", ".dsf", ".dff", ".iso", ".m4a", ".wv",
+                        ".tta"
+                };
 
-                std::string fallbackPath = cuePathNoExt + targetExt;
+                bool found = false;
 
-                if (fileExists(fallbackPath)) {
-                    LOGD("Fallback file found: %s", fallbackPath.c_str());
-                    resolvedPath = fallbackPath;
-                } else {
+                // 例如: CUE 写 "CDImage.wav"，实际找 "CDImage.ape"
+                std::string stemFromFile = rawBaseName; // "CDImage.wav"
+                size_t fileDot = stemFromFile.find_last_of('.');
+                if (fileDot != std::string::npos) {
+                    stemFromFile = stemFromFile.substr(0, fileDot); // "CDImage"
+                }
+
+                std::string baseFilePath = dir;
+                baseFilePath += stemFromFile;
+                for (const auto &ext: candidateExts) {
+                    std::string tryPath = baseFilePath;
+                    tryPath += ext;
+
+                    if (fileExists(tryPath)) {
+                        resolvedPath = tryPath;
+                        found = true;
+                        LOGD("Fallback found (Strategy A - Ext Mismatch): %s",
+                             resolvedPath.c_str());
+                        break;
+                    }
+                }
+
+                // --- 策略 B: 如果 A 失败，尝试查找与 CUE 文件同名的音频文件 ---
+                // 例如: CUE 名为 "Album.cue"，CUE 内写 "CDImage.wav"，实际文件是 "Album.flac"
+                if (!found) {
+                    std::string stemFromCue = path; // "/path/to/Album.cue"
+                    // 提取文件名
+                    size_t slashPos = stemFromCue.find_last_of("/\\");
+                    if (slashPos != std::string::npos)
+                        stemFromCue = stemFromCue.substr(slashPos + 1);
+                    // 去除后缀
+                    size_t cueDot = stemFromCue.find_last_of('.');
+                    if (cueDot != std::string::npos)
+                        stemFromCue = stemFromCue.substr(0, cueDot); // "Album"
+                    std::string basePath = dir;
+                    basePath += stemFromCue;
+                    for (const auto &ext: candidateExts) {
+                        std::string tryPath = basePath;
+                        tryPath += ext;
+                        if (fileExists(tryPath)) {
+                            resolvedPath = tryPath;
+                            found = true;
+                            LOGD("Fallback found (Strategy B - Cue Name): %s",
+                                 resolvedPath.c_str());
+                            break;
+                        }
+                    }
+                }
+
+                if (!found) {
                     LOGE("Neither original nor fallback file exists.");
                 }
             }
