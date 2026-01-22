@@ -189,6 +189,9 @@ void FFPlayer::prepare() {
     extractAudioInfo();
     if (mStartTimeMs > 0) {
         mCurrentPositionMs.store(mStartTimeMs);
+        mAudioClockMs = (double)mStartTimeMs;
+    } else {
+        mAudioClockMs = 0.0;
     }
 
     {
@@ -259,6 +262,7 @@ void FFPlayer::resume() {
 }
 
 void FFPlayer::stop() {
+    LOGD("FFPlayer stop");
     mIsExit.store(true);
     audioQueue.abort();
     {
@@ -267,7 +271,6 @@ void FFPlayer::stop() {
         stateCond.notify_all();
     }
     {
-        // 唤醒可能卡在 seek wait 的线程
         std::lock_guard<std::mutex> lock(mSeekMutex);
         stateCond.notify_all();
     }
@@ -374,7 +377,7 @@ void FFPlayer::readLoop() {
 
                     if (bytesPerSec > 0) {
                         // 1. 计算理论偏移
-                        int64_t offsetBytes = (int64_t)(targetMs / 1000.0 * bytesPerSec);
+                        int64_t offsetBytes = (int64_t) (targetMs / 1000.0 * bytesPerSec);
 
                         // 2. 块对齐 (核心防杂音逻辑)
                         int align = codecCtx->block_align > 0 ? codecCtx->block_align : 4096;
@@ -409,15 +412,18 @@ void FFPlayer::readLoop() {
                 // FLAC, MP3, WAV, 或者还没找到 DSD 起始位置时走这里
                 if (!seekSuccess) {
                     if (mIsSourceDsd) LOGW("DSD Fast seek unavailable, fallback to standard...");
-                    else LOGD("Using Standard avformat_seek_file...");
+                    else
+                        LOGD("Using Standard avformat_seek_file...");
 
                     int64_t targetPts = av_rescale(targetMs, timeBase->den, timeBase->num * 1000LL);
 
                     // 标准 Seek
-                    int ret = avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts, INT64_MAX, 0);
+                    int ret = avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts,
+                                                 INT64_MAX, 0);
                     if (ret < 0) {
                         // 备用 Seek
-                        ret = av_seek_frame(fmtCtx, audioStreamIndex, targetPts, AVSEEK_FLAG_BACKWARD);
+                        ret = av_seek_frame(fmtCtx, audioStreamIndex, targetPts,
+                                            AVSEEK_FLAG_BACKWARD);
                     }
 
                     if (ret >= 0) {
@@ -560,6 +566,9 @@ void FFPlayer::decodingLoop() {
             if (codecCtx) avcodec_flush_buffers(codecCtx);
             mFlushCodec.store(false);
             isDraining = false;
+
+            mAudioClockMs = (double)mBasePtsMs.load();
+
         }
 
         // 2. 暂停逻辑 (用户主动)
@@ -688,9 +697,24 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
         if (ret < 0) break;
 
-        if (mState == STATE_PLAYING && frame->pts != AV_NOPTS_VALUE) {
-            mBasePtsMs.store((int64_t) (frame->pts * av_q2d(*timeBase) * 1000));
+        double durationMs = 0;
+        if (frame->sample_rate > 0) {
+            durationMs = (frame->nb_samples * 1000.0) / frame->sample_rate;
+        }
+
+        if (mState == STATE_PLAYING) {
+            // 优先使用 FFmpeg 提供的 PTS
+            if (frame->pts != AV_NOPTS_VALUE) {
+                mAudioClockMs = frame->pts * av_q2d(*timeBase) * 1000.0;
+            }
+            // 如果是 APE 等无 PTS 格式，mAudioClockMs 会保持上一帧累加的结果
+
+            // 更新给 UI 线程的原子变量
+            mBasePtsMs.store((int64_t)mAudioClockMs);
             mBaseSystemMs.store(getNowMs());
+
+            // 累加时长，为下一帧做准备 (核心修复逻辑)
+            mAudioClockMs += durationMs;
         }
 
         if (frame->nb_samples <= 0) continue;
@@ -866,7 +890,7 @@ void FFPlayer::updateProgress() {
 
     if (mState == STATE_PLAYING && baseSys > 0) {
         int64_t elapsed = now - baseSys;
-        if (elapsed > 0 && elapsed < 5000) {
+        if (elapsed > 0 && elapsed < 2000) {
             currentPosMs += elapsed;
         }
     }
@@ -882,7 +906,8 @@ void FFPlayer::updateProgress() {
 
     float progress = (float) relativePosition / (float) virtualDuration;
     if (progress > 1.0f) progress = 1.0f;
-
+    LOGD("relativePosition %ld virtualDuration %ld progress %f",
+         relativePosition, virtualDuration, progress);
     if (mCallback) {
         mCallback->onProgress(0, relativePosition, virtualDuration, progress);
     }

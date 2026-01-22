@@ -243,6 +243,7 @@ private:
     std::thread *mProgressThread = nullptr;  // 独立的心跳线程
 
     std::atomic<int64_t> mAudioDataStartPos{-1};
+    double mAudioClockMs = 0.0;
 
 };
 

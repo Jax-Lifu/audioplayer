@@ -1,5 +1,6 @@
 package com.qytech.audioplayer.player
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -105,10 +106,14 @@ abstract class BaseNativePlayer(
 
         try {
             audioTrack?.let { track ->
-                QYPlayerLogger.d("AudioTrack check: state=${track.state}, playState=${track.playState}")
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
-                    if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                    val playState = track.playState
+                    QYPlayerLogger.d("AudioTrack check: state=${track.state}, playState=$playState")
+                    if (playState != AudioTrack.PLAYSTATE_PLAYING) {
                         track.play()
+                        QYPlayerLogger.d("AudioTrack.play() called")
+                    } else {
+                        QYPlayerLogger.w("AudioTrack is already playing, skipping play() call")
                     }
                 }
             }
@@ -227,6 +232,7 @@ abstract class BaseNativePlayer(
     }
 
     // 辅助方法：将位深转换为 AudioFormat 编码
+    @SuppressLint("InlinedApi")
     private fun getAudioEncoding(bitPerSample: Int): Int {
         return when (bitPerSample) {
             1 -> AudioFormat.ENCODING_DSD // 需要系统支持或特定的 AudioTrack 配置
@@ -332,8 +338,9 @@ abstract class BaseNativePlayer(
                 }
             }
             audioTrack?.let { track ->
-                if (track.state == AudioTrack.STATE_INITIALIZED) {
+                if (track.state == AudioTrack.STATE_INITIALIZED && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                     try {
+                        // QYPlayerLogger.d("AudioTrack write $size bytes")
                         val ret = track.write(data, 0, size)
                         if (ret < 0) {
                             QYPlayerLogger.e("AudioTrack write error: $ret")
@@ -388,21 +395,31 @@ abstract class BaseNativePlayer(
     }
 
     private fun releaseAudioTrack() {
-        audioTrack?.let { track ->
+        val track = audioTrack
+        audioTrack = null
+
+        track?.let {
             try {
-                if (track.state == AudioTrack.STATE_INITIALIZED) {
-                    track.stop()
+                if (it.state == AudioTrack.STATE_INITIALIZED) {
+                    if (it.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                        it.pause()
+                    }
+
+                    it.flush()
+
+                    it.stop()
                 }
             } catch (e: Exception) {
-                // ignore stop errors
+                QYPlayerLogger.e("AudioTrack stop/flush error", e)
             }
+
             try {
-                track.release()
+                it.release()
+                QYPlayerLogger.d("AudioTrack released successfully")
             } catch (e: Exception) {
                 QYPlayerLogger.e("AudioTrack release error", e)
             }
         }
-        audioTrack = null
     }
 
     private fun createAudioTrack(sampleRate: Int, encoding: Int, channel: Int): AudioTrack {

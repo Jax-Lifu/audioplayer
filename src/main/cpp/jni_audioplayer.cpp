@@ -260,6 +260,7 @@ static void native_stop(JNIEnv *env, jobject thiz, jlong handle) {
     auto *ctx = getContext(handle);
     LOCK_CONTEXT(ctx); // 加锁保护
     auto *player = (BasePlayer *) ctx->playerInstance;
+    LOGD("native_stop()");
     player->stop();
 }
 
