@@ -449,11 +449,32 @@ void FFPlayer::readLoop() {
 
             // 记录起始位置
             if (mIsSourceDsd && mAudioDataStartPos.load() == -1 && packet->pos > 0) {
-                mAudioDataStartPos.store(packet->pos);
-                // 二次检查：如果之前 bit_rate 为 0，现在尝试重新计算
+                // 1. 确保码率已计算
                 if (dsdByteRate <= 0 && codecCtx->sample_rate > 0) {
-                    dsdByteRate = (int64_t) codecCtx->sample_rate * codecCtx->ch_layout.nb_channels;
+                    dsdByteRate = (int64_t)codecCtx->sample_rate * codecCtx->ch_layout.nb_channels;
                 }
+
+                // 2. [核心修复] 倒推文件真实的物理起始点 (Time 0)
+                // 如果是从 CUE 分轨中间开始播放 (mStartTimeMs > 0)，当前的 packet->pos 实际上对应的是 mStartTimeMs
+                // 我们需要减去这部分偏移，让 mAudioDataStartPos 代表文件头（0秒）的位置。
+                int64_t calculatedStartPos = packet->pos;
+
+                if (mStartTimeMs > 0 && dsdByteRate > 0) {
+                    // 计算 431s 对应的字节偏移量
+                    int64_t timeOffsetBytes = (int64_t)(mStartTimeMs / 1000.0 * dsdByteRate);
+
+                    // 倒推回 0秒 时的物理位置
+                    if (calculatedStartPos > timeOffsetBytes) {
+                        calculatedStartPos -= timeOffsetBytes;
+                    } else {
+                        // 防御性代码：理论上不应发生，除非 header 极小或计算误差，归零处理
+                        calculatedStartPos = 0;
+                    }
+                    LOGD("DSD CUE Fix: PacketPos=%ld, StartTime=%ld, ByteRate=%ld, CorrectedStartPos=%ld",
+                         packet->pos, mStartTimeMs, dsdByteRate, calculatedStartPos);
+                }
+
+                mAudioDataStartPos.store(calculatedStartPos);
             }
 
             if (mIsSourceDsd && dropFrameCount > 0) {
