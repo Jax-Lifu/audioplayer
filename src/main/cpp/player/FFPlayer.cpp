@@ -250,6 +250,7 @@ void FFPlayer::pause() {
     if (mState == STATE_PLAYING || mState == STATE_BUFFERING) {
         std::lock_guard<std::mutex> lock(mStateMutex);
         mState = STATE_PAUSED;
+        mBaseSystemMs.store(0);
     }
 }
 
@@ -257,6 +258,7 @@ void FFPlayer::resume() {
     if (mState == STATE_PAUSED) {
         std::lock_guard<std::mutex> lock(mStateMutex);
         mState = STATE_PLAYING;
+        mBaseSystemMs.store(0);
         stateCond.notify_all();
     }
 }
@@ -451,7 +453,7 @@ void FFPlayer::readLoop() {
             if (mIsSourceDsd && mAudioDataStartPos.load() == -1 && packet->pos > 0) {
                 // 1. 确保码率已计算
                 if (dsdByteRate <= 0 && codecCtx->sample_rate > 0) {
-                    dsdByteRate = (int64_t)codecCtx->sample_rate * codecCtx->ch_layout.nb_channels;
+                    dsdByteRate = (int64_t) codecCtx->sample_rate * codecCtx->ch_layout.nb_channels;
                 }
 
                 // 2. [核心修复] 倒推文件真实的物理起始点 (Time 0)
@@ -461,7 +463,7 @@ void FFPlayer::readLoop() {
 
                 if (mStartTimeMs > 0 && dsdByteRate > 0) {
                     // 计算 431s 对应的字节偏移量
-                    int64_t timeOffsetBytes = (int64_t)(mStartTimeMs / 1000.0 * dsdByteRate);
+                    int64_t timeOffsetBytes = (int64_t) (mStartTimeMs / 1000.0 * dsdByteRate);
 
                     // 倒推回 0秒 时的物理位置
                     if (calculatedStartPos > timeOffsetBytes) {
@@ -541,7 +543,7 @@ void FFPlayer::decodingLoop() {
             isDraining = false;
 
             mAudioClockMs = (double) mBasePtsMs.load();
-
+            mBaseSystemMs.store(0);
         }
 
         // 2. 暂停逻辑 (用户主动)
@@ -676,17 +678,21 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
         }
 
         if (mState == STATE_PLAYING) {
-            // 优先使用 FFmpeg 提供的 PTS
-            if (frame->pts != AV_NOPTS_VALUE) {
+            if (mAudioClockMs == 0.0 && frame->pts != AV_NOPTS_VALUE) {
+                // 只有在 0.0 (刚启动) 时才允许使用 PTS 初始化一次
                 mAudioClockMs = frame->pts * av_q2d(*timeBase) * 1000.0;
+            } else {
+                if (frame->pts != AV_NOPTS_VALUE) {
+                    double ptsMs = frame->pts * av_q2d(*timeBase) * 1000.0;
+                    if (std::abs(ptsMs - mAudioClockMs) > 5000.0) {
+                        LOGW("Large PTS discrepancy detected: Clock=%.2f, PTS=%.2f. Force syncing.", mAudioClockMs, ptsMs);
+                        mAudioClockMs = ptsMs;
+                    }
+                }
             }
-            // 如果是 APE 等无 PTS 格式，mAudioClockMs 会保持上一帧累加的结果
 
-            // 更新给 UI 线程的原子变量
             mBasePtsMs.store((int64_t) mAudioClockMs);
             mBaseSystemMs.store(getNowMs());
-
-            // 累加时长，为下一帧做准备 (核心修复逻辑)
             mAudioClockMs += durationMs;
         }
 
@@ -857,6 +863,11 @@ void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
 void FFPlayer::updateProgress() {
     int64_t basePts = mBasePtsMs.load();
     int64_t baseSys = mBaseSystemMs.load();
+
+    if (baseSys <= 0) {
+        return;
+    }
+
     int64_t now = getNowMs();
 
     int64_t currentPosMs = basePts;
