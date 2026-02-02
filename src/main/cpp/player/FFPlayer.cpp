@@ -249,17 +249,52 @@ void FFPlayer::play() {
 void FFPlayer::pause() {
     if (mState == STATE_PLAYING || mState == STATE_BUFFERING) {
         std::lock_guard<std::mutex> lock(mStateMutex);
+
+        // ⚠️ 先计算并冻结当前精确位置
+        int64_t basePts = mBasePtsMs.load();
+        int64_t baseSys = mBaseSystemMs.load();
+        int64_t frozenPosition = basePts;
+
+        if (baseSys > 0) {
+            int64_t elapsed = getNowMs() - baseSys;
+            if (elapsed > 0 && elapsed < 5000) {
+                frozenPosition = basePts + elapsed;
+            }
+        }
+
+        // 立即保存冻结位置
+        mCurrentPositionMs.store(frozenPosition);
+        mAudioClockMs = (double) frozenPosition;  // ⚠️ 关键：同步音频时钟
+
         mState = STATE_PAUSED;
         mBaseSystemMs.store(0);
+
+        LOGD("Paused at %ld ms (basePts=%ld, elapsed=%ld)",
+             frozenPosition, basePts, baseSys > 0 ? (getNowMs() - baseSys) : 0);
     }
 }
 
 void FFPlayer::resume() {
     if (mState == STATE_PAUSED) {
         std::lock_guard<std::mutex> lock(mStateMutex);
-        mState = STATE_PLAYING;
+
+        int64_t resumePosition = mCurrentPositionMs.load();
+        mBasePtsMs.store(resumePosition);
+        mAudioClockMs = (double) resumePosition;
+
+        if (codecCtx && codecCtx->sample_rate > 0) {
+            mTotalSamplesPlayed.store(
+                    (resumePosition * codecCtx->sample_rate) / 1000
+            );
+        }
+
         mBaseSystemMs.store(0);
+        mUseManualClock.store(true);  // 启用手动时钟模式
+        mState = STATE_PLAYING;
         stateCond.notify_all();
+
+        LOGD("Resumed from %ld ms (samples=%ld)",
+             resumePosition, mTotalSamplesPlayed.load());
     }
 }
 
@@ -412,6 +447,15 @@ void FFPlayer::readLoop() {
                         av_seek_frame(fmtCtx, audioStreamIndex, targetPts, AVSEEK_FLAG_BACKWARD);
                     }
                     dropFrameCount = 0;
+                }
+
+                if (seekSuccess) {
+                    mUseManualClock.store(false);  // Seek 后回到 PTS 模式
+                    if (codecCtx && codecCtx->sample_rate > 0) {
+                        mTotalSamplesPlayed.store(
+                                (targetMs * codecCtx->sample_rate) / 1000
+                        );
+                    }
                 }
 
                 mBasePtsMs.store(targetMs);
@@ -678,22 +722,29 @@ void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
         }
 
         if (mState == STATE_PLAYING) {
-            if (mAudioClockMs == 0.0 && frame->pts != AV_NOPTS_VALUE) {
+            if (mUseManualClock.load() && frame->sample_rate > 0) {
+                mTotalSamplesPlayed.fetch_add(frame->nb_samples);
+                mAudioClockMs = (mTotalSamplesPlayed.load() * 1000.0) / frame->sample_rate;
+            } else if (mAudioClockMs == 0.0 && frame->pts != AV_NOPTS_VALUE) {
                 // 只有在 0.0 (刚启动) 时才允许使用 PTS 初始化一次
                 mAudioClockMs = frame->pts * av_q2d(*timeBase) * 1000.0;
             } else {
                 if (frame->pts != AV_NOPTS_VALUE) {
                     double ptsMs = frame->pts * av_q2d(*timeBase) * 1000.0;
-                    if (std::abs(ptsMs - mAudioClockMs) > 5000.0) {
-                        LOGW("Large PTS discrepancy detected: Clock=%.2f, PTS=%.2f. Force syncing.", mAudioClockMs, ptsMs);
+                    double diff = std::abs(ptsMs - mAudioClockMs);
+                    if (diff > 10000.0) {
+                        LOGW("Large PTS jump: Clock=%.2f, PTS=%.2f. Syncing.",
+                             mAudioClockMs, ptsMs);
                         mAudioClockMs = ptsMs;
                     }
                 }
             }
-
             mBasePtsMs.store((int64_t) mAudioClockMs);
             mBaseSystemMs.store(getNowMs());
-            mAudioClockMs += durationMs;
+
+            if (!mUseManualClock.load()) {
+                mAudioClockMs += durationMs;
+            }
         }
 
         if (frame->nb_samples <= 0) continue;
@@ -863,24 +914,31 @@ void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
 void FFPlayer::updateProgress() {
     int64_t basePts = mBasePtsMs.load();
     int64_t baseSys = mBaseSystemMs.load();
+    int64_t currentPosMs = mCurrentPositionMs.load();
 
-    if (baseSys <= 0) {
-        return;
-    }
-
-    int64_t now = getNowMs();
-
-    int64_t currentPosMs = basePts;
-
+    // 如果在播放状态且有有效的时间基准
     if (mState == STATE_PLAYING && baseSys > 0) {
+        int64_t now = getNowMs();
         int64_t elapsed = now - baseSys;
-        if (elapsed > 0 && elapsed < 2000) {
-            currentPosMs += elapsed;
+
+        // 扩大时间范围限制，处理系统时间跳变
+        if (elapsed > 0 && elapsed < 10000) {  // 改为 10 秒
+            currentPosMs = basePts + elapsed;
+        } else if (elapsed >= 10000) {
+            // 时间跳变过大，可能是系统时间异常或长时间暂停
+            LOGW("Large time jump detected: elapsed=%ld, resetting time base", elapsed);
+            currentPosMs = basePts;
+            mBaseSystemMs.store(now);
+        } else {
+            currentPosMs = basePts;
         }
+
+        mCurrentPositionMs.store(currentPosMs);
     }
-
-    mCurrentPositionMs.store(currentPosMs);
-
+        // 暂停状态使用上次保存的位置
+    else if (mState == STATE_PAUSED) {
+        // currentPosMs 已经是暂停时保存的值，不需要修改
+    }
 
     long relativePosition = (long) (currentPosMs - mStartTimeMs);
     if (relativePosition < 0) relativePosition = 0;
@@ -890,9 +948,10 @@ void FFPlayer::updateProgress() {
 
     float progress = (float) relativePosition / (float) virtualDuration;
     if (progress > 1.0f) progress = 1.0f;
-    LOGD("currentPosMs %ld mStartTimeMs %ld relativePosition %ld virtualDuration %ld progress %f",
-         currentPosMs, mStartTimeMs,
-         relativePosition, virtualDuration, progress);
+
+//    LOGD("State=%d, currentPosMs=%ld, basePts=%ld, baseSys=%ld, relativePos=%ld, progress=%.2f",
+//         mState.load(), currentPosMs, basePts, baseSys, relativePosition, progress);
+
     if (mCallback) {
         mCallback->onProgress(0, relativePosition, virtualDuration, progress);
     }

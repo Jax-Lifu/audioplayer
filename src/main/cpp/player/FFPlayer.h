@@ -244,7 +244,8 @@ private:
 
     std::atomic<int64_t> mAudioDataStartPos{-1};
     double mAudioClockMs = 0.0;
-
+    std::atomic<int64_t> mTotalSamplesPlayed{0};  // 新增: 已播放总采样数
+    std::atomic<bool> mUseManualClock{false};     // 新增: 是否使用手动时钟
 };
 
 #endif //QYPLAYER_FFPLAYER_H
