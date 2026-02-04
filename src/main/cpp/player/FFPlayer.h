@@ -176,6 +176,8 @@ private:
 
     static int interrupt_cb(void *ctx);
 
+    void processPcmFrame(AVFrame *frame);
+
 private:
     std::string mUrl;
     std::map<std::string, std::string> mHeaders;
@@ -246,6 +248,14 @@ private:
     double mAudioClockMs = 0.0;
     std::atomic<int64_t> mTotalSamplesPlayed{0};  // 新增: 已播放总采样数
     std::atomic<bool> mUseManualClock{false};     // 新增: 是否使用手动时钟
+
+
+    bool mIsDtsInFlac = false;
+    int mDtsDataOffset = 0;
+    AVCodecContext *dtsCodecCtx = nullptr;
+    AVFrame *dtsFrame = nullptr;
+    AVCodecParserContext *dtsParserCtx = nullptr;
+
 };
 
 #endif //QYPLAYER_FFPLAYER_H

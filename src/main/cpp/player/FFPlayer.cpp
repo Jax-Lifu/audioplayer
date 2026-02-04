@@ -166,6 +166,98 @@ void FFPlayer::prepare() {
             releaseFFmpeg();
             return;
         }
+
+        // DTS-in-FLAC 检测
+        if (codecCtx->codec_id == AV_CODEC_ID_FLAC) {
+            AVPacket *testPkt = av_packet_alloc();
+            AVFrame *testFrame = av_frame_alloc();
+
+            if (av_read_frame(fmtCtx, testPkt) >= 0) {
+                if (testPkt->stream_index == audioStreamIndex) {
+                    if (avcodec_send_packet(codecCtx, testPkt) >= 0) {
+                        if (avcodec_receive_frame(codecCtx, testFrame) >= 0) {
+                            if (testFrame->nb_samples > 4 && testFrame->data[0]) {
+
+                                // ============ 修正：跳过前导零，查找 DTS 同步字 ============
+                                int dataSize = av_samples_get_buffer_size(
+                                        nullptr, testFrame->ch_layout.nb_channels,
+                                        testFrame->nb_samples,
+                                        (AVSampleFormat) testFrame->format, 1);
+
+                                uint8_t *data = testFrame->data[0];
+                                bool foundDts = false;
+                                int dtsOffset = -1;
+
+                                // 在前 4KB 范围内查找同步字（通常在前几百字节）
+                                int searchLimit = std::min(dataSize - 4, 4096);
+
+                                for (int offset = 0; offset < searchLimit; offset += 4) {
+                                    uint32_t sync = *(uint32_t *) (data + offset);
+
+                                    // DTS Core 同步字
+                                    bool isDtsCore = (sync == 0x7FFE8001 || sync == 0xFE7F0180 ||
+                                                      sync == 0x01807FFE || sync == 0x0180FE7F);
+
+                                    // DTS-HD 同步字
+                                    bool isDtsHD = (sync == 0x64582025 || sync == 0x25205864 ||
+                                                    sync == 0xFF1F00E8 || sync == 0xE8001FFF);
+
+                                    if (isDtsCore || isDtsHD) {
+                                        foundDts = true;
+                                        dtsOffset = offset;
+                                        LOGD("Found DTS sync 0x%08X at offset %d (%s)",
+                                             sync, offset, isDtsHD ? "DTS-HD" : "DTS-Core");
+                                        break;
+                                    }
+
+                                    // 如果遇到非零但不是 DTS 同步字，可能不是 DTS-in-FLAC
+                                    if (sync != 0 && offset > 1024) {
+                                        break; // 避免无限搜索
+                                    }
+                                }
+
+                                if (foundDts) {
+                                    mIsDtsInFlac = true;
+                                    mDtsDataOffset = dtsOffset; // 保存偏移量
+
+                                    // 打开 DTS 解码器
+                                    const AVCodec *dtsCodec = avcodec_find_decoder(AV_CODEC_ID_DTS);
+                                    if (dtsCodec) {
+                                        dtsCodecCtx = avcodec_alloc_context3(dtsCodec);
+                                        dtsCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
+
+                                        AVDictionary *opts = nullptr;
+                                        av_dict_set(&opts, "request_channel_layout", "stereo", 0);
+
+                                        if (avcodec_open2(dtsCodecCtx, dtsCodec, &opts) < 0) {
+                                            LOGE("Failed to open DTS decoder");
+                                            avcodec_free_context(&dtsCodecCtx);
+                                            mIsDtsInFlac = false;
+                                        } else {
+                                            dtsFrame = av_frame_alloc();
+                                            if (dtsParserCtx) av_parser_close(dtsParserCtx);
+                                            dtsParserCtx = av_parser_init(AV_CODEC_ID_DTS);
+                                            LOGD("DTS decoder opened, data starts at offset %d",
+                                                 dtsOffset);
+                                        }
+                                        av_dict_free(&opts);
+                                    }
+                                } else {
+                                    LOGD("No DTS sync found in first %d bytes", searchLimit);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            av_packet_free(&testPkt);
+            av_frame_free(&testFrame);
+
+            // Seek 回起始
+            avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, 0, INT64_MAX, 0);
+            avcodec_flush_buffers(codecCtx);
+        }
     }
 
     // DSD 配置
@@ -450,13 +542,21 @@ void FFPlayer::readLoop() {
                 }
 
                 if (seekSuccess) {
-                    mUseManualClock.store(false);  // Seek 后回到 PTS 模式
-                    if (codecCtx && codecCtx->sample_rate > 0) {
-                        mTotalSamplesPlayed.store(
-                                (targetMs * codecCtx->sample_rate) / 1000
-                        );
-                    }
+                    mUseManualClock.store(false);  // 只有精准 Seek 成功才敢切回 PTS 模式
                 }
+
+                if (codecCtx && codecCtx->sample_rate > 0) {
+                    int64_t calculationRate = codecCtx->sample_rate;
+
+                    if (mIsDtsInFlac && dtsCodecCtx && dtsCodecCtx->sample_rate > 0) {
+                        calculationRate = dtsCodecCtx->sample_rate;
+                    }
+
+                    mTotalSamplesPlayed.store(
+                            (targetMs * calculationRate) / 1000
+                    );
+                }
+                // ===================================
 
                 mBasePtsMs.store(targetMs);
                 mBaseSystemMs.store(0);
@@ -582,7 +682,20 @@ void FFPlayer::decodingLoop() {
 
         // 1. Seek Flush
         if (mFlushCodec.load()) {
-            if (codecCtx) avcodec_flush_buffers(codecCtx);
+            if (codecCtx) {
+                avcodec_flush_buffers(codecCtx);
+            }
+            if (dtsCodecCtx) {
+                avcodec_flush_buffers(dtsCodecCtx);
+            }
+
+            if (dtsParserCtx) {
+                av_parser_close(dtsParserCtx);
+                dtsParserCtx = av_parser_init(AV_CODEC_ID_DTS);
+            }
+            if (dtsFrame) {
+                av_frame_unref(dtsFrame);
+            }
             mFlushCodec.store(false);
             isDraining = false;
 
@@ -701,182 +814,289 @@ void FFPlayer::progressHeartbeat() {
 void FFPlayer::handlePcmAudioPacket(AVPacket *packet, AVFrame *frame) {
     if (!codecCtx || !frame) return;
 
-    // 1. Send Packet
+    // 1. 发送 FLAC 包并接收解码后的 PCM (其实是 DTS bitstream)
     if (packet) {
         int ret = avcodec_send_packet(codecCtx, packet);
-        if (ret < 0) {
-            if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) LOGE("Send packet error");
+        if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+            LOGE("Send packet error");
             return;
         }
     }
 
-    // 2. Receive Frames
     while (true) {
         int ret = avcodec_receive_frame(codecCtx, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-        if (ret < 0) break;
+        if (ret < 0) break; // EAGAIN or EOF
 
-        double durationMs = 0;
-        if (frame->sample_rate > 0) {
-            durationMs = (frame->nb_samples * 1000.0) / frame->sample_rate;
-        }
+        // ============ DTS-in-FLAC 核心修复逻辑 ============
+        if (mIsDtsInFlac && dtsCodecCtx && dtsFrame && dtsParserCtx) {
 
-        if (mState == STATE_PLAYING) {
-            if (mUseManualClock.load() && frame->sample_rate > 0) {
-                mTotalSamplesPlayed.fetch_add(frame->nb_samples);
-                mAudioClockMs = (mTotalSamplesPlayed.load() * 1000.0) / frame->sample_rate;
-            } else if (mAudioClockMs == 0.0 && frame->pts != AV_NOPTS_VALUE) {
-                // 只有在 0.0 (刚启动) 时才允许使用 PTS 初始化一次
-                mAudioClockMs = frame->pts * av_q2d(*timeBase) * 1000.0;
-            } else {
-                if (frame->pts != AV_NOPTS_VALUE) {
-                    double ptsMs = frame->pts * av_q2d(*timeBase) * 1000.0;
-                    double diff = std::abs(ptsMs - mAudioClockMs);
-                    if (diff > 10000.0) {
-                        LOGW("Large PTS jump: Clock=%.2f, PTS=%.2f. Syncing.",
-                             mAudioClockMs, ptsMs);
-                        mAudioClockMs = ptsMs;
+            // A. 准备数据 Buffer (处理 Planar 格式和 Offset)
+            uint8_t *inData = nullptr;
+            int inSize = 0;
+            std::vector<uint8_t> tempBuffer; // 用于 Planar 转换的临时容器
+
+            // 计算有效数据的起始位置
+            // 注意：mDtsDataOffset 只有在第一帧(StartPos)有效，后续帧应该为 0
+            // 为了安全，如果 offset 超过数据大小，则归零
+            int currentOffset = mDtsDataOffset;
+            if (currentOffset >= frame->nb_samples * frame->ch_layout.nb_channels * 2) {
+                currentOffset = 0;
+            }
+            // 简单处理：使用一次后归零，避免切掉后续帧的头部
+            mDtsDataOffset = 0;
+
+            if (av_sample_fmt_is_planar((AVSampleFormat) frame->format)) {
+                // 如果是 Planar，必须先交织成线性 Buffer
+                int bytesPerSample = av_get_bytes_per_sample((AVSampleFormat) frame->format);
+                int channels = frame->ch_layout.nb_channels;
+                int samples = frame->nb_samples;
+                int totalBytes = samples * channels * bytesPerSample;
+
+                tempBuffer.resize(totalBytes);
+                uint8_t *dst = tempBuffer.data();
+
+                for (int i = 0; i < samples; i++) {
+                    for (int ch = 0; ch < channels; ch++) {
+                        // 简单的交织逻辑
+                        if (frame->data[ch]) {
+                            memcpy(dst, frame->data[ch] + i * bytesPerSample, bytesPerSample);
+                        }
+                        dst += bytesPerSample;
                     }
                 }
-            }
-            mBasePtsMs.store((int64_t) mAudioClockMs);
-            mBaseSystemMs.store(getNowMs());
 
-            if (!mUseManualClock.load()) {
-                mAudioClockMs += durationMs;
-            }
-        }
-
-        if (frame->nb_samples <= 0) continue;
-
-        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC ||
-            frame->ch_layout.nb_channels <= 0) {
-            // 如果没布局，根据声道数猜一个默认布局 (例如 2 -> Stereo)
-            av_channel_layout_default(&frame->ch_layout, frame->ch_layout.nb_channels);
-        }
-
-        bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat) frame->format);
-        int planesToCheck = isPlanar ? frame->ch_layout.nb_channels : 1;
-        bool hasBadPointer = false;
-
-        if (!frame->extended_data) {
-            hasBadPointer = true;
-        } else {
-            for (int i = 0; i < planesToCheck; i++) {
-                if (!frame->extended_data[i]) {
-                    hasBadPointer = true;
-                    break;
+                // 应用 Offset
+                if (currentOffset < totalBytes) {
+                    inData = tempBuffer.data() + currentOffset;
+                    inSize = totalBytes - currentOffset;
+                }
+            } else {
+                // 如果是 Packed，直接使用 data[0]
+                int totalBytes = frame->linesize[0];
+                if (currentOffset < totalBytes) {
+                    inData = frame->data[0] + currentOffset;
+                    inSize = totalBytes - currentOffset;
                 }
             }
-        }
 
-        if (hasBadPointer) {
-            LOGE("Frame data corrupt: null pointers in extended_data. Skipping.");
+            // B. 使用 Parser 循环解析所有 DTS 帧
+            // 一个 FLAC 帧可能包含 2-4 个 DTS 帧，必须全部解出来！
+            if (inData && inSize > 0) {
+                uint8_t *curPtr = inData;
+                int curSize = inSize;
+
+                AVPacket *parsedPkt = av_packet_alloc();
+
+                while (curSize > 0) {
+                    uint8_t *outData = nullptr;
+                    int outSize = 0;
+
+                    // 解析器核心：从流中切出一个完整的 DTS 包
+                    int len = av_parser_parse2(dtsParserCtx, dtsCodecCtx,
+                                               &outData, &outSize,
+                                               curPtr, curSize,
+                                               AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+
+                    curPtr += len;
+                    curSize -= len;
+
+                    if (outSize > 0 && outData) {
+                        // 构造 DTS Packet
+                        parsedPkt->data = outData;
+                        parsedPkt->size = outSize;
+
+                        // 发送给 DTS 解码器
+                        if (avcodec_send_packet(dtsCodecCtx, parsedPkt) >= 0) {
+                            while (avcodec_receive_frame(dtsCodecCtx, dtsFrame) >= 0) {
+                                // 成功解码一帧 DTS，送去播放
+                                // 注意：此时我们把 dtsFrame 传给 processPcmFrame
+                                processPcmFrame(dtsFrame);
+                            }
+                        }
+                    }
+                }
+                av_packet_free(&parsedPkt);
+            }
+
+            // 当前 FLAC 帧已完全处理完毕（转换为 DTS 并播放了），继续下一个 FLAC 帧
             continue;
         }
 
-        bool swrNeedsReinit = false;
+        // 普通 PCM 处理 (非 DTS)
+        processPcmFrame(frame);
+    }
+}
 
-        // 比较参数
-        if (!swrCtx ||
-            mSwrInSampleRate != frame->sample_rate ||
-            mSwrInFormat != frame->format ||
-            mSwrInChannels != frame->ch_layout.nb_channels ||
-            av_channel_layout_compare(&codecCtx->ch_layout, &frame->ch_layout) != 0) {
-            swrNeedsReinit = true;
-        }
-        if (mSwrInSampleRate != frame->sample_rate ||
-            mSwrInFormat != frame->format ||
-            mSwrInChannels != frame->ch_layout.nb_channels) {
-            swrNeedsReinit = true;
-        }
+void FFPlayer::processPcmFrame(AVFrame *frame) {
+    if (!frame) return;
 
-        if (swrNeedsReinit) {
-            // 如果存在旧的，先释放
-            if (swrCtx) {
-                swr_free(&swrCtx);
-                swrCtx = nullptr;
-            }
+    double durationMs = 0;
+    if (frame->sample_rate > 0) {
+        durationMs = (frame->nb_samples * 1000.0) / frame->sample_rate;
+    }
 
-            swrCtx = swr_alloc();
-            if (!swrCtx) {
-                LOGE("Failed to allocate swrCtx");
-                continue;
-            }
+    // --- 1. 时钟同步逻辑 (保持不变) ---
+    if (mState == STATE_PLAYING) {
+        bool forceManualClock = mIsDtsInFlac || mUseManualClock.load();
 
-            // --- 配置 Output ---
-            AVChannelLayout outLayout;
-            av_channel_layout_default(&outLayout, CHANNEL_OUT_STEREO);
-            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate
-                                             : frame->sample_rate; // 使用 frame 的 rate
-
-            av_opt_set_chlayout(swrCtx, "out_chlayout", &outLayout, 0);
-            av_opt_set_int(swrCtx, "out_sample_rate", actualOutRate, 0);
-            av_opt_set_sample_fmt(swrCtx, "out_sample_fmt", outputSampleFormat, 0);
-
-            av_opt_set_chlayout(swrCtx, "in_chlayout", &frame->ch_layout, 0);
-            av_opt_set_int(swrCtx, "in_sample_rate", frame->sample_rate, 0);
-            av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat) frame->format, 0);
-
-            av_opt_set_int(swrCtx, "ich", frame->ch_layout.nb_channels, 0);
-
-            if (swr_init(swrCtx) < 0) {
-                LOGE("Failed to swr_init");
-                swr_free(&swrCtx);
-                continue;
-            }
-
-            // 更新缓存状态
-            mSwrInSampleRate = frame->sample_rate;
-            mSwrInFormat = frame->format;
-            mSwrInChannels = frame->ch_layout.nb_channels;
-            // 同步 codecCtx 防止外部逻辑混乱 (可选)
-            codecCtx->sample_rate = frame->sample_rate;
-            av_channel_layout_uninit(&codecCtx->ch_layout);
-            av_channel_layout_copy(&codecCtx->ch_layout, &frame->ch_layout);
-
-            LOGD("Swr Re-initialized: %dHz %dch fmt%d -> %dHz Stereo",
-                 frame->sample_rate, frame->ch_layout.nb_channels, frame->format, actualOutRate);
-        }
-
-        // --- 执行转换 ---
-        if (swrCtx) {
-            // 计算输出 Buffer 大小
-            int actualOutRate = mIsSourceDsd ? mTargetD2pSampleRate : frame->sample_rate;
-            int out_samples = av_rescale_rnd(
-                    swr_get_delay(swrCtx, frame->sample_rate) + frame->nb_samples,
-                    actualOutRate,
-                    frame->sample_rate,
-                    AV_ROUND_UP
-            );
-
-            if (out_samples > 0) {
-                int outSampleSize = av_get_bytes_per_sample(outputSampleFormat);
-                int outChannels = 2; // Stereo
-                int requiredBufferSize = out_samples * outSampleSize * outChannels;
-
-                ensureBufferCapacity(requiredBufferSize);
-                if (outBuffer.empty()) continue;
-
-                uint8_t *rawBuffer = outBuffer.data();
-                uint8_t *outData[2] = {rawBuffer, nullptr};
-                const uint8_t **inData = (const uint8_t **) frame->extended_data;
-
-                // 转换
-                int convertedSamples = swr_convert(swrCtx,
-                                                   outData,
-                                                   out_samples,
-                                                   inData,
-                                                   frame->nb_samples);
-
-                if (convertedSamples > 0) {
-                    int size = convertedSamples * outSampleSize * outChannels;
-                    if (mCallback) mCallback->onAudioData(rawBuffer, size);
+        if (forceManualClock && frame->sample_rate > 0) {
+            mTotalSamplesPlayed.fetch_add(frame->nb_samples);
+            mAudioClockMs = (mTotalSamplesPlayed.load() * 1000.0) / frame->sample_rate;
+        } else if (mAudioClockMs == 0.0 && frame->pts != AV_NOPTS_VALUE) {
+            mAudioClockMs = frame->pts * av_q2d(*timeBase) * 1000.0;
+        } else {
+            // 普通模式下的 PTS 矫正
+            if (frame->pts != AV_NOPTS_VALUE) {
+                double ptsMs = frame->pts * av_q2d(*timeBase) * 1000.0;
+                double diff = std::abs(ptsMs - mAudioClockMs);
+                if (diff > 10000.0) {
+                    // 时间差异太大才同步，微小的差异忽略，保持平滑
+                    mAudioClockMs = ptsMs;
                 }
             }
         }
+        mBasePtsMs.store((int64_t) mAudioClockMs);
+        mBaseSystemMs.store(getNowMs());
+
+        if (!forceManualClock) {
+            mAudioClockMs += durationMs;
+        }
     }
+
+    if (frame->nb_samples <= 0) return;
+
+    // --- 2. 修正输入 Frame 的布局缺失 ---
+    if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC || frame->ch_layout.nb_channels <= 0) {
+        // 如果解码出来没有布局，给一个默认值
+        av_channel_layout_default(&frame->ch_layout, frame->ch_layout.nb_channels);
+    }
+
+    // --- 3. 检查数据指针有效性 ---
+    bool isPlanar = av_sample_fmt_is_planar((AVSampleFormat) frame->format);
+    int planesToCheck = isPlanar ? frame->ch_layout.nb_channels : 1;
+    bool hasBadPointer = false;
+    if (!frame->extended_data) hasBadPointer = true;
+    else {
+        for (int i = 0; i < planesToCheck; i++) {
+            if (!frame->extended_data[i]) {
+                hasBadPointer = true;
+                break;
+            }
+        }
+    }
+    if (hasBadPointer) return;
+
+    // =========================================================================
+    // [核心修复] 强制对齐声卡参数
+    // 不管输入是什么（6ch, 48k...），输出必须强制转为声卡初始化的参数（2ch, 44.1k）
+    // =========================================================================
+
+    // 1. 目标采样率：强制使用 Player 初始化时的采样率 (mSampleRate)
+    // 即使 DTS 是 48k/44.1k，如果 mSampleRate 是 44.1k，我们都要输出 44.1k
+    int targetSampleRate = mIsSourceDsd ? mTargetD2pSampleRate : mSampleRate;
+    if (targetSampleRate <= 0) targetSampleRate = 44100; // 绝对兜底
+
+    // 2. 目标声道布局：强制使用立体声 (Stereo/2ch)
+    // 因为你的声卡是按 2声道打开的。如果这里不强制，6声道数据喂给2声道声卡 = 3倍速播放。
+    AVChannelLayout targetLayout;
+    av_channel_layout_default(&targetLayout, 2); // 强制定义为 2 声道
+
+    bool swrNeedsReinit = false;
+
+    // 检查是否需要重新初始化 Swr
+    // 只要输入变了，或者 Swr 还没创建，就重置
+    if (!swrCtx ||
+        mSwrInSampleRate != frame->sample_rate ||
+        mSwrInFormat != frame->format ||
+        mSwrInChannels != frame->ch_layout.nb_channels) {
+        swrNeedsReinit = true;
+    }
+
+    if (swrNeedsReinit) {
+        if (swrCtx) {
+            swr_free(&swrCtx);
+            swrCtx = nullptr;
+        }
+
+        swrCtx = swr_alloc();
+        if (!swrCtx) {
+            av_channel_layout_uninit(&targetLayout);
+            return;
+        }
+
+        // --- 配置 INPUT (根据当前解码出来的 Frame) ---
+        // 告诉 Swr：输入是 6 声道，float/s32, 44100/48000Hz
+        av_opt_set_chlayout(swrCtx, "in_chlayout", &frame->ch_layout, 0);
+        av_opt_set_int(swrCtx, "in_sample_rate", frame->sample_rate, 0);
+        av_opt_set_sample_fmt(swrCtx, "in_sample_fmt", (AVSampleFormat) frame->format, 0);
+
+        // --- 配置 OUTPUT (强制固定为声卡参数) ---
+        // 告诉 Swr：无论输入如何，请给我转换成 2 声道，S16，44100Hz
+        av_opt_set_chlayout(swrCtx, "out_chlayout", &targetLayout, 0);
+        av_opt_set_int(swrCtx, "out_sample_rate", targetSampleRate, 0);
+        av_opt_set_sample_fmt(swrCtx, "out_sample_fmt", outputSampleFormat, 0); // 通常是 S16
+
+        LOGD("Swr Re-init: In[%dHz %dch] -> Out[%dHz 2ch(Stereo)]",
+             frame->sample_rate, frame->ch_layout.nb_channels, targetSampleRate);
+
+        if (swr_init(swrCtx) < 0) {
+            LOGE("Failed to swr_init");
+            swr_free(&swrCtx);
+            av_channel_layout_uninit(&targetLayout);
+            return;
+        }
+
+        // 更新缓存状态
+        mSwrInSampleRate = frame->sample_rate;
+        mSwrInFormat = frame->format;
+        mSwrInChannels = frame->ch_layout.nb_channels;
+    }
+
+    // --- 执行转换 ---
+    if (swrCtx) {
+        // 计算转换后的样本数量
+        // 这里的 out_samples 是“每个声道”的样本数
+        int out_samples = av_rescale_rnd(
+                swr_get_delay(swrCtx, frame->sample_rate) + frame->nb_samples,
+                targetSampleRate,
+                frame->sample_rate,
+                AV_ROUND_UP
+        );
+
+        if (out_samples > 0) {
+            int outSampleSize = av_get_bytes_per_sample(outputSampleFormat);
+            int outChannels = 2; // 我们已经强制目标为 2 声道
+
+            // 总字节数 = 样本数 * 每个样本字节数 * 声道数
+            int requiredBufferSize = out_samples * outSampleSize * outChannels;
+
+            ensureBufferCapacity(requiredBufferSize);
+            if (outBuffer.empty()) {
+                av_channel_layout_uninit(&targetLayout);
+                return;
+            }
+
+            uint8_t *rawBuffer = outBuffer.data();
+            uint8_t *outData[2] = {rawBuffer, nullptr};
+            const uint8_t **inData = (const uint8_t **) frame->extended_data;
+
+            // 执行转换 (Downmix 6ch -> 2ch 就在这里自动发生)
+            int convertedSamples = swr_convert(swrCtx,
+                                               outData,
+                                               out_samples,
+                                               inData,
+                                               frame->nb_samples);
+
+            if (convertedSamples > 0) {
+                int size = convertedSamples * outSampleSize * outChannels;
+                if (mCallback) mCallback->onAudioData(rawBuffer, size);
+            }
+        }
+    }
+
+    av_channel_layout_uninit(&targetLayout);
 }
+
 
 void FFPlayer::handleDsdAudioPacket(AVPacket *packet, AVFrame *frame) {
     if (!codecCtx || !frame) return;
@@ -1022,6 +1242,18 @@ void FFPlayer::extractAudioInfo() {
 }
 
 void FFPlayer::releaseFFmpeg() {
+    if (dtsParserCtx) {
+        av_parser_close(dtsParserCtx);
+        dtsParserCtx = nullptr;
+    }
+    if (dtsFrame) {
+        av_frame_free(&dtsFrame);
+        dtsFrame = nullptr;
+    }
+    if (dtsCodecCtx) {
+        avcodec_free_context(&dtsCodecCtx);
+        dtsCodecCtx = nullptr;
+    }
     if (swrCtx) {
         swr_free(&swrCtx);
         swrCtx = nullptr;
