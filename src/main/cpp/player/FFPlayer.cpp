@@ -481,8 +481,73 @@ void FFPlayer::readLoop() {
     mAudioDataStartPos.store(-1);
 
     if (mStartTimeMs > 0) {
-        int64_t targetPts = av_rescale(mStartTimeMs, timeBase->den, timeBase->num * 1000LL);
-        avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts, INT64_MAX, 0);
+        bool dsdSeekDone = false;
+
+        if (mIsSourceDsd && dsdByteRate > 0) {
+            // 1. 探测文件头：先读取第一帧，获取数据区的物理起始位置 (Data Start Position)
+            //    此时文件指针还在开头，读取到的 packet->pos 就是 Header 的大小
+            AVPacket *probePkt = av_packet_alloc();
+            int probeRet = av_read_frame(fmtCtx, probePkt);
+            if (probeRet >= 0) {
+                if (probePkt->stream_index == audioStreamIndex && probePkt->pos >= 0) {
+                    mAudioDataStartPos.store(probePkt->pos);
+                    LOGD("DSD Start Probe: Header Size / Data Start Pos = %ld", probePkt->pos);
+                }
+                av_packet_unref(probePkt);
+            } else {
+                LOGW("DSD Start Probe failed: ret=%d", probeRet);
+            }
+            av_packet_free(&probePkt);
+
+            // 2. 如果探测成功，执行 Byte Seek
+            if (mAudioDataStartPos.load() >= 0) {
+                double targetSeconds = mStartTimeMs / 1000.0;
+                int64_t relativeOffset = (int64_t) (targetSeconds * dsdByteRate);
+
+                // 对齐处理 (4096 or block_align)
+                int align = codecCtx->block_align > 0 ? codecCtx->block_align : 4096;
+                relativeOffset -= (relativeOffset % align);
+
+                int64_t finalBytePos = mAudioDataStartPos.load() + relativeOffset;
+
+                // 边界检查
+                int64_t fileSize = avio_size(fmtCtx->pb);
+                if (fileSize > 0 && finalBytePos >= fileSize) finalBytePos = fileSize - align;
+                if (finalBytePos < mAudioDataStartPos.load())
+                    finalBytePos = mAudioDataStartPos.load();
+
+                // 执行 IO Seek (物理字节跳转)
+                if (avio_seek(fmtCtx->pb, finalBytePos, SEEK_SET) >= 0) {
+                    avio_flush(fmtCtx->pb); // 清空 IO 缓冲
+                    if (fmtCtx->pb) {
+                        fmtCtx->pb->eof_reached = 0;
+                        fmtCtx->pb->error = 0;
+                    }
+
+                    // 刷新解码器 (防止残余)
+                    avcodec_flush_buffers(codecCtx);
+
+                    // 扔掉 Seek 后的头两帧，避免可能的 Pop 音
+                    dropFrameCount = 2;
+                    dsdSeekDone = true;
+
+                    // 强制同步时钟，防止进度条跳回 0
+                    mBasePtsMs.store(mStartTimeMs);
+                    mCurrentPositionMs.store(mStartTimeMs);
+                    mAudioClockMs = (double) mStartTimeMs;
+                    lastReadPosMs = mStartTimeMs;
+
+                    LOGD("DSD Start Byte Seek Success: to %ld (Time: %ld ms)", finalBytePos,
+                         mStartTimeMs);
+                }
+            }
+        }
+
+        // 3. 兜底逻辑：如果不是 DSD 或 Byte Seek 失败，使用原来的 Time Seek
+        if (!dsdSeekDone) {
+            int64_t targetPts = av_rescale(mStartTimeMs, timeBase->den, timeBase->num * 1000LL);
+            avformat_seek_file(fmtCtx, audioStreamIndex, INT64_MIN, targetPts, INT64_MAX, 0);
+        }
     }
 
     while (!mIsExit.load()) {
