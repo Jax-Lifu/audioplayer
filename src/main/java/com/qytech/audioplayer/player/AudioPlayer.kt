@@ -8,6 +8,9 @@ import com.qytech.audioplayer.strategy.MediaSource
  */
 interface AudioPlayer {
     fun setMediaSource(mediaSource: MediaSource)
+
+    fun setNextMediaSource(mediaSource: MediaSource)
+
     fun setDsdMode(mode: DSDMode)
     fun setD2pSampleRate(sampleRate: D2pSampleRate)
 
@@ -34,6 +37,9 @@ interface AudioPlayer {
 
     @Deprecated("Use PlayerListener instead")
     fun setOnProgressListener(listener: OnProgressListener)
+
+    fun setTailSkipMs(ms: Long)
+
 }
 
 /**
@@ -49,6 +55,7 @@ interface PlayerListener {
 
     fun onMetadata(mediaInfo: MediaInfo) {}
 
+    fun onTrackTransition() {}
 }
 
 

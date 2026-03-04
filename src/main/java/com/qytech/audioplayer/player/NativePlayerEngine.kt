@@ -13,6 +13,8 @@ internal interface EngineCallback {
     fun onAudioData(data: ByteArray, size: Int)
 
     fun onBuffering(isBuffering: Boolean)
+
+    fun onTrackTransition()
 }
 
 internal class NativePlayerEngine {
@@ -29,12 +31,15 @@ internal class NativePlayerEngine {
     private var nativeHandle: Long = 0
     private var callback: EngineCallback? = null
 
+    var currentStrategy: PlayerStrategy = PlayerStrategy.FFmpeg
+        private set
 
     fun setCallback(cb: EngineCallback) {
         this.callback = cb
     }
 
     fun init(type: PlayerStrategy, callback: EngineCallback) {
+        currentStrategy = type
         if (nativeHandle != 0L) release()
         nativeHandle = native_init(type.value, callback)
     }
@@ -47,6 +52,23 @@ internal class NativePlayerEngine {
         endPos: Long = -1L,
     ) {
         if (nativeHandle != 0L) native_setSource(
+            nativeHandle,
+            path,
+            headers,
+            trackIndex,
+            startPos,
+            endPos
+        )
+    }
+
+    fun setNextSource(
+        path: String,
+        headers: Map<String, String>? = null,
+        trackIndex: Int = -1,
+        startPos: Long = 0L,
+        endPos: Long = -1L,
+    ) {
+        if (nativeHandle != 0L) native_setNextSource(
             nativeHandle,
             path,
             headers,
@@ -97,7 +119,9 @@ internal class NativePlayerEngine {
     fun getSampleRate(): Int = if (nativeHandle != 0L) native_getSampleRate(nativeHandle) else 0
     fun getChannelCount(): Int = if (nativeHandle != 0L) native_getChannelCount(nativeHandle) else 0
     fun getBitPerSample(): Int = if (nativeHandle != 0L) native_getBitPerSample(nativeHandle) else 0
-    fun getMediaInfo(): MediaInfo? = if (nativeHandle != 0L) native_getMediaInfo(nativeHandle) else null
+    fun getMediaInfo(): MediaInfo? =
+        if (nativeHandle != 0L) native_getMediaInfo(nativeHandle) else null
+
     fun getDuration(): Long = if (nativeHandle != 0L) native_getDuration(nativeHandle) else 0
     fun getPosition(): Long = if (nativeHandle != 0L) native_getCurrentPosition(nativeHandle) else 0
 
@@ -106,9 +130,22 @@ internal class NativePlayerEngine {
 
     fun isDsd(): Boolean = if (nativeHandle != 0L) native_isDsd(nativeHandle) else false
 
+    fun setTailSkipMs(ms: Long) {
+        if (nativeHandle != 0L) native_setTailSkipMs(nativeHandle, ms)
+    }
+
     // JNI External Methods
     private external fun native_init(type: Int, callback: EngineCallback): Long
     private external fun native_setSource(
+        handle: Long,
+        path: String,
+        headers: Map<String, String>?,
+        trackIndex: Int,
+        startPos: Long,
+        endPos: Long,
+    )
+
+    private external fun native_setNextSource(
         handle: Long,
         path: String,
         headers: Map<String, String>?,
@@ -139,4 +176,7 @@ internal class NativePlayerEngine {
     private external fun native_isDsd(handle: Long): Boolean
 
     private external fun native_getMediaInfo(handle: Long): MediaInfo
+
+    private external fun native_setTailSkipMs(handle: Long, ms: Long)
+
 }

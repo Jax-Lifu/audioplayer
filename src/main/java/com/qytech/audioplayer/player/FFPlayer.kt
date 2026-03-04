@@ -27,4 +27,25 @@ class FFPlayer(
 
         engine.setSource(mediaSource.uri, headers = header, startPos = startPos, endPos = endPos)
     }
+
+    override fun setNextMediaSource(mediaSource: MediaSource) {
+        if (!isNextMediaSourceAccepted(mediaSource)) return
+
+        QYPlayerLogger.d("setNextMediaSource $mediaSource")
+        if (mediaSource is WebDavMediaSource) {
+            val (encodedUrl, newHeaders) = WebDavUtils.process(mediaSource)
+            engine.setNextSource(encodedUrl, newHeaders)
+            return
+        }
+        val header = mediaSource.headers
+        val startPos = (mediaSource as? CueMediaSource)?.startPosition ?: 0L
+        val endPos = (mediaSource as? CueMediaSource)?.endPosition ?: -1L
+
+        engine.setNextSource(
+            mediaSource.uri,
+            headers = header,
+            startPos = startPos,
+            endPos = endPos
+        )
+    }
 }

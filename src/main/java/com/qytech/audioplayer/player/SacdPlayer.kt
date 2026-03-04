@@ -24,4 +24,15 @@ class SacdPlayer(
         }
     }
 
+    override fun setNextMediaSource(mediaSource: MediaSource) {
+        if (!isNextMediaSourceAccepted(mediaSource)) return
+
+        if (mediaSource is SacdMediaSource) {
+            engine.setNextSource(
+                mediaSource.uri,
+                trackIndex = mediaSource.trackIndex,
+                headers = mediaSource.headers
+            )
+        }
+    }
 }

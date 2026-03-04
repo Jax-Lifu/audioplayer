@@ -33,7 +33,10 @@ abstract class BaseNativePlayer(
     private var onPlaybackStateChangeListener: OnPlaybackStateChangeListener? = null
 
     private var dsdMode: DSDMode? = null
+
     private var mediaSource: MediaSource? = null
+    private var nextMediaSource: MediaSource? = null
+
     private var d2pSampleRate: D2pSampleRate? = null
 
     // 标记是否需要在 prepare 完成后自动播放
@@ -52,6 +55,23 @@ abstract class BaseNativePlayer(
 
     override fun setMediaSource(mediaSource: MediaSource) {
         this.mediaSource = mediaSource
+    }
+
+    protected fun isNextMediaSourceAccepted(mediaSource: MediaSource): Boolean {
+        val nextNeedsSacd = mediaSource is SacdMediaSource
+        val currentIsSacd = engine.currentStrategy == PlayerStrategy.SACD
+
+        if (nextNeedsSacd != currentIsSacd) {
+            QYPlayerLogger.d("setNextMediaSource: cross-engine, ignored")
+            return false
+        }
+
+        this.nextMediaSource = mediaSource
+        return true
+    }
+
+    override fun setNextMediaSource(mediaSource: MediaSource) {
+        isNextMediaSourceAccepted(mediaSource)
     }
 
     override fun setDsdMode(mode: DSDMode) {
@@ -84,23 +104,17 @@ abstract class BaseNativePlayer(
             return
         }
 
-        // 状态正常，执行播放
         performPlay()
     }
 
-    // [优化] 仅执行底层播放逻辑，不负责通知 UI 状态
     private fun performPlay() {
         QYPlayerLogger.d("BaseNativePlayer: performPlay state=${engine.getPlayerState()}")
 
-        // 重置标记，等待数据到来时再次通知
         isPlayingNotified = false
 
-        // Native 引擎控制
         if (engine.getPlayerState() == PlaybackState.PAUSED) {
-            QYPlayerLogger.d("engine $engine resume")
             engine.resume()
         } else {
-            QYPlayerLogger.d("engine $engine play")
             engine.play()
         }
 
@@ -108,10 +122,8 @@ abstract class BaseNativePlayer(
             audioTrack?.let { track ->
                 if (track.state == AudioTrack.STATE_INITIALIZED) {
                     val playState = track.playState
-                    QYPlayerLogger.d("AudioTrack check: state=${track.state}, playState=$playState")
                     if (playState != AudioTrack.PLAYSTATE_PLAYING) {
                         track.play()
-                        QYPlayerLogger.d("AudioTrack.play() called")
                     } else {
                         QYPlayerLogger.w("AudioTrack is already playing, skipping play() call")
                     }
@@ -129,14 +141,11 @@ abstract class BaseNativePlayer(
 
         engine.pause()
 
-        // AudioTrack 暂停
         if (audioTrack?.state == AudioTrack.STATE_INITIALIZED &&
             audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
         ) {
             audioTrack?.pause()
         }
-
-        // PAUSED 是用户主动触发的，立即通知
         notifyStateChanged(PlaybackState.PAUSED)
     }
 
@@ -147,7 +156,6 @@ abstract class BaseNativePlayer(
 
         engine.stop()
 
-        // stop 时只做 flush，随时准备下次播放
         if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
             try {
                 if (audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING) {
@@ -159,8 +167,6 @@ abstract class BaseNativePlayer(
                 QYPlayerLogger.e("AudioTrack stop failed", e)
             }
         }
-
-        // STOPPED 是用户主动触发的，立即通知
         notifyStateChanged(PlaybackState.STOPPED)
     }
 
@@ -170,43 +176,33 @@ abstract class BaseNativePlayer(
         isPlayingNotified = false
 
         engine.release()
-
         releaseAudioTrack()
-
         listeners.clear()
     }
 
     override fun seekTo(positionMs: Long) {
-        // seek 前清理缓冲区，防止听到 seek 前的残留声音
         if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
             audioTrack?.flush()
         }
-        // seek 后通常需要缓冲，重置标记
         isPlayingNotified = false
         engine.seek(positionMs)
     }
 
     override fun getDuration(): Long = engine.getDuration()
-
     override fun getPosition(): Long = engine.getPosition()
-
     override fun getState(): PlaybackState = engine.getPlayerState()
 
     override fun addListener(listener: PlayerListener) {
         listeners.add(listener)
 
         val currentState = engine.getPlayerState()
-        // 如果已经准备好（包含准备好、播放中、暂停中），立即补发回调
         if (currentState == PlaybackState.PREPARED ||
             currentState == PlaybackState.PLAYING ||
             currentState == PlaybackState.PAUSED ||
             currentState == PlaybackState.BUFFERING
         ) {
-            QYPlayerLogger.d("addListener: Player is active, notifying new listener immediately.")
             try {
-                // 必定补发 onPrepared
                 listener.onPrepared()
-                // 如果不是单纯的 prepared 状态，补发当前具体状态
                 if (currentState != PlaybackState.PREPARED) {
                     listener.onStateChanged(currentState)
                 }
@@ -223,19 +219,16 @@ abstract class BaseNativePlayer(
     private fun notifyStateChanged(state: PlaybackState) {
         mediaSource?.let { source ->
             onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                state,
-                source.uri,
-                getTrackIndex()
+                state, source.uri, getTrackIndex()
             )
             listeners.forEach { it.onStateChanged(state) }
         }
     }
 
-    // 辅助方法：将位深转换为 AudioFormat 编码
     @SuppressLint("InlinedApi")
     private fun getAudioEncoding(bitPerSample: Int): Int {
         return when (bitPerSample) {
-            1 -> AudioFormat.ENCODING_DSD // 需要系统支持或特定的 AudioTrack 配置
+            1 -> AudioFormat.ENCODING_DSD
             32 -> AudioFormat.ENCODING_PCM_32BIT
             else -> AudioFormat.ENCODING_PCM_16BIT
         }
@@ -250,49 +243,84 @@ abstract class BaseNativePlayer(
             val mediaInfo = engine.getMediaInfo()
             val targetEncoding = getAudioEncoding(bitPerSample)
 
-            QYPlayerLogger.d("onPrepared: sampleRate=$sampleRate, bitPerSample=$bitPerSample")
-
             try {
                 releaseAudioTrack()
-
                 audioTrack = createAudioTrack(sampleRate, targetEncoding, channel)
 
-
-                QYPlayerLogger.d("onPrepared $mediaSource listeners:${listeners.size}")
-
                 mediaSource?.let { source ->
-                    // 1. 通知所有监听器
                     listeners.forEach { listener ->
                         listener.onPrepared()
                         mediaInfo?.let { info -> listener.onMetadata(info) }
                     }
 
                     onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                        PlaybackState.PREPARED,
-                        source.uri,
-                        getTrackIndex()
+                        PlaybackState.PREPARED, source.uri, getTrackIndex()
                     )
                 }
 
                 if (playWhenReady) {
-                    QYPlayerLogger.d("onPrepared: playWhenReady is true -> Auto starting play")
                     performPlay()
-                    playWhenReady = false // 消费标记
+                    playWhenReady = false
                 }
-
             } catch (e: Exception) {
                 QYPlayerLogger.e("AudioTrack acquire error", e)
                 listeners.forEach { it.onError(-100, "AudioTrack init failed: ${e.message}") }
             }
         }
 
+        // ==========================================
+        // 【核心】无缝切歌状态处理
+        // ==========================================
+        override fun onTrackTransition() {
+            QYPlayerLogger.d("EngineCallback: onTrackTransition triggered (Gapless Switch)")
+
+            if (nextMediaSource != null) {
+                mediaSource = nextMediaSource
+                nextMediaSource = null
+            }
+
+            val sampleRate = engine.getSampleRate()
+            val channel = engine.getChannelCount()
+            val bitPerSample = engine.getBitPerSample()
+            val mediaInfo = engine.getMediaInfo()
+            val targetEncoding = getAudioEncoding(bitPerSample)
+            val targetChannelCount = if (channel == 4) 4 else 2
+
+            var needRecreate = true
+            audioTrack?.let { track ->
+                if (track.state == AudioTrack.STATE_INITIALIZED &&
+                    track.sampleRate == sampleRate &&
+                    track.audioFormat == targetEncoding &&
+                    track.channelCount == targetChannelCount
+                ) {
+                    needRecreate = false
+                }
+            }
+
+            if (needRecreate) {
+                QYPlayerLogger.d("Gapless: Audio track parameters changed. Recreating AudioTrack...")
+                releaseAudioTrack()
+                try {
+                    audioTrack = createAudioTrack(sampleRate, targetEncoding, channel)
+                    audioTrack?.play()
+                } catch (e: Exception) {
+                    QYPlayerLogger.e("Gapless: Failed to recreate AudioTrack", e)
+                }
+            } else {
+                QYPlayerLogger.d("Gapless: Audio parameters matched. Reusing existing AudioTrack!")
+            }
+            QYPlayerLogger.d("EngineCallback: onTrackTransition finished")
+            listeners.forEach { listener ->
+                listener.onTrackTransition()
+                mediaInfo?.let { info -> listener.onMetadata(info) }
+            }
+        }
+
         override fun onProgress(track: Int, currentMs: Long, totalMs: Long, progress: Float) {
             if (!isPlayingNotified) {
-                QYPlayerLogger.d("onProgress triggers PLAYING notification (Fallback)")
                 isPlayingNotified = true
                 notifyStateChanged(PlaybackState.PLAYING)
             }
-
             listeners.forEach { it.onProgress(track, currentMs, totalMs, progress) }
             onProgressListener?.onProgress(PlaybackProgress(currentMs, progress, totalMs))
         }
@@ -313,9 +341,7 @@ abstract class BaseNativePlayer(
             listeners.forEach { it.onComplete() }
             mediaSource?.let { source ->
                 onPlaybackStateChangeListener?.onPlaybackStateChanged(
-                    PlaybackState.COMPLETED,
-                    source.uri,
-                    getTrackIndex()
+                    PlaybackState.COMPLETED, source.uri, getTrackIndex()
                 )
             }
         }
@@ -327,12 +353,10 @@ abstract class BaseNativePlayer(
                 currentState == PlaybackState.IDLE ||
                 currentState == PlaybackState.ERROR
             ) {
-                QYPlayerLogger.d("onAudioData ignored due to state: $currentState")
                 return
             }
             if (!isPlayingNotified) {
                 if (currentState == PlaybackState.PLAYING) {
-                    QYPlayerLogger.d("onAudioData: First data received, notifying PLAYING")
                     isPlayingNotified = true
                     notifyStateChanged(PlaybackState.PLAYING)
                 }
@@ -340,7 +364,6 @@ abstract class BaseNativePlayer(
             audioTrack?.let { track ->
                 if (track.state == AudioTrack.STATE_INITIALIZED && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                     try {
-                        // QYPlayerLogger.d("AudioTrack write $size bytes")
                         val ret = track.write(data, 0, size)
                         if (ret < 0) {
                             QYPlayerLogger.e("AudioTrack write error: $ret")
@@ -354,13 +377,9 @@ abstract class BaseNativePlayer(
 
         override fun onBuffering(isBuffering: Boolean) {
             if (isBuffering) {
-                QYPlayerLogger.d("onBuffering: START")
-                // 开始缓冲，不再是播放状态
                 isPlayingNotified = false
                 notifyStateChanged(PlaybackState.BUFFERING)
             } else {
-                QYPlayerLogger.d("onBuffering: END -> notifying PLAYING")
-                // 缓冲结束，恢复播放
                 isPlayingNotified = true
                 notifyStateChanged(PlaybackState.PLAYING)
             }
@@ -380,17 +399,9 @@ abstract class BaseNativePlayer(
     private fun getTrackIndex(): Int {
         val source = mediaSource ?: -1
         return when (source) {
-            is CueMediaSource -> {
-                source.trackIndex + 1
-            }
-
-            is SacdMediaSource -> {
-                source.trackIndex + 1
-            }
-
-            else -> {
-                -1
-            }
+            is CueMediaSource -> source.trackIndex + 1
+            is SacdMediaSource -> source.trackIndex + 1
+            else -> -1
         }
     }
 
@@ -404,9 +415,7 @@ abstract class BaseNativePlayer(
                     if (it.playState == AudioTrack.PLAYSTATE_PLAYING) {
                         it.pause()
                     }
-
                     it.flush()
-
                     it.stop()
                 }
             } catch (e: Exception) {
@@ -444,5 +453,10 @@ abstract class BaseNativePlayer(
             .setBufferSizeInBytes(minBufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+    }
+
+
+    override fun setTailSkipMs(ms: Long) {
+        engine.setTailSkipMs(ms)
     }
 }

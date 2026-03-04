@@ -43,6 +43,18 @@ void SacdPlayer::setDataSource(const std::string &_isoPath, int track_index,
     }
 }
 
+void SacdPlayer::setNextDataSource(const std::string &isoPath, int trackIndex,
+                                   const std::map<std::string, std::string> &headers) {
+    if (!isoPath.empty()) {
+        nextIsoPath = isoPath;
+        nextTrackIndex = trackIndex;
+        nextHeaders = headers;
+        LOGD("SacdPlayer Set Next: %s Track: %d", nextIsoPath.c_str(), nextTrackIndex);
+    } else {
+        nextIsoPath.clear();
+    }
+}
+
 
 void SacdPlayer::prepare() {
     LOGD("SacdPlayer::prepare: trackIndex=%d start", trackIndex);
@@ -230,6 +242,7 @@ MediaInfo SacdPlayer::getMediaInfo() const {
     info.bitrate = (long) info.sampleRate * info.channels * info.bitDepth;
 
     // --- 1. 先赋予兜底默认值 ---
+    info.sourceId = isoPath;
     info.album = "Unknown Album";
     info.artist = "Unknown Artist";
     info.title = "Track " + std::to_string(trackIndex + 1);
@@ -313,18 +326,98 @@ void SacdPlayer::onDecodeProgress(int track, uint32_t current, uint32_t total, f
     //    LOGD("onDecodeProgress: track=%d, current=%d, total=%d, progress=%.2f", track, current, total,
     //         progress);
     mCurrentPositionMs = current;
-    if (progress >= 0.999f && mState != STATE_COMPLETED) {
+    float triggerThreshold = 0.999f;
+    if (!nextIsoPath.empty() && mTailSkipMs > 0 && mDurationMs > 0) {
+        // 提前触发的时间点对应的进度
+        int64_t triggerMs = mDurationMs - mTailSkipMs;
+        if (triggerMs > 0) {
+            triggerThreshold = (float) triggerMs / (float) mDurationMs;
+            // 确保阈值合法
+            if (triggerThreshold < 0.0f) triggerThreshold = 0.0f;
+            if (triggerThreshold > 0.999f) triggerThreshold = 0.999f;
+        }
+    }
+
+    if ((float) current / (float) total >= triggerThreshold && mState != STATE_COMPLETED) {
+        std::string nPath;
+        int nTrack;
+        std::map<std::string, std::string> nHeaders;
         {
             std::lock_guard<std::mutex> lock(mStateMutex);
-            mState = STATE_COMPLETED;
+            nPath = nextIsoPath;
+            nTrack = nextTrackIndex;
+            nHeaders = nextHeaders;
         }
-        if (mCallback) mCallback->onComplete();
+
+        if (!nPath.empty()) {
+            // 开辟独立线程执行无缝切换，避免阻塞当前的 scarletbook 回调线程
+            std::thread([this, nPath, nTrack, nHeaders]() {
+                performSeamlessSwitch(nPath, nTrack, nHeaders);
+            }).detach();
+        } else {
+            {
+                std::lock_guard<std::mutex> lock(mStateMutex);
+                mState = STATE_COMPLETED;
+            }
+            if (mCallback) mCallback->onComplete();
+        }
     }
 
     if (mState == STATE_PLAYING) {
         if (mCallback) {
             mCallback->onProgress(track, current, total, progress);
         }
+    }
+}
+
+void SacdPlayer::performSeamlessSwitch(const std::string &nPath, int nTrack,
+                                       const std::map<std::string, std::string> &nHeaders) {
+    LOGD("SacdPlayer executing gapless switch to %s track %d", nPath.c_str(), nTrack);
+
+    // 1. 交接参数
+    {
+        std::lock_guard<std::mutex> lock(mStateMutex);
+        isoPath = nPath;
+        trackIndex = nTrack;
+        mHeaders = nHeaders;
+        nextIsoPath.clear();
+        nextHeaders.clear();
+    }
+
+    // 2. 销毁旧的解码引擎
+    // scarletbook_output_interrupt 会安全地通知解码循环结束
+    // scarletbook_output_destroy 会等待解码线程 join，因此需要放在独立线程执行
+    if (mOutput) {
+        scarletbook_output_interrupt(mOutput);
+        scarletbook_output_destroy(mOutput);
+        mOutput = nullptr;
+    }
+
+    // 3. 重新初始化
+    closeSacdHandle();
+
+    if (!openSacdHandle()) {
+        LOGE("SacdPlayer Gapless open failed");
+        std::lock_guard<std::mutex> lock(mStateMutex);
+        mState = STATE_ERROR;
+        if (mCallback) mCallback->onError(-1, "Gapless open failed");
+        return;
+    }
+
+    extractAudioInfo();
+    mCurrentPositionMs = 0;
+
+    // 4. 重建输出并无缝起播
+    mOutput = scarletbook_output_create_for_player(mHandle,
+                                                   this,
+                                                   scarletbook_audio_callback,
+                                                   scarletbook_progress_callback);
+    if (mOutput) {
+        scarletbook_output_enqueue_track(mOutput, area_idx, trackIndex, nullptr, "dsdiff", 1);
+        scarletbook_output_start(mOutput);
+
+        // 可选：通知 UI 更新元数据信息
+        if (mCallback) mCallback->onTrackTransition();
     }
 }
 

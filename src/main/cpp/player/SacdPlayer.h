@@ -7,6 +7,7 @@
 #include "SystemProperties.h"
 #include "FFmpegNetworkStream.h"
 #include <map>
+#include <thread>
 
 extern "C" {
 // sacd 头文件
@@ -24,6 +25,10 @@ public:
 
     void setDataSource(const std::string &isoPath, int trackIndex,
                        const std::map<std::string, std::string> &headers = {});
+
+    void setNextDataSource(const std::string &isoPath, int trackIndex,
+                           const std::map<std::string, std::string> &headers = {});
+
 
     // 重写基类虚函数
     void prepare() override;
@@ -71,6 +76,10 @@ private:
 
     void extractAudioInfo();
 
+    void performSeamlessSwitch(const std::string &nPath, int nTrack,
+                               const std::map<std::string, std::string> &nHeaders);
+
+
 private:
     std::map<std::string, std::string> mHeaders;
     FFmpegNetworkStream *mNetStream = nullptr;
@@ -78,6 +87,13 @@ private:
     std::string isoPath;
     int trackIndex = 0;
     int area_idx = -1;
+
+    // 针对无缝播放预加载的下一曲信息
+    std::string nextIsoPath;
+    int nextTrackIndex = 0;
+    std::map<std::string, std::string> nextHeaders;
+
+
     FFmpegD2pDecoder *d2pDecoder = nullptr;
 
     // Buffers

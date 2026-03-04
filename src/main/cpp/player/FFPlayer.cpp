@@ -34,6 +34,20 @@ void FFPlayer::setDataSource(const char *path, const std::map<std::string, std::
          mEndTimeMs);
 }
 
+void FFPlayer::setNextDataSource(const char *path,
+                                 const std::map<std::string, std::string> &headers,
+                                 int64_t startPositon, int64_t endPosition) {
+    if (path != nullptr) {
+        mNextUrl = path;
+        mNextHeaders = headers;
+        mNextStartTimeMs = startPositon;
+        mNextEndTimeMs = endPosition;
+        LOGD("Set Next DataSource: %s, Start: %ld", mNextUrl.c_str(), mNextStartTimeMs);
+    } else {
+        mNextUrl.clear();
+    }
+}
+
 void FFPlayer::initFFmpeg() {
     avformat_network_init();
 }
@@ -50,17 +64,7 @@ int FFPlayer::interrupt_cb(void *ctx) {
     return 0;
 }
 
-void FFPlayer::prepare() {
-    {
-        std::lock_guard<std::mutex> lock(mStateMutex);
-        if (mState != STATE_IDLE && mState != STATE_STOPPED) return;
-        mIsExit.store(false);
-        mIsEOF.store(false);
-        mIsSeeking.store(false);
-        mState = STATE_PREPARING;
-        audioQueue.start();
-    }
-
+bool FFPlayer::prepareInternal() {
     AVDictionary *options = nullptr;
     bool isNetwork = false;
     const char *url = mUrl.c_str();
@@ -108,26 +112,26 @@ void FFPlayer::prepare() {
     if ((ret = avformat_open_input(&fmtCtx, mUrl.c_str(), nullptr, &options)) != 0) {
         if (mIsExit.load()) {
             releaseFFmpeg();
-            return;
+            return false;
         }
         LOGE("Open input failed: %d path %s", ret, mUrl.c_str());
         std::lock_guard<std::mutex> lock(mStateMutex);
         mState = STATE_ERROR;
         if (mCallback) mCallback->onError(-1, "Open input failed");
         releaseFFmpeg();
-        return;
+        return false;
     }
 
     if ((ret = avformat_find_stream_info(fmtCtx, nullptr)) < 0) {
         if (mIsExit.load()) {
             releaseFFmpeg();
-            return;
+            return false;
         }
         std::lock_guard<std::mutex> lock(mStateMutex);
         mState = STATE_ERROR;
         if (mCallback) mCallback->onError(-2, "Find stream info failed");
         releaseFFmpeg();
-        return;
+        return false;
     }
 
     // 查找音频流
@@ -144,7 +148,7 @@ void FFPlayer::prepare() {
         mState = STATE_ERROR;
         if (mCallback) mCallback->onError(-3, "No audio stream");
         releaseFFmpeg();
-        return;
+        return false;
     }
 
     // 打开解码器
@@ -155,7 +159,7 @@ void FFPlayer::prepare() {
             std::lock_guard<std::mutex> lock(mStateMutex);
             mState = STATE_ERROR;
             releaseFFmpeg();
-            return;
+            return false;
         }
         codecCtx = avcodec_alloc_context3(codec);
         avcodec_parameters_to_context(codecCtx, codecPar);
@@ -164,7 +168,7 @@ void FFPlayer::prepare() {
             std::lock_guard<std::mutex> lock(mStateMutex);
             mState = STATE_ERROR;
             releaseFFmpeg();
-            return;
+            return false;
         }
 
         // DTS-in-FLAC 检测
@@ -274,7 +278,7 @@ void FFPlayer::prepare() {
             std::lock_guard<std::mutex> lock(mStateMutex);
             mState = STATE_ERROR;
             releaseFFmpeg();
-            return;
+            return false;
         }
     }
 
@@ -286,15 +290,33 @@ void FFPlayer::prepare() {
         mAudioClockMs = 0.0;
     }
 
+    return true;
+}
+
+void FFPlayer::prepare() {
     {
         std::lock_guard<std::mutex> lock(mStateMutex);
-        if (mIsExit.load()) {
-            releaseFFmpeg();
-            return;
-        }
-        mState = STATE_PREPARED;
+        if (mState != STATE_IDLE && mState != STATE_STOPPED) return;
+        mIsExit.store(false);
+        mIsEOF.store(false);
+        mIsSeeking.store(false);
+        mState = STATE_PREPARING;
+        audioQueue.start();
     }
-    if (mCallback) mCallback->onPrepared();
+
+    if (prepareInternal()) {
+        {
+            std::lock_guard<std::mutex> lock(mStateMutex);
+            if (mIsExit.load()) {
+                releaseFFmpeg();
+                return;
+            }
+            mState = STATE_PREPARED;
+        }
+        if (mCallback) mCallback->onPrepared();
+    } else {
+        releaseFFmpeg();
+    }
 }
 
 int FFPlayer::initSwrContext() {
@@ -832,6 +854,20 @@ void FFPlayer::decodingLoop() {
             // Drain 模式：只收帧
             int rxRet = avcodec_receive_frame(codecCtx, frame);
             if (rxRet == AVERROR_EOF) {
+                std::string nextUrlLocal;
+                {
+                    std::lock_guard<std::mutex> lock(mStateMutex);
+                    nextUrlLocal = mNextUrl;
+                }
+
+                if (!nextUrlLocal.empty()) {
+                    LOGD("Gapless transition triggered for: %s", nextUrlLocal.c_str());
+                    switchToNextSource();
+                    isDraining = false;
+                    continue; // 切换完毕，继续消费新的 packet
+                }
+
+
                 LOGD("Playback Complete.");
                 // 真正的播放结束
                 if (mState != STATE_COMPLETED && mState != STATE_STOPPED && !mIsExit.load()) {
@@ -850,11 +886,28 @@ void FFPlayer::decodingLoop() {
             }
         } else {
             // EndTime 检查
-            if (mEndTimeMs > 0 && mCurrentPositionMs.load() >= mEndTimeMs) {
-                av_packet_unref(packet);
-                // 触发结束
-                mIsEOF.store(true);
-                continue;
+            {
+                int64_t effectiveEndMs = mEndTimeMs;
+                bool hasNext = !mNextUrl.empty();
+
+                if (hasNext && mTailSkipMs > 0) {
+                    if (effectiveEndMs > 0) {
+                        // CUE 分轨模式：从显式 EndTime 提前
+                        effectiveEndMs = std::max(mEndTimeMs - mTailSkipMs, mStartTimeMs + 1);
+                    } else if (mDurationMs > 0) {
+                        // 单文件模式：从总时长推算
+                        effectiveEndMs = std::max(mDurationMs - mTailSkipMs, mStartTimeMs + 1);
+                    }
+                }
+
+                if (effectiveEndMs > 0 && mCurrentPositionMs.load() >= effectiveEndMs) {
+                    av_packet_unref(packet);
+                    audioQueue.flush();
+                    mIsEOF.store(true);
+                    LOGD("EndTime triggered: pos=%ld >= effectiveEnd=%ld (rawEnd=%ld, tailSkip=%ld, hasNext=%d)",
+                         mCurrentPositionMs.load(), effectiveEndMs, mEndTimeMs, mTailSkipMs, hasNext);
+                    continue;
+                }
             }
             if (mIsSourceDsd && mDsdMode != DSD_MODE_D2P) handleDsdAudioPacket(packet, frame);
             else handlePcmAudioPacket(packet, frame);
@@ -865,6 +918,63 @@ void FFPlayer::decodingLoop() {
 
     av_frame_free(&frame);
     av_packet_free(&packet);
+}
+
+void FFPlayer::switchToNextSource() {
+    // 1. 安全停止当前的 readThread
+    mIsExit.store(true);    // 让 readLoop 退出当前循环
+    audioQueue.abort();     // 打断可能阻塞的队列
+
+    if (readThread && readThread->joinable()) {
+        readThread->join();
+        delete readThread;
+        readThread = nullptr;
+    }
+
+    // 2. 释放当前的 FFmpeg 资源
+    releaseFFmpeg();
+
+    // 3. 变量交接
+    {
+        std::lock_guard<std::mutex> lock(mStateMutex);
+        mUrl = mNextUrl;
+        mHeaders = mNextHeaders;
+        mStartTimeMs = mNextStartTimeMs;
+        mEndTimeMs = mNextEndTimeMs;
+
+        mNextUrl.clear();
+        mNextHeaders.clear();
+    }
+
+    // 4. 重置状态
+    mIsExit.store(false);
+    mIsEOF.store(false);
+    mIsSeeking.store(false);
+    mFlushCodec.store(false);
+    mBasePtsMs.store(0);
+    mBaseSystemMs.store(0);
+    mAudioDataStartPos.store(-1);
+    mTotalSamplesPlayed.store(0);
+    mCurrentPositionMs.store(0);
+    mAudioClockMs = 0.0;
+    audioQueue.flush();
+    audioQueue.start();
+
+    // 5. 重新初始化底层的 FFmpeg 解析器
+    if (prepareInternal()) {
+        LOGD("Gapless switch success, restarting read thread.");
+        // 重启读取线程
+        readThread = new std::thread(&FFPlayer::readLoop, this);
+
+        if (mCallback) {
+            mCallback->onTrackTransition();
+        }
+    } else {
+        LOGE("Gapless switch failed to prepare next source.");
+        std::lock_guard<std::mutex> lock(mStateMutex);
+        mState = STATE_ERROR;
+        if (mCallback) mCallback->onError(-1, "Gapless transition failed");
+    }
 }
 
 void FFPlayer::progressHeartbeat() {
@@ -1436,7 +1546,19 @@ MediaInfo FFPlayer::getMediaInfo() const {
     }
 
     // --- 1. 先赋予默认值 (兜底策略) ---
-    info.title = "Unknown Title";
+    info.sourceId = mUrl;
+    std::string defaultTitle = "Unknown Title";
+    if (!mUrl.empty()) {
+        // 1. 找到最后一个斜杠 '/' 或 '\'，截取后面的部分
+        size_t slashPos = mUrl.find_last_of("/\\");
+        defaultTitle = (slashPos != std::string::npos) ? mUrl.substr(slashPos + 1) : mUrl;
+
+//        size_t dotPos = defaultTitle.find_last_of('.');
+//        if (dotPos != std::string::npos && dotPos > 0) {
+//            defaultTitle = defaultTitle.substr(0, dotPos);
+//        }
+    }
+    info.title = defaultTitle;
     info.artist = "Unknown Artist";
     info.album = "Unknown Album";
 
@@ -1445,25 +1567,25 @@ MediaInfo FFPlayer::getMediaInfo() const {
         AVDictionaryEntry *tag = nullptr;
 
         // 获取 Title (改为 MATCH_CASE_OPEN 以忽略大小写)
-        tag = av_dict_get(fmtCtx->metadata, "title", nullptr, AV_DICT_MATCH_CASE);
+        tag = av_dict_get(fmtCtx->metadata, "title", nullptr, AV_DICT_IGNORE_SUFFIX);
         if (tag && tag->value && tag->value[0] != '\0') {
             info.title = tag->value;
         }
 
         // 获取 Artist
-        tag = av_dict_get(fmtCtx->metadata, "artist", nullptr, AV_DICT_MATCH_CASE);
+        tag = av_dict_get(fmtCtx->metadata, "artist", nullptr, AV_DICT_IGNORE_SUFFIX);
         if (tag && tag->value && tag->value[0] != '\0') {
             info.artist = tag->value;
         } else {
             // 尝试回退到 Album Artist
-            tag = av_dict_get(fmtCtx->metadata, "album_artist", nullptr, AV_DICT_MATCH_CASE);
+            tag = av_dict_get(fmtCtx->metadata, "album_artist", nullptr, AV_DICT_IGNORE_SUFFIX);
             if (tag && tag->value && tag->value[0] != '\0') {
                 info.artist = tag->value;
             }
         }
 
         // 获取 Album
-        tag = av_dict_get(fmtCtx->metadata, "album", nullptr, AV_DICT_MATCH_CASE);
+        tag = av_dict_get(fmtCtx->metadata, "album", nullptr, AV_DICT_IGNORE_SUFFIX);
         if (tag && tag->value && tag->value[0] != '\0') {
             info.album = tag->value;
         }

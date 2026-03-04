@@ -309,6 +309,11 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
         currentPlayer?.setMediaSource(mediaSource)
     }
 
+    override fun setNextMediaSource(mediaSource: MediaSource) {
+        QYPlayerLogger.d("mediaSource: $mediaSource")
+        currentPlayer?.setNextMediaSource(mediaSource)
+    }
+
     override fun setDsdMode(mode: DSDMode) {
         currentPlayer?.setDsdMode(mode)
     }
@@ -340,6 +345,10 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
 
     @Deprecated("Use PlayerListener instead")
     override fun setOnProgressListener(listener: OnProgressListener) {
+    }
+
+    override fun setTailSkipMs(ms: Long) {
+        currentPlayer?.setTailSkipMs(ms)
     }
 
     // ==========================================
@@ -407,6 +416,13 @@ class AudioPlayerManager private constructor(private val context: Context) : Aud
     // ==========================================
 
     private val proxyListener = object : PlayerListener {
+
+        override fun onTrackTransition() {
+            super.onTrackTransition()
+            listeners.forEach {
+                it.onTrackTransition()
+            }
+        }
 
         override fun onMetadata(
             mediaInfo: MediaInfo,

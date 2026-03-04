@@ -286,6 +286,10 @@ class StreamPlayer(
         }
     }
 
+    override fun setNextMediaSource(mediaSource: MediaSource) {
+
+    }
+
 
     override fun prepare() {
         mainScope.launch { exoPlayer?.prepare() }
@@ -422,5 +426,8 @@ class StreamPlayer(
 
     @Deprecated("Use PlayerListener instead")
     override fun setOnProgressListener(listener: OnProgressListener) {
+    }
+
+    override fun setTailSkipMs(ms: Long) {
     }
 }

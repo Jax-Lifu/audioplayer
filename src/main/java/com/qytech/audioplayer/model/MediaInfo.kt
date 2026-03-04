@@ -5,6 +5,7 @@ package com.qytech.audioplayer.model
  * @date 2026/1/8 11:34
  */
 data class MediaInfo(
+    val sourceId: String,
     val sampleRate: Int,
     val channels: Int,
     val bitrate: Long,

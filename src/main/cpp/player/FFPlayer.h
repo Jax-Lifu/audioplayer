@@ -113,6 +113,10 @@ public:
     void setDataSource(const char *path, const std::map<std::string, std::string> &headers,
                        int64_t startPositon = 0, int64_t endPosition = -1);
 
+    void setNextDataSource(const char *path, const std::map<std::string, std::string> &headers,
+                           int64_t startPositon = 0, int64_t endPosition = -1);
+
+
     void prepare() override;
 
     void play() override;
@@ -145,6 +149,10 @@ public:
     bool isExit() const;
 
 private:
+
+    bool prepareInternal();        // 抽离出的核心初始化逻辑
+    void switchToNextSource();     // 执行无缝切换
+
     void releaseInternal();
 
     void initFFmpeg();
@@ -183,6 +191,13 @@ private:
     std::map<std::string, std::string> mHeaders;
     int64_t mStartTimeMs = 0;
     int64_t mEndTimeMs = -1;
+
+    // 针对无缝播放的预加载下一首歌曲信息
+    std::string mNextUrl;
+    std::map<std::string, std::string> mNextHeaders;
+    int64_t mNextStartTimeMs = 0;
+    int64_t mNextEndTimeMs = -1;
+
 
     // FFmpeg context
     AVFormatContext *fmtCtx = nullptr;

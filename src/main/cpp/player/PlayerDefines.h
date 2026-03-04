@@ -43,10 +43,13 @@ public:
 
     virtual void onBuffering(bool buffering) = 0;
 
+    virtual void onTrackTransition() = 0;
+
     virtual ~IPlayerCallback() {}
 };
 
 struct MediaInfo {
+    std::string sourceId;
     int sampleRate = 0;
     int channels = 0;
     long bitrate = 0;     // bits per second

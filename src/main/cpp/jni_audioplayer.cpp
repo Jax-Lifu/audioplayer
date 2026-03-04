@@ -41,6 +41,8 @@ public:
         jmid_onComplete = env->GetMethodID(clazz, "onComplete", "()V");
         jmid_onAudioData = env->GetMethodID(clazz, "onAudioData", "([BI)V");
         jmid_onBuffering = env->GetMethodID(clazz, "onBuffering", "(Z)V");
+        jmid_onTrackTransition = env->GetMethodID(clazz, "onTrackTransition", "()V");
+
 
         // 记得删除局部引用
         env->DeleteLocalRef(clazz);
@@ -60,6 +62,10 @@ public:
 
     void onPrepared() override {
         callVoidMethod(jmid_onPrepared);
+    }
+
+    void onTrackTransition() override {
+        callVoidMethod(jmid_onTrackTransition);
     }
 
     void onProgress(int trackIndex, long currentMs, long totalMs, float progress) override {
@@ -114,6 +120,7 @@ private:
     jmethodID jmid_onComplete;
     jmethodID jmid_onAudioData;
     jmethodID jmid_onBuffering;
+    jmethodID jmid_onTrackTransition;
 
 
     static JNIEnv *getEnv() {
@@ -217,6 +224,22 @@ static void native_setSource(JNIEnv *env, jobject thiz, jlong handle, jstring pa
         ((FFPlayer *) ctx->playerInstance)->setDataSource(cPath, headerMap, startPos, endPos);
     } else {
         ((SacdPlayer *) ctx->playerInstance)->setDataSource(cPath, trackIndex, headerMap);
+    }
+
+    env->ReleaseStringUTFChars(path, cPath);
+}
+
+static void
+native_setNextSource(JNIEnv *env, jobject thiz, jlong handle, jstring path, jobject headers,
+                     jint trackIndex, jlong startPos, jlong endPos) {
+    auto *ctx = getContext(handle);
+    const char *cPath = env->GetStringUTFChars(path, nullptr);
+    std::map<std::string, std::string> headerMap = jmapToStdMap(env, headers);
+
+    if (ctx->type == TYPE_FFMPEG) {
+        ((FFPlayer *) ctx->playerInstance)->setNextDataSource(cPath, headerMap, startPos, endPos);
+    } else {
+        ((SacdPlayer *) ctx->playerInstance)->setNextDataSource(cPath, trackIndex, headerMap);
     }
 
     env->ReleaseStringUTFChars(path, cPath);
@@ -352,18 +375,20 @@ static jobject native_getMediaInfo(JNIEnv *env, jobject thiz, jlong handle) {
         return nullptr;
     }
     jmethodID ctor = env->GetMethodID(clazz, "<init>",
-                                      "(IIJILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+                                      "(Ljava/lang/String;IIJILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     if (ctor == nullptr) {
         env->DeleteLocalRef(clazz);
         return nullptr;
     }
 
-    jstring jFormat = safeNewStringUTF(env, info.format.c_str());
-    jstring jTitle = safeNewStringUTF(env, info.title.c_str());
-    jstring jArtist = safeNewStringUTF(env, info.artist.c_str());
-    jstring jAlbum = safeNewStringUTF(env, info.album.c_str());
+    jstring jSourceId = safeNewStringUTF(env, info.sourceId);
+    jstring jFormat = safeNewStringUTF(env, info.format);
+    jstring jTitle = safeNewStringUTF(env, info.title);
+    jstring jArtist = safeNewStringUTF(env, info.artist);
+    jstring jAlbum = safeNewStringUTF(env, info.album);
 
     jobject jObj = env->NewObject(clazz, ctor,
+                                  jSourceId,
                                   (jint) info.sampleRate,
                                   (jint) info.channels,
                                   (jlong) info.bitrate,
@@ -381,6 +406,12 @@ static jobject native_getMediaInfo(JNIEnv *env, jobject thiz, jlong handle) {
     return jObj;
 }
 
+static void native_setTailSkipMs(JNIEnv *env, jobject thiz, jlong handle, jlong ms) {
+    auto *ctx = getContext(handle);
+    LOCK_CONTEXT(ctx);
+    auto *player = (BasePlayer *) ctx->playerInstance;
+    player->setTailSkipMs((int64_t) ms);
+}
 
 // ============================================================================
 // 动态注册表
@@ -389,6 +420,7 @@ static jobject native_getMediaInfo(JNIEnv *env, jobject thiz, jlong handle) {
 static const JNINativeMethod gMethods[] = {
         {"native_init",               "(ILcom/qytech/audioplayer/player/EngineCallback;)J", (void *) native_init},
         {"native_setSource",          "(JLjava/lang/String;Ljava/util/Map;IJJ)V",           (void *) native_setSource},
+        {"native_setNextSource",      "(JLjava/lang/String;Ljava/util/Map;IJJ)V",           (void *) native_setNextSource},
         {"native_prepare",            "(J)V",                                               (void *) native_prepare},
         {"native_play",               "(J)V",                                               (void *) native_play},
         {"native_pause",              "(J)V",                                               (void *) native_pause},
@@ -405,6 +437,7 @@ static const JNINativeMethod gMethods[] = {
         {"native_getPlayerState",     "(J)I",                                               (void *) native_getPlayerState},
         {"native_isDsd",              "(J)Z",                                               (void *) native_isDsd},
         {"native_getMediaInfo",       "(J)Lcom/qytech/audioplayer/model/MediaInfo;",        (void *) native_getMediaInfo},
+        {"native_setTailSkipMs",      "(JJ)V",                                              (void *) native_setTailSkipMs},
 };
 
 int register_audioplayer_methods(JavaVM *vm, JNIEnv *env) {

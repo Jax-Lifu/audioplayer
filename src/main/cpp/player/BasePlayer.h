@@ -64,6 +64,11 @@ public:
         return mState;
     }
 
+    virtual void setTailSkipMs(int64_t ms) {
+        mTailSkipMs = ms > 0 ? ms : 0;
+        LOGD("setTailSkipMs: %ld ms", mTailSkipMs);
+    }
+
 protected:
     IPlayerCallback *mCallback = nullptr;
 
@@ -89,6 +94,9 @@ protected:
     int mTargetD2pSampleRate = 192000;
 
     bool is4ChannelSupported = false;
+
+    int64_t mTailSkipMs = 3000;
+
 };
 
 #endif //QYPLAYER_BASEPLAYER_H
