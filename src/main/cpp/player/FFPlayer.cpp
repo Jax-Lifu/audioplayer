@@ -181,42 +181,77 @@ bool FFPlayer::prepareInternal() {
                     if (avcodec_send_packet(codecCtx, testPkt) >= 0) {
                         if (avcodec_receive_frame(codecCtx, testFrame) >= 0) {
                             if (testFrame->nb_samples > 4 && testFrame->data[0]) {
+                                // 1. 提取并交织数据 (将 Planar 转换为 Interleaved)
+                                // DTS-CD 数据通常是 16-bit 双声道
+                                int maxSamplesToSearch = std::min(testFrame->nb_samples,
+                                                                  2048); // 搜索前 2048 个采样 (8KB)
+                                std::vector<uint8_t> interleavedData(maxSamplesToSearch * 4, 0);
+                                int searchLen = 0;
 
-                                // ============ 修正：跳过前导零，查找 DTS 同步字 ============
-                                int dataSize = av_samples_get_buffer_size(
-                                        nullptr, testFrame->ch_layout.nb_channels,
-                                        testFrame->nb_samples,
-                                        (AVSampleFormat) testFrame->format, 1);
+                                if (testFrame->format == AV_SAMPLE_FMT_S16P &&
+                                    testFrame->ch_layout.nb_channels == 2) {
+                                    // FLAC 最常见的输出：16位平面格式
+                                    auto *l = (int16_t *) testFrame->data[0];
+                                    auto *r = (int16_t *) testFrame->data[1];
+                                    auto *out = (int16_t *) interleavedData.data();
+                                    for (int i = 0; i < maxSamplesToSearch; i++) {
+                                        out[i * 2] = l[i]; // Left
+                                        out[i * 2 + 1] = r[i]; // Right
+                                    }
+                                    searchLen = maxSamplesToSearch * 4;
+                                } else if (testFrame->format == AV_SAMPLE_FMT_S16 &&
+                                           testFrame->ch_layout.nb_channels == 2) {
+                                    // 已经是交织格式
+                                    searchLen = maxSamplesToSearch * 4;
+                                    memcpy(interleavedData.data(), testFrame->data[0], searchLen);
+                                } else if (testFrame->format == AV_SAMPLE_FMT_S32P &&
+                                           testFrame->ch_layout.nb_channels == 2) {
+                                    // 有些 FLAC 解码器会输出 32 位平面格式，我们需要将其降为 16 位以还原 DTS 码流
+                                    auto *l = (int32_t *) testFrame->data[0];
+                                    auto *r = (int32_t *) testFrame->data[1];
+                                    auto *out = (int16_t *) interleavedData.data();
+                                    for (int i = 0; i < maxSamplesToSearch; i++) {
+                                        out[i * 2] = (int16_t) (l[i]
+                                                >> 16); // 取高16位 (或直接 l[i] 看编码器行为)
+                                        out[i * 2 + 1] = (int16_t) (r[i] >> 16);
+                                    }
+                                    searchLen = maxSamplesToSearch * 4;
+                                }
 
-                                uint8_t *data = testFrame->data[0];
+                                // 2. 逐字节查找 DTS 同步字 (规避端序和步长问题)
                                 bool foundDts = false;
                                 int dtsOffset = -1;
+                                bool isDtsHD = false;
 
-                                // 在前 4KB 范围内查找同步字（通常在前几百字节）
-                                int searchLimit = std::min(dataSize - 4, 4096);
+                                // 步长为 1，确保不会漏掉任何非对齐的同步字
+                                for (int i = 0; i < searchLen - 4; i++) {
+                                    uint8_t *p = interleavedData.data() + i;
 
-                                for (int offset = 0; offset < searchLimit; offset += 4) {
-                                    uint32_t sync = *(uint32_t *) (data + offset);
+                                    // 14-bit LE: FF 1F 00 E8  |  14-bit BE: 1F FF E8 00
+                                    // 16-bit LE: FE 7F 01 80  |  16-bit BE: 7F FE 80 01
+                                    bool isCore =
+                                            (p[0] == 0x7F && p[1] == 0xFE && p[2] == 0x80 &&
+                                             p[3] == 0x01) || // 16-bit BE
+                                            (p[0] == 0xFE && p[1] == 0x7F && p[2] == 0x01 &&
+                                             p[3] == 0x80) || // 16-bit LE
+                                            (p[0] == 0x1F && p[1] == 0xFF && p[2] == 0xE8 &&
+                                             p[3] == 0x00) || // 14-bit BE
+                                            (p[0] == 0xFF && p[1] == 0x1F && p[2] == 0x00 &&
+                                             p[3] == 0xE8);   // 14-bit LE
 
-                                    // DTS Core 同步字
-                                    bool isDtsCore = (sync == 0x7FFE8001 || sync == 0xFE7F0180 ||
-                                                      sync == 0x01807FFE || sync == 0x0180FE7F);
+                                    // DTS-HD: 64 58 20 25
+                                    bool isHD =
+                                            (p[0] == 0x64 && p[1] == 0x58 && p[2] == 0x20 &&
+                                             p[3] == 0x25);
 
-                                    // DTS-HD 同步字
-                                    bool isDtsHD = (sync == 0x64582025 || sync == 0x25205864 ||
-                                                    sync == 0xFF1F00E8 || sync == 0xE8001FFF);
-
-                                    if (isDtsCore || isDtsHD) {
+                                    if (isCore || isHD) {
                                         foundDts = true;
-                                        dtsOffset = offset;
-                                        LOGD("Found DTS sync 0x%08X at offset %d (%s)",
-                                             sync, offset, isDtsHD ? "DTS-HD" : "DTS-Core");
+                                        dtsOffset = i;
+                                        isDtsHD = isHD;
+                                        LOGD("Found DTS sync sequence: %02X %02X %02X %02X at byte offset %d (%s)",
+                                             p[0], p[1], p[2], p[3], i,
+                                             isHD ? "DTS-HD" : "DTS-Core");
                                         break;
-                                    }
-
-                                    // 如果遇到非零但不是 DTS 同步字，可能不是 DTS-in-FLAC
-                                    if (sync != 0 && offset > 1024) {
-                                        break; // 避免无限搜索
                                     }
                                 }
 
@@ -224,12 +259,11 @@ bool FFPlayer::prepareInternal() {
                                     mIsDtsInFlac = true;
                                     mDtsDataOffset = dtsOffset; // 保存偏移量
 
-                                    // 打开 DTS 解码器
+                                    // 开启 DTS 解码器 (后方逻辑保持不变)
                                     const AVCodec *dtsCodec = avcodec_find_decoder(AV_CODEC_ID_DTS);
                                     if (dtsCodec) {
                                         dtsCodecCtx = avcodec_alloc_context3(dtsCodec);
-                                        dtsCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
-
+                                        // DTS 解码一般需要强制请求 S16P 或 FLTP，这里我们用默认即可
                                         AVDictionary *opts = nullptr;
                                         av_dict_set(&opts, "request_channel_layout", "stereo", 0);
 
@@ -238,16 +272,16 @@ bool FFPlayer::prepareInternal() {
                                             avcodec_free_context(&dtsCodecCtx);
                                             mIsDtsInFlac = false;
                                         } else {
-                                            dtsFrame = av_frame_alloc();
+                                            if (dtsFrame == nullptr) dtsFrame = av_frame_alloc();
                                             if (dtsParserCtx) av_parser_close(dtsParserCtx);
                                             dtsParserCtx = av_parser_init(AV_CODEC_ID_DTS);
-                                            LOGD("DTS decoder opened, data starts at offset %d",
-                                                 dtsOffset);
+                                            LOGD("DTS decoder opened successfully for FLAC payload.");
                                         }
                                         av_dict_free(&opts);
                                     }
                                 } else {
-                                    LOGD("No DTS sync found in first %d bytes", searchLimit);
+                                    LOGD("No DTS sync found in first %d bytes of interleaved payload.",
+                                         searchLen);
                                 }
                             }
                         }
@@ -905,7 +939,8 @@ void FFPlayer::decodingLoop() {
                     audioQueue.flush();
                     mIsEOF.store(true);
                     LOGD("EndTime triggered: pos=%ld >= effectiveEnd=%ld (rawEnd=%ld, tailSkip=%ld, hasNext=%d)",
-                         mCurrentPositionMs.load(), effectiveEndMs, mEndTimeMs, mTailSkipMs, hasNext);
+                         mCurrentPositionMs.load(), effectiveEndMs, mEndTimeMs, mTailSkipMs,
+                         hasNext);
                     continue;
                 }
             }
